@@ -36,6 +36,23 @@ After the first complete build:
 
 The initial build is not required to be visually or behaviorally perfect. It is required to be complete enough to expose real product and integration problems.
 
+## Frontend design track
+
+Frontend visual design is executed in a **separate track that begins after the one-shot build**, per `docs/DECISIONS.md` **D-017**. It is part of the iteration loop, not part of the one-shot build. The one-shot build delivers functional surfaces with a usable but provisional UI; visual completeness is a Stage K deliverable, not a Stage A–J gate.
+
+All frontend work is governed by [`SKILL_FRONTEND_DESIGN.md`](./SKILL_FRONTEND_DESIGN.md) at the repository root, referenced from `AGENTS.md`. It is a read-only craft skill — do not edit it.
+
+The track's assets live in [`design/`](./design/):
+
+| Asset | Purpose |
+|---|---|
+| [`design/DESIGN.md`](./design/DESIGN.md) | The visual and interaction blueprint. Wins on every visual conflict |
+| [`design/FRONTEND_IMPLEMENTATION_PLAN.md`](./design/FRONTEND_IMPLEMENTATION_PLAN.md) | Build order, token enforcement, per-screen delivery contract, verification protocol, phase records |
+| [`design/references/`](./design/references/) | Operator-placed visual references. Direction, not specification |
+| [`design/README.md`](./design/README.md) | Orientation for the folder |
+
+See also [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) **Stage K**, and the *UI and Frontend* section of [`AGENTS.md`](./AGENTS.md).
+
 ## External verification date
 
 External integrations in these documents were checked against official documentation on **2026-10-03**. Re-check before final release because external APIs and policies can change.
@@ -62,7 +79,15 @@ External integrations in these documents were checked against official documenta
 PASS/
 ├── README.md
 ├── AGENTS.md
+├── SKILL_FRONTEND_DESIGN.md
 ├── .clinerules
+├── design/
+│   ├── README.md
+│   ├── DESIGN.md
+│   ├── FRONTEND_IMPLEMENTATION_PLAN.md
+│   └── references/
+│       ├── SOURCES.md
+│       └── reference 1 … reference 13   (operator-placed images)
 └── docs/
     ├── PRODUCT_PRD.md
     ├── TECHNICAL_SPEC.md

@@ -39,6 +39,8 @@ The first implementation must include all major surfaces:
 
 Do not deliberately defer the extension from the first build.
 
+Frontend visual design is executed in a separate track after the one-shot build, per `docs/DECISIONS.md` D-017. Do not gate the one-shot completion on visual completeness.
+
 ## Implementation style
 
 - Prefer simple, explicit TypeScript.
@@ -78,6 +80,17 @@ Never store wallet secrets in localStorage.
 Use Manifest V3. Keep permissions as narrow as possible. The extension is a discovery/context layer, not a second trading terminal.
 
 Do not put private keys into content-script state. Do not inject remote executable code. Keep the web app responsible for actual trading/signing UX.
+
+## UI and Frontend
+
+Follow the design document, the frontend implementation plan, and `SKILL_FRONTEND_DESIGN.md` for all frontend work, including agent-as-user browser verification.
+
+- The design blueprint is `design/DESIGN.md`.
+- The build plan is `design/FRONTEND_IMPLEMENTATION_PLAN.md`.
+- Visual references are direction, not specification: `design/references/`.
+- `SKILL_FRONTEND_DESIGN.md` is a read-only craft skill. Do not edit it.
+- No screen is done because it compiles, passes tests, or matches a snapshot. It is done when it has been rendered, opened, used as a user, measured, and compared against `design/DESIGN.md`.
+- If a screen needs a visual decision `design/DESIGN.md` does not cover, stop and record the gap. Never invent visual language to fill it.
 
 ## Deployment
 

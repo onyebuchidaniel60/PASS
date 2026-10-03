@@ -168,6 +168,33 @@ The extension loads in Chrome, remains stable during X SPA navigation, and can t
 
 The deployed product is usable end-to-end.
 
+### Stage K — Frontend design track (post-one-shot)
+
+**This stage begins only after Stage J verification is signed off.** It is not part of the one-shot build.
+
+Per `docs/DECISIONS.md` **D-017**, frontend visual design is executed in a dedicated track after the one-shot build is deployed and inspectable. Stage K is part of the iteration loop.
+
+Governing assets:
+
+- `SKILL_FRONTEND_DESIGN.md` — the craft skill governing all frontend work, including agent-as-user browser verification. Read-only.
+- `design/DESIGN.md` — the visual and interaction blueprint. Wins on every visual conflict.
+- `design/FRONTEND_IMPLEMENTATION_PLAN.md` — build order, token enforcement, per-screen delivery contract, verification protocol, phase records.
+- `design/references/` — operator-placed visual references. Direction, not specification.
+- `AGENTS.md`, *UI and Frontend* section — the agent rules that bind the above.
+
+Scope:
+
+1. Single design-token layer with a mechanical out-of-token check, proven with a planted violation before it is trusted.
+2. Component library built before screens, in waves, each wave verified before the next.
+3. All screens brought to the design blueprint, each against the per-screen delivery contract.
+4. Per-screen agent-as-user verification against the **deployed** URL at mobile and desktop viewports, with a clean second pass.
+
+**Stage K's outputs are the deliverable of Stage K, not of Stage J.** The screens, the components, and the design system tokens are produced and signed off in this stage. Stage J's gate above is not re-scoped to include them, and no Stage A–J stop/verify gate is weakened, reopened, or removed by this stage.
+
+**STOP / VERIFY**
+
+Every screen in scope has been rendered, opened, used as a user, measured, and compared against `design/DESIGN.md` against the deployed URL at mobile and desktop viewports, with a clean second pass, and its phase record is committed.
+
 ## 3. First deployment review
 
 After the first full deployment, the owner should manually inspect:
@@ -239,3 +266,5 @@ The first implementation is complete only when:
 - production is deployed;
 - smoke tests pass;
 - known limitations are documented.
+
+Visual completeness is **not** part of this gate. It is a Stage K deliverable, per `docs/DECISIONS.md` D-017. Every criterion above remains in force.

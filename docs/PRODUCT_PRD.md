@@ -336,3 +336,13 @@ Secondary metrics:
 - repeat Takers;
 - Takers per Pass;
 - completed Pass rate.
+
+## 21. Design sequencing
+
+Visual design is executed in the dedicated frontend design track, per `docs/DECISIONS.md` **D-017**.
+
+The functional MVP success criteria in §19 are **unchanged** by this sequencing. Every criterion in §19 — Trader creates Pass, Pass is public, Taker chooses size, Taker reviews and authorizes execution, Hyperliquid accepts the order, PASS records execution, the lifecycle updates accurately, the extension surfaces PASS context, and production is reachable and usable — remains a requirement of the MVP exactly as written.
+
+What changes is only **when** visual design happens. The one-shot build delivers functional surfaces with a usable but provisional UI; visual completeness is a deliverable of the frontend design track (`docs/IMPLEMENTATION_PLAN.md` Stage K, executed against `design/DESIGN.md` under `SKILL_FRONTEND_DESIGN.md`), not a gate on the one-shot build.
+
+This is a sequencing decision only. It does not narrow MVP scope, and it does not permit any surface listed in §4 and §19 to be deferred.
