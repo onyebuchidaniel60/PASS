@@ -157,7 +157,7 @@ Hyperliquid currently documents API wallets (also called agent wallets) as walle
 3. User approves that agent/API wallet through Hyperliquid's `approveAgent` action.
 4. The agent private key remains client-controlled and is not persisted by the PASS backend.
 5. For a trade, the client creates/signs the Hyperliquid L1 action through the official/current SDK/signing method.
-6. The client sends the signed request to PASS API or directly to Hyperliquid through a carefully designed transport boundary.
+6. The client sends the signed request to the PASS API, which validates and relays it to the Hyperliquid Exchange API. The server-relay path is the only supported path in the MVP (see `docs/DECISIONS.md` D-018.3).
 7. PASS tracks the order using order status and user/account queries.
 
 The precise browser wallet connector and SDK package should be selected during implementation from the current official Hyperliquid ecosystem documentation; do not hard-code a package name based solely on this document.
@@ -283,6 +283,8 @@ Capture structured events for:
 Never log secret material.
 
 ## 17. Error model
+
+This list is illustrative. `docs/API_CONTRACTS.md` §14 is the authoritative error-code list.
 
 Return stable application error codes, for example:
 

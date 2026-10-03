@@ -6,6 +6,14 @@ You are implementing an already-defined product. Do not redesign the product, in
 
 Read `README.md`, `docs/DECISIONS.md`, `docs/PRODUCT_PRD.md`, `docs/TECHNICAL_SPEC.md`, `docs/DATA_MODEL.md`, `docs/API_CONTRACTS.md`, `docs/UX_SPEC.md`, `docs/SECURITY_SPEC.md`, and `docs/EXTENSION_SPEC.md` before substantial implementation.
 
+## Time box
+
+`docs/HACKATHON_SUBMISSION.md` records the submission deadline as 2026-10-12. Prefer a working, deployed, end-to-end product over polish. Where a choice exists between a more complete feature and a working shipped path, ship the working path.
+
+## Agent rule files
+
+`AGENTS.md` is the authoritative coding-agent rule file for OpenCode. `.clinerules` is retained for compatibility with an earlier tool and is non-authoritative. Do not edit, delete, or obey `.clinerules`. If the two ever disagree, `AGENTS.md` wins.
+
 ## Product behavior
 
 PASS is not a generic copy-trading system. A Pass represents a specific trader-authored trade plan. A Taker independently chooses position size and authorizes their own Hyperliquid execution.
@@ -60,6 +68,8 @@ Frontend visual design is executed in a separate track after the one-shot build,
 - Prefer a client-held agent key for the MVP self-custody model. The server must never receive a master private key or seed phrase and should not persist client agent private keys.
 - Every execution must be explicitly confirmed by the Taker.
 - Use nonce and expiry protections where supported.
+
+The PASS backend relays signed Hyperliquid actions; it never holds signing keys. See `docs/DECISIONS.md` D-018.3 and D-018.9.
 
 ## Security
 

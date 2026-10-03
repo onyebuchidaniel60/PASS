@@ -36,6 +36,8 @@ updated_at timestamptz
 
 ### identities
 
+Public identity binding — one row per provider per user. Holds the provider subject id, username, display name, and avatar. This table is public-facing and carries no secret material (see `docs/DECISIONS.md` D-018.6).
+
 One user can have one identity per provider.
 
 ```text
@@ -75,7 +77,7 @@ id UUID PK
 public_id text UNIQUE
 trader_id UUID FK users.id
 slug text
-version integer
+version integer  -- Current published version. Historical versions live in pass_versions.
 asset text
 dex text nullable
 direction enum(long, short)
@@ -91,11 +93,12 @@ expires_at timestamptz nullable
 published_at timestamptz nullable
 created_at timestamptz
 updated_at timestamptz
+UNIQUE(trader_id, slug)
 ```
 
 ### pass_versions
 
-If versioning is implemented as separate immutable rows, store the complete executable plan snapshot here.
+Immutable snapshots of every execution-relevant Pass version. Store the complete executable plan snapshot here.
 
 ```text
 id UUID PK
@@ -107,7 +110,7 @@ created_by UUID FK users.id
 UNIQUE(pass_id, version)
 ```
 
-The implementation must choose either versioned rows or equivalent append-only snapshots, but historical execution must always resolve to a deterministic plan snapshot.
+`passes` holds the current working/published state. `pass_versions` holds immutable snapshots of every execution-relevant version. Every execution references `(pass_id, pass_version)`, and that pair must always resolve in `pass_versions`, regardless of later Pass edits. Editing an execution-relevant field on a live Pass creates a new `pass_versions` row and a `pass_events` row before the change is visible on the public page.
 
 ### pass_events
 
@@ -122,6 +125,8 @@ metadata jsonb
 ```
 
 ### executions
+
+References a specific `(pass_id, pass_version)`; historical execution must remain reproducible after later Pass edits.
 
 ```text
 id UUID PK
@@ -149,6 +154,8 @@ updated_at timestamptz
 
 ### ethos_profiles
 
+Cached Ethos reputation snapshot, refreshed periodically. Read-only from the public API (see `docs/DECISIONS.md` D-018.6).
+
 ```text
 id UUID PK
 user_id UUID UNIQUE FK users.id
@@ -165,6 +172,10 @@ raw_summary jsonb nullable
 Do not treat `credibility_score` as an absolute trust verdict.
 
 ### x_connections
+
+X OAuth token material. Encrypted at rest. Never exposed publicly, never returned by any public endpoint (see `docs/DECISIONS.md` D-018.6).
+
+A user may have an `identities` row for X without an `x_connections` row — for example, display-only identity linking without OAuth tokens.
 
 ```text
 id UUID PK

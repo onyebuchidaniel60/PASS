@@ -92,7 +92,7 @@ Returns the latest normalized Ethos context known to PASS.
 
 ### POST `/integrations/ethos/refresh`
 
-Refreshes the reputation information for the current user's linked identity or a permitted public identity lookup.
+Refreshes the reputation information for the current user's own linked identity only. This endpoint operates exclusively on the authenticated caller; it cannot be used to refresh or enumerate any other identity. Public Ethos context is served read-only from the cached snapshot via `GET /profiles/{slug}/reputation`. Per `docs/DECISIONS.md` D-018.7, no other lookup scope is valid for this endpoint.
 
 ## 7. Pass endpoints
 
@@ -169,7 +169,34 @@ Request:
 }
 ```
 
-The server must verify that the request corresponds to an allowed Pass version and authenticated Taker context. The server must not mutate execution parameters after confirmation except for provider-required normalization that is transparent to the user.
+This is the **server-relay path** (see `docs/DECISIONS.md` D-018.3). The client signs the Hyperliquid action and submits the signed payload here; the server validates it and relays it to the Hyperliquid Exchange API. Server-relay is the only supported path in the MVP — the client must not submit directly to Hyperliquid.
+
+`{id}` is the internal `passes.id` UUID. Authenticated mutations use the internal UUID; `passes.public_id` is for public reads only (D-018.4).
+
+Response:
+
+```json
+{
+  "executionId": "exec_123",
+  "providerOrderId": "987654321",
+  "status": "pending"
+}
+```
+
+The server performs these steps, in this order:
+
+1. authenticates the Taker;
+2. verifies the Pass exists and is active;
+3. verifies the Pass version in the request matches the current published version (or an explicitly allowed prior version);
+4. verifies the referenced trading account belongs to the Taker;
+5. verifies the `clientRequestId` has not been seen before;
+6. relays the signed payload to the Hyperliquid Exchange API;
+7. records the `provider_order_id` and the execution row;
+8. reconciles status via the Hyperliquid Info API.
+
+**Idempotency.** A duplicate `clientRequestId` must return the existing execution record — the same `executionId` and the same `providerOrderId` — or a deterministic `DUPLICATE_REQUEST` error. It must never submit a second order.
+
+**Payload integrity.** The server must not mutate the signed payload before relaying it, except for provider-required normalization that is transparent to the user.
 
 ### GET `/executions/{id}`
 
@@ -204,6 +231,8 @@ interface MarketSnapshot {
   observedAt: string;
 }
 ```
+
+For every Hyperliquid Info API read, PASS treats `trading_accounts.account_address` as the query subject, and never `trading_accounts.agent_address`. The agent address is a signer, not an account; querying it returns empty or misleading account state.
 
 ## 11. Execution idempotency
 

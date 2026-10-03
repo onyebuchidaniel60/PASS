@@ -22,7 +22,7 @@ When documents disagree, resolve them in this order:
 8. `docs/EXTENSION_SPEC.md` — Chrome extension behavior.
 9. `docs/TESTING_QA.md` — verification requirements.
 10. `docs/DEPLOYMENT_OPERATIONS.md` — deployment and operational requirements.
-11. `AGENTS.md` and `.clinerules` — implementation-agent behavior.
+11. `AGENTS.md` — implementation-agent behavior. (`.clinerules` is retained for compatibility only and is non-authoritative.)
 12. `docs/INTEGRATION_VERIFICATION.md` — external dependency facts verified against current official documentation; implementation must re-check live APIs when building.
 13. `docs/HACKATHON_SUBMISSION.md` — competition-specific constraints and submission framing.
 

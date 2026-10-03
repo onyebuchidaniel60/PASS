@@ -122,3 +122,101 @@ part of the iteration loop, not part of the one-shot build itself.
 5. The frontend track's per-phase verification (agent-as-user pass, deployed
    URL, mobile and desktop viewports) is required before any screen is called
    done.
+
+## D-018 — Implementation clarifications (pre-build)
+
+These clarifications resolve ambiguities detected during the pre-build
+source-of-truth audit. Where a clarification conflicts with a lower-authority
+doc, this decision wins. The named lower doc must be edited to conform.
+
+### D-018.1 — `.clinerules` is non-authoritative
+
+`AGENTS.md` is the only coding-agent rule file OpenCode must obey.
+`.clinerules` exists for compatibility with an earlier tool and must be ignored
+by OpenCode. If `AGENTS.md` and `.clinerules` disagree, `AGENTS.md` wins.
+`.clinerules` must not be edited, deleted, or referenced by OpenCode.
+
+### D-018.2 — Hackathon time box
+
+`docs/HACKATHON_SUBMISSION.md` records the Colosseum Crypto World's Fair
+submission deadline as 2026-10-12. This is an active constraint on the first
+build. Prefer a working, deployed, end-to-end product over polish. Visual
+design is executed in a separate track per D-017 and is not a gate on the
+one-shot build.
+
+### D-018.3 — Signed execution transport
+
+The Taker's client signs the Hyperliquid action and submits the signed payload
+to `POST /passes/{id}/executions`. The PASS API:
+
+1. authenticates the Taker;
+2. verifies the Pass exists and is active;
+3. verifies the Pass version in the request matches the current published
+   version (or an explicitly allowed prior version);
+4. verifies the referenced trading account belongs to the Taker;
+5. verifies the `clientRequestId` has not been seen before;
+6. relays the signed payload to the Hyperliquid Exchange API;
+7. records the `provider_order_id` and the execution row;
+8. reconciles status via the Hyperliquid Info API.
+
+The PASS backend never receives a private key or seed phrase and never
+persists the agent private key. It receives a signed payload, which is not
+secret material and is protected from replay by Hyperliquid's nonce mechanism
+and by PASS's `clientRequestId` idempotency key.
+
+The "or directly to Hyperliquid" alternative in `docs/TECHNICAL_SPEC.md` §7
+step 6 is removed for the MVP. Server-relay is the only supported path.
+
+### D-018.4 — Pass identifier rules
+
+- Public reads (`GET /passes/{publicId}`, share URLs) use `passes.public_id`.
+- Authenticated mutations (`PATCH`, `publish`, `cancel`, execution preview,
+  execution record) use the internal `passes.id` UUID.
+- `/p/{publicId}` is the immutable authoritative URL.
+- `/@{traderSlug}/{asset}-{direction}` is a human-readable convenience URL.
+- `passes.slug` is unique per `(trader_id, slug)`.
+
+### D-018.5 — Pass versioning source of truth
+
+- The `passes` row holds the current working/published state.
+- `pass_versions` holds immutable snapshots of every execution-relevant
+  version.
+- Every execution references `(pass_id, pass_version)`. That pair must always
+  resolve in `pass_versions`, regardless of later Pass edits.
+- Editing an execution-relevant field on a live Pass MUST create a new
+  `pass_versions` row and a `pass_events` row before the change is visible on
+  the public page.
+
+### D-018.6 — Role of `identities`, `x_connections`, `ethos_profiles`
+
+- `identities` — public identity binding (one row per provider per user).
+  Holds the provider subject id, username, display name, avatar.
+- `x_connections` — X OAuth token material. Encrypted at rest. Never exposed
+  publicly, never returned by any public endpoint.
+- `ethos_profiles` — cached Ethos reputation snapshot, refreshed periodically.
+  Read-only from the public API.
+
+A user may have an `identities` row for X without an `x_connections` row (for
+example, display-only identity linking without OAuth tokens).
+
+### D-018.7 — Ethos refresh scope
+
+`POST /integrations/ethos/refresh` operates only on the authenticated user's
+own linked identity. Public Ethos context is read-only via
+`GET /profiles/{slug}/reputation`, backed by the cached `ethos_profiles`
+snapshot. "Permitted public identity lookup" is not a valid scope; remove the
+phrase from `docs/API_CONTRACTS.md` §6.
+
+### D-018.8 — Error code authority
+
+`docs/API_CONTRACTS.md` §14 is the authoritative error-code list.
+`docs/TECHNICAL_SPEC.md` §17 is illustrative only. Where they differ,
+API_CONTRACTS wins. Do not add new error codes outside §14 without adding them
+to §14 first.
+
+### D-018.9 — Server holds no Hyperliquid signing secrets
+
+No `HYPERLIQUID_API_KEY`, agent private key, seed phrase, or master key may
+appear in backend environment variables. The `HYPERLIQUID_*` env vars listed
+in `docs/DEPLOYMENT_OPERATIONS.md` §5 are read-only URLs only. This is a
+security invariant, not a preference.
