@@ -6,7 +6,6 @@ import { apiGet, APP_URL } from "@/lib/api";
 import {
   fmtCompact,
   fmtPrice,
-  fmtPnl,
   fmtUtc,
   relative,
   statusLabel,

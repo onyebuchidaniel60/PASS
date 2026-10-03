@@ -11,6 +11,7 @@ export default tseslint.config(
       "**/coverage/**",
       "**/.pglite*/**",
       ".pglite*/**",
+      "**/next-env.d.ts",
       "apps/extension/dist/**",
     ],
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTerminal } from "@pass/contracts";
+import { isTerminal, type PassStatus } from "@pass/contracts";
 import {
   acceptsExecution,
   allowedTransitions,
@@ -28,7 +28,8 @@ describe("Pass lifecycle state machine", () => {
   });
 
   it("never leaves a terminal state (docs/DATA_MODEL.md §3.8)", () => {
-    for (const s of ["tp_hit", "sl_hit", "manually_closed", "expired", "cancelled", "invalidated"]) {
+    const terminals: PassStatus[] = ["tp_hit", "sl_hit", "manually_closed", "expired", "cancelled", "invalidated"];
+    for (const s of terminals) {
       expect(isTerminal(s)).toBe(true);
       expect(allowedTransitions(s)).toHaveLength(0);
     }
@@ -42,7 +43,8 @@ describe("Pass lifecycle state machine", () => {
   it("only active and entry_pending accept a new execution", () => {
     expect(acceptsExecution("active")).toBe(true);
     expect(acceptsExecution("entry_pending")).toBe(true);
-    for (const s of ["draft", "open", "cancelled", "expired", "tp_hit", "sl_hit", "invalidated", "manually_closed"]) {
+    const notTakable: PassStatus[] = ["draft", "open", "cancelled", "expired", "tp_hit", "sl_hit", "invalidated", "manually_closed"];
+    for (const s of notTakable) {
       expect(acceptsExecution(s)).toBe(false);
     }
   });

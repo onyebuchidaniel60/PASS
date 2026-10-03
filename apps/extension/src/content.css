@@ -1,0 +1,58 @@
+/* PASS extension injected card. Minimal, neutral, and smaller than the X
+   content it sits on (docs/DECISIONS.md D-009). */
+
+#pass-extension-root {
+  margin: 8px 0;
+}
+
+#pass-extension-root .pass-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  background: #ffffff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #171717;
+}
+
+#pass-extension-root .pass-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #525252;
+  border: 1px solid #d4d4d4;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+#pass-extension-root .pass-text {
+  color: #262626;
+}
+
+#pass-extension-root .pass-action {
+  margin-left: auto;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #171717;
+  border-radius: 4px;
+  background: #171717;
+  color: #ffffff;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+#pass-extension-root .pass-action:hover {
+  background: #404040;
+}
+
+#pass-extension-root .pass-action:focus-visible {
+  outline: 2px solid #171717;
+  outline-offset: 2px;
+}

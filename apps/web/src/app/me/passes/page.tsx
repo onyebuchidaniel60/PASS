@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { EmptyBlock, ErrorBlock, Panel, StatusChip } from "@pass/ui";
+import { EmptyBlock, Panel, StatusChip } from "@pass/ui";
 import { apiGetAs } from "@/lib/api";
 import { fmtPrice, fmtUtc, relative, statusLabel } from "@/lib/format";
 

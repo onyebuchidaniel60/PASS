@@ -12,7 +12,6 @@ import {
   StatusChip,
   monoInputClass,
 } from "@pass/ui";
-import { API_URL } from "@/lib/api";
 import { clientGet, clientPost } from "@/lib/client";
 import { fmtPrice, fmtUtc, statusLabel, truncateAddress } from "@/lib/format";
 import {
