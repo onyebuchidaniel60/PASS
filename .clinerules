@@ -1,0 +1,20 @@
+# PASS Cline Rules
+
+> Non-authoritative compatibility file. PASS is being implemented with OpenCode. OpenCode should use `AGENTS.md` and the source-of-truth documents as authoritative and ignore this file for product/architecture decisions.
+
+- Read source-of-truth docs before making architectural/product changes.
+- Implement the defined product; do not invent product scope.
+- First build includes web app + backend + DB + X + Ethos + Hyperliquid + Chrome extension + deployment.
+- PASS is non-custodial. Never store user master private keys or seed phrases.
+- Prefer client-controlled Hyperliquid agent/API wallet signing; submit signed actions to the backend only as needed.
+- Account data queries use the master/subaccount address, not the agent address.
+- Use official Hyperliquid APIs/SDKs and current documented signing methods.
+- Validate all external data and all execution parameters.
+- Pass state transitions must be auditable.
+- Historical Pass records must not be silently rewritten.
+- Keep Ethos reputation and trading performance separate; never synthesize a trust score.
+- Extension uses Manifest V3 with minimal permissions.
+- Extension enhances X discovery and hands off to the PASS web app; it does not need to manage trading keys.
+- Deploy to Vercel as part of the first build.
+- After deployment, iterate based on actual UX/integration findings.
+- Do not claim success without tests or direct evidence.
