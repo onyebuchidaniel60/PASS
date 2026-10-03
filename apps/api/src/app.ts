@@ -11,6 +11,7 @@ import { registerAuthRoutes } from "./routes/auth.js";
 import { registerPassRoutes } from "./routes/pass.js";
 import { registerExecutionRoutes } from "./routes/pass.js";
 import { registerIntegrationRoutes } from "./routes/integrations.js";
+import { registerShareRoutes } from "./routes/share.js";
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   const app = Fastify({
@@ -88,6 +89,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await registerPassRoutes(app, ctx);
   await registerExecutionRoutes(app, ctx);
   await registerIntegrationRoutes(app, ctx);
+  await registerShareRoutes(app, ctx);
 
   return app;
 }

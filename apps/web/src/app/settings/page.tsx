@@ -1,10 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, ErrorBlock, Field, LoadingBlock, Panel, Rule, inputClass } from "@pass/ui";
-import { clientGet, clientPost } from "@/lib/client";
+import { clientGet, clientPatch, clientPost } from "@/lib/client";
 import { truncateAddress } from "@/lib/format";
+
+/**
+ * useSearchParams requires a Suspense boundary so the route can be
+ * statically prerendered (Next.js requirement).
+ */
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<LoadingBlock label="Loading profile" />}>
+      <SettingsInner />
+    </Suspense>
+  );
+}
 
 interface Me {
   userId: string;
@@ -20,7 +32,7 @@ interface Me {
   demoMode: boolean;
 }
 
-export default function SettingsPage() {
+function SettingsInner() {
   const router = useRouter();
   const search = useSearchParams();
   const xStatus = search.get("x");
@@ -70,8 +82,7 @@ export default function SettingsPage() {
         await clientPost("/api/v1/profiles", { slug, displayName, bio, handle });
         setNotice("Profile created.");
       } else {
-        await clientPost("/api/v1/profiles/me", { displayName, bio, handle }).catch(() => {});
-        await fetchPatch();
+        await clientPatch("/api/v1/profiles/me", { displayName, bio, handle });
         setNotice("Profile updated.");
       }
       router.refresh();
@@ -80,11 +91,6 @@ export default function SettingsPage() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function fetchPatch() {
-    const { clientPatch } = await import("@/lib/client");
-    await clientPatch("/api/v1/profiles/me", { displayName, bio, handle });
   }
 
   async function linkX() {

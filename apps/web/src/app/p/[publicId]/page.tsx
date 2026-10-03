@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Eyebrow, Panel, Rule, StatusChip } from "@pass/ui";
+import { ShareControl } from "@/components/ShareControl";
 import { apiGet, APP_URL } from "@/lib/api";
 import {
   fmtCompact,
@@ -283,6 +284,11 @@ export default async function PassPage({
               You choose your own position size and authorize your own order.
               PASS never holds your keys.
             </p>
+          </div>
+
+          <Eyebrow>Share</Eyebrow>
+          <div className="mt-2">
+            <ShareControl passId={pass.publicId} />
           </div>
 
           <Eyebrow>Canonical</Eyebrow>

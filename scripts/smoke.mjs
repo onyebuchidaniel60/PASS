@@ -71,6 +71,15 @@ class Session {
 }
 
 async function main() {
+
+// Deterministic-but-unique per run: trading_accounts is unique on
+// (provider, account_address), so a fixed address only links once per database.
+const RUN = Date.now().toString(16).padStart(12, "0").slice(-12);
+const addr = (seed) => `0x${seed}${RUN}${RUN}`.slice(0, 42).padEnd(42, "0");
+
+const TRADER_ADDRESS = addr("1");
+const TAKER_ADDRESS = addr("2");
+const X_HANDLE = `smokeTrader$RUN`;
   console.log(`\nPASS smoke test against ${BASE}\n`);
 
   // ---------------------------------------------------------------- health
@@ -98,15 +107,15 @@ async function main() {
   check("create profile", profile.status === 200 && Boolean(profile.body?.slug), JSON.stringify(profile.body));
   const traderSlug = profile.body?.slug;
 
-  const linkX = await trader.post("/api/v1/auth/x/link-mock", { handle: "smokeTrader" });
+  const linkX = await trader.post("/api/v1/auth/x/link-mock", { handle: X_HANDLE });
   check(
     "connect X identity (display-only in mock)",
-    linkX.status === 200 && linkX.body?.handle === "smokeTrader",
+    linkX.status === 200 && linkX.body?.handle === X_HANDLE,
     JSON.stringify(linkX.body),
   );
 
   const account = await trader.post("/api/v1/me/trading-accounts", {
-    accountAddress: "0x1111111111111111111111111111111111111111",
+    accountAddress: TRADER_ADDRESS,
   });
   check("link Hyperliquid account", account.status === 200 && Boolean(account.body?.id), JSON.stringify(account.body));
   const traderAccountId = account.body?.id;
@@ -200,7 +209,7 @@ async function main() {
     displayName: "Smoke Taker",
   });
   const takerAccount = await taker.post("/api/v1/me/trading-accounts", {
-    accountAddress: "0x2222222222222222222222222222222222222222",
+    accountAddress: TAKER_ADDRESS,
   });
   const takerAccountId = takerAccount.body?.id;
   check("taker links own Hyperliquid account", takerAccount.status === 200 && Boolean(takerAccountId), JSON.stringify(takerAccount.body));

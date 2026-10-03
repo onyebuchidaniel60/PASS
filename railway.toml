@@ -1,0 +1,16 @@
+# Railway service definition.
+# Two services are created from this repository: `pass-api` and `pass-worker`.
+# They share one Postgres instance. See docs/DEPLOYMENT_OPERATIONS.md.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "pnpm --filter @pass/api start"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# --- pass-worker (override the start command when creating the service) ---
+# startCommand = "pnpm --filter @pass/worker start"

@@ -135,3 +135,36 @@ The current event page states the Crypto World's Fair is an online hackathon ope
 Reference:
 
 https://colosseum.com/worldsfair
+
+## 17. Build-recorded gaps
+
+Added during the one-shot build. These are capabilities that are **not** implemented and are not faked.
+
+### 17.1 Live client-side Hyperliquid signing — not wired
+
+`apps/web/src/lib/signer.ts` produces a correctly shaped signed envelope when `HYPERLIQUID_MODE=mock` so the full relay path, the D-018.3 validation order, and idempotency can be exercised. In live mode it **throws** rather than sending an unsigned or placeholder-signed order to a real exchange.
+
+The official packages were confirmed available on npm during the build:
+
+- `hyperliquid` — 1.7.7
+- `viem` — 2.57.2
+
+Closing the gap means adding those two dependencies and implementing `signExchangeRequest` with the official SDK's documented signing flow. `AGENTS.md` forbids hand-rolling the signing serialization, so no bespoke EIP-712 implementation was written. Signing remains in the browser; only the signed payload is submitted, and the agent private key is never persisted or transmitted (D-018.3, D-018.9).
+
+Install command and procedure: `docs/CREDENTIALS_SWAP.md`.
+
+### 17.2 `approveAgent` — requires a browser wallet connector
+
+The MVP flow is: generate an agent/API wallet in the browser, have the Trader approve it via Hyperliquid's `approveAgent` action, then sign orders with the agent key. Step two requires a signature from the Trader's master wallet, which requires an injected wallet connector.
+
+No connector is installed. Adding one is a product-visible choice about which wallets PASS supports, so it was left to the operator rather than chosen unilaterally. In mock mode an account address is linked directly and approval is skipped.
+
+The server side of this flow already exists: `POST /api/v1/me/trading-accounts/agent-approved` records the approved agent address, and `agent_address` is stored separately from `account_address` and is never used as an Info API query subject (D-018.3).
+
+### 17.3 Human-readable Pass URL served by the API only
+
+The API serves `/api/v1/@/:slug/:tail`. The web app renders Trader profiles at `/u/{slug}` because Next.js App Router reserves a leading `@` as a parallel-route segment, so a literal `/@{slug}` folder cannot be created. The canonical immutable Pass URL `/p/{publicId}` is unaffected and remains the authoritative share target (D-018.4).
+
+### 17.4 Local database is embedded PostgreSQL
+
+No Docker and no local `psql` were available in the build environment. The database layer runs against real PostgreSQL via `DATABASE_URL` when present, and otherwise against PGlite (PostgreSQL compiled to WebAssembly) for local development and tests. The schema, migrations, and query layer are identical in both cases, so nothing about persistence is simulated. Production uses `DATABASE_URL` exclusively.
