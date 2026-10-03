@@ -171,4 +171,4 @@ No connector has been installed, and adding one is a product-visible choice, so 
 
 ### Trader profiles use `/u/{slug}`
 
-The documented human-readable form `/@{traderSlug}/{asset}-{direction}` is served by the API at `/api/v1/@/:slug/:tail`. The web app uses `/u/{slug}` because Next.js reserves a leading `@` for parallel route segments. The canonical immutable Pass URL `/p/{publicId}` is unaffected.
+Public Trader profiles are served at `/u/{slug}` per `docs/DECISIONS.md` D-019.3. Next.js App Router reserves a leading `@` for parallel route segments, so the earlier at-prefixed convenience shape is not routable in the web app. The canonical immutable Pass URL `/p/{publicId}` is unaffected and remains the authoritative share target.

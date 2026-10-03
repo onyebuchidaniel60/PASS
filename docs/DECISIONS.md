@@ -220,3 +220,56 @@ No `HYPERLIQUID_API_KEY`, agent private key, seed phrase, or master key may
 appear in backend environment variables. The `HYPERLIQUID_*` env vars listed
 in `docs/DEPLOYMENT_OPERATIONS.md` §5 are read-only URLs only. This is a
 security invariant, not a preference.
+
+## D-019 — Wallet connector and profile URL convention
+
+### D-019.1 — Wallet connector
+
+**Decision:** The PASS web client uses **wagmi + viem + ConnectKit** for
+master wallet connection and EIP-712 signing.
+
+**Rationale:** Hyperliquid L1 actions (including `approveAgent` and order
+actions) are EIP-712 typed data; viem's signing primitives map directly. No
+embedded wallet means no additional custody surface, which keeps
+`docs/SECURITY_SPEC.md` §3 intact. ConnectKit supplies a mature connector UI
+without committing PASS to a proprietary key-management vendor. If
+email/phone onboarding is added later, an embedded-wallet provider may be
+layered alongside wagmi without replacing it.
+
+**Constraints:**
+- The master wallet signs only the `approveAgent` action. It never signs
+  order actions.
+- The agent/API wallet key is generated client-side using viem
+  `generatePrivateKey`.
+- The agent key is used only to sign L1 action typed data.
+- Never send the agent key to the server (D-018.3, D-018.9).
+- Never store the agent key in `localStorage` (`docs/SECURITY_SPEC.md` §4).
+
+### D-019.2 — Agent key client-side storage
+
+**Decision:** The agent private key is stored client-side using an
+encrypted IndexedDB record whose encryption key is derived from a
+deterministic master-wallet signature. On session start, the user
+re-authorizes by re-signing the derivation message; the key is decrypted
+in memory only for the duration of the session.
+
+**Rationale:** Avoids `localStorage`, avoids server-side key custody, keeps
+the key recoverable across page reloads without asking the user to
+re-approve the agent on every visit.
+
+**Fallback:** If derivation is unavailable (wallet cannot sign typed data),
+PASS falls back to in-memory-only agent storage for the session and warns
+the user that they must re-authorize next visit.
+
+### D-019.3 — Profile URL convention
+
+**Decision:** Public Trader profile URLs use `/u/{slug}`.
+
+**Rationale:** Next.js App Router reserves top-level `@` for parallel
+routes. `/@slug` cannot be served without routing workarounds that are not
+worth their maintenance cost. The immutable Pass URL `/p/{publicId}` is
+unaffected and remains the canonical share URL. The pretty URL was a
+convenience; `/u/{slug}` is acceptable.
+
+`docs/PRODUCT_PRD.md` §16 and any other doc that references `/@{slug}` must
+be updated to `/u/{slug}`.

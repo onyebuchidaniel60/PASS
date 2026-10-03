@@ -139,7 +139,7 @@ Clicking an extension CTA opens a normal PASS web URL in a tab.
 
 Example:
 
-`https://pass.example/@traderx`
+`https://pass.example/u/traderx`
 
 or
 

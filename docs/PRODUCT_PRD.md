@@ -272,7 +272,7 @@ A Pass receives a stable identifier and a shareable URL.
 
 Preferred forms:
 
-- human-readable: `/@trader/asset-slug`
+- human-readable: `/u/{traderSlug}` (D-019.3)
 - immutable object path: `/p/{passId}`
 
 The immutable ID is authoritative.

@@ -163,7 +163,7 @@ The server side of this flow already exists: `POST /api/v1/me/trading-accounts/a
 
 ### 17.3 Human-readable Pass URL served by the API only
 
-The API serves `/api/v1/@/:slug/:tail`. The web app renders Trader profiles at `/u/{slug}` because Next.js App Router reserves a leading `@` as a parallel-route segment, so a literal `/@{slug}` folder cannot be created. The canonical immutable Pass URL `/p/{publicId}` is unaffected and remains the authoritative share target (D-018.4).
+Public Trader profile URLs are `/u/{slug}`, decided in `docs/DECISIONS.md` D-019.3, because Next.js App Router reserves a leading `@` for parallel route segments. The canonical immutable Pass URL `/p/{publicId}` is unaffected and remains the authoritative share target (D-018.4). This is now a settled convention rather than an open gap.
 
 ### 17.4 Local database is embedded PostgreSQL
 
