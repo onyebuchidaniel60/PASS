@@ -1,0 +1,10 @@
+{
+  "name": "@pass/config",
+  "version": "0.1.0",
+  "private": true,
+  "files": ["tsconfig.base.json", "eslint.base.js"],
+  "scripts": {
+    "typecheck": "echo \"@pass/config has no types to check\"",
+    "build": "echo \"@pass/config has nothing to build\""
+  }
+}
