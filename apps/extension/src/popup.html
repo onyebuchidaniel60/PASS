@@ -13,17 +13,42 @@
         background: #ffffff;
       }
       #app { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-      h1 { margin: 0; font-size: 15px; font-weight: 600; }
-      .muted { margin: 0; font-size: 13px; color: #525252; }
+      .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+      .brand { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+      .muted { margin: 0; font-size: 12px; color: #525252; }
+      .small { font-size: 10px; word-break: break-all; text-align: right; }
+      .err { margin: 0; font-size: 12px; color: #b91c1c; word-break: break-word; }
+      .name { margin: 0; font-size: 15px; font-weight: 600; }
+      .card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid #e5e5e5; border-radius: 4px; }
+      .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin: 4px 0 0; }
+      .stat { display: flex; justify-content: space-between; gap: 6px; border-bottom: 1px solid #f5f5f5; padding-bottom: 2px; }
+      .stat dt, .stat dd { margin: 0; font-size: 11px; }
+      .stat dd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
       .cta {
         display: inline-flex; align-items: center; justify-content: center;
-        min-height: 36px; margin-top: 4px; padding: 0 12px;
+        min-height: 36px; margin-top: 6px; padding: 0 12px;
         border: 1px solid #171717; border-radius: 4px;
         background: #171717; color: #fff; font-size: 13px; font-weight: 500;
         text-decoration: none;
       }
       .cta:hover { background: #404040; }
-      .cta:focus-visible { outline: 2px solid #171717; outline-offset: 2px; }
+      .form { display: flex; flex-direction: column; gap: 4px; }
+      .row { display: flex; gap: 6px; }
+      .input {
+        flex: 1; min-width: 0; min-height: 34px; padding: 0 8px;
+        border: 1px solid #d4d4d4; border-radius: 4px; font-size: 13px;
+      }
+      .btn {
+        min-height: 34px; padding: 0 12px;
+        border: 1px solid #171717; border-radius: 4px;
+        background: #171717; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer;
+      }
+      .btn:hover { background: #404040; }
+      .linkbtn {
+        align-self: flex-start; background: none; border: 0; padding: 0;
+        color: #525252; font-size: 11px; text-decoration: underline; cursor: pointer;
+      }
+      :focus-visible { outline: 2px solid #171717; outline-offset: 2px; }
     </style>
   </head>
   <body>

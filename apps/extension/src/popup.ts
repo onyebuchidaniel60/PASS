@@ -1,99 +1,283 @@
+import { PASS_API_URL, profileUrl } from "./config.js";
+
 /**
- * PASS extension popup. A fixed 320px surface carrying one context line and a
- * single explicit handoff action. No trading surface (D-009).
+ * PASS extension popup.
+ *
+ * Two jobs:
+ *  1. Show minimal PASS context for the X profile in the active tab.
+ *  2. Provide a dev override: resolve ANY X handle by hand, so the extension
+ *     can be demonstrated end-to-end without owning the viewed account.
+ *
+ * Security: every value coming back from the API is written with textContent
+ * or set as an attribute. `innerHTML` is never used with response data,
+ * because API values ultimately derive from untrusted external input
+ * (docs/SECURITY_SPEC.md section 14). Nothing sensitive is sent or stored;
+ * only the last queried handle is persisted.
  */
 
-const POPUP_API = "http://127.0.0.1:4000";
+const STORAGE_KEY = "pass:lastHandle";
 
-interface Cfg {
-  apiUrl: string;
+interface Connection {
+  provider: string;
+  connected: boolean;
+  label: string;
 }
 
-interface Ctx {
-  found: boolean;
-  reason?: string;
-  displayName?: string;
-  activePassCount?: number;
-  profileUrl?: string;
+interface Profile {
+  slug: string;
+  displayName: string;
+  bio: string | null;
+  xHandle: string | null;
+  connections: Connection[];
+  activePassCount: number;
+  publishedPassCount: number;
+  completedPassCount: number;
+  reputation: {
+    credibilityScore: number | null;
+    reviewsCount: number | null;
+    vouchesCount: number | null;
+  } | null;
 }
 
-const root = document.getElementById("app")!;
-
-function render(html: () => void) {
-  root.textContent = "";
-  html();
+interface NormalisedHandle {
+  raw: string;
+  slug: string;
 }
 
-async function main() {
-  let cfg: Cfg = { apiUrl: POPUP_API };
+const app = document.getElementById("app") as HTMLDivElement;
+
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className?: string,
+  text?: string | null,
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function clear(): void {
+  while (app.firstChild) app.removeChild(app.firstChild);
+}
+
+function normalise(raw: string): NormalisedHandle {
+  const trimmed = (raw ?? "").trim().replace(/^@+/, "").toLowerCase();
+  return { raw: trimmed, slug: trimmed };
+}
+
+async function loadStoredHandle(): Promise<string> {
   try {
-    cfg = await chrome.runtime.sendMessage({ type: "pass:config" });
+    const got = await chrome.storage.local.get(STORAGE_KEY);
+    const v = got[STORAGE_KEY];
+    return typeof v === "string" ? v : "";
   } catch {
-    /* fall back to the default */
+    return "";
+  }
+}
+
+async function storeHandle(value: string): Promise<void> {
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEY]: value });
+  } catch {
+    /* storage unavailable: not fatal */
+  }
+}
+
+/** Renders the PASS context card for a resolved profile. */
+function renderCard(p: Profile, queried: NormalisedHandle): void {
+  const card = el("div", "card");
+
+  const name = el("p", "name", p.displayName || `@${queried.slug}`);
+  card.appendChild(name);
+
+  const handle = el("p", "muted", p.xHandle ? `@${p.xHandle}` : `@${queried.slug}`);
+  card.appendChild(handle);
+
+  if (p.bio) card.appendChild(el("p", "muted", p.bio));
+
+  const dl = el("dl", "stats");
+
+  const addStat = (label: string, value: string) => {
+    const row = el("div", "stat");
+    row.appendChild(el("dt", "muted", label));
+    row.appendChild(el("dd", undefined, value));
+    dl.appendChild(row);
+  };
+
+  addStat("Active Passes", String(p.activePassCount ?? 0));
+  addStat("Published", String(p.publishedPassCount ?? 0));
+  addStat("Completed", String(p.completedPassCount ?? 0));
+
+  // Ethos is external reputation context, shown separately from PASS
+  // performance and never merged into one score (D-007, D-014).
+  if (p.reputation) {
+    addStat("Ethos", p.reputation.credibilityScore === null ? "—" : String(p.reputation.credibilityScore));
+    addStat("Reviews", p.reputation.reviewsCount === null ? "—" : String(p.reputation.reviewsCount));
+    addStat("Vouches", p.reputation.vouchesCount === null ? "—" : String(p.reputation.vouchesCount));
   }
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const url = tab?.url ?? "";
-  const match = url.match(/^https:\/\/(?:x|twitter)\.com\/([^/?#]+)/);
-  const handle = match?.[1];
+  card.appendChild(dl);
 
-  if (!handle) {
-    render(() => {
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.textContent = "Open an X profile to see PASS context.";
-    });
+  const link = el("a", "cta", "View on PASS");
+  link.href = profileUrl(queried.slug);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  card.appendChild(link);
+
+  clear();
+  app.appendChild(card);
+  app.appendChild(buildForm(queried.raw, true));
+}
+
+function renderMessage(text: string, kind: "error" | "info", queried: NormalisedHandle): void {
+  clear();
+  const box = el("p", kind === "error" ? "err" : "muted", text);
+  app.appendChild(box);
+  app.appendChild(buildForm(queried.raw, false));
+}
+
+/** Resolve a handle against the deployed PASS API. */
+async function resolve(raw: string): Promise<void> {
+  const queried = normalise(raw);
+  if (!queried.slug) {
+    renderMessage("Enter an X handle, for example turnttfup99", "info", queried);
     return;
   }
 
-  render(() => {
-    const p = document.createElement("p");
-    p.className = "muted";
-    p.textContent = `Looking up @${handle}…`;
-    root.appendChild(p);
+  await storeHandle(queried.slug);
+
+  const url = `${PASS_API_URL}/api/v1/profiles/${encodeURIComponent(queried.slug)}`;
+
+  clear();
+  app.appendChild(el("p", "muted", `Resolving @${queried.slug}…`));
+
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    renderMessage(
+      `PASS API unreachable. Tried ${url} (${err instanceof Error ? err.message : "network error"})`,
+      "error",
+      queried,
+    );
+    return;
+  }
+
+  if (res.status === 404) {
+    renderMessage(`No PASS profile for @${queried.slug}`, "error", queried);
+    return;
+  }
+
+  if (!res.ok) {
+    renderMessage(
+      `PASS API returned ${res.status} for ${url}`,
+      "error",
+      queried,
+    );
+    return;
+  }
+
+  let body: Profile | null = null;
+  try {
+    body = (await res.json()) as Profile;
+  } catch {
+    renderMessage(`PASS API returned a malformed response from ${url}`, "error", queried);
+    return;
+  }
+
+  if (!body || typeof body.slug !== "string") {
+    renderMessage(`PASS API returned no profile for @${queried.slug}`, "error", queried);
+    return;
+  }
+
+  renderCard(body, queried);
+}
+
+/** The dev-override form. Works independently of the content script. */
+function buildForm(initial: string, collapsed: boolean): HTMLDivElement {
+  const form = el("div", "form");
+
+  const label = el("label", "muted", "Resolve any X handle");
+  label.setAttribute("for", "handle");
+  form.appendChild(label);
+
+  const row = el("div", "row");
+
+  const input = el("input", "input");
+  input.id = "handle";
+  input.type = "text";
+  input.placeholder = "handle";
+  input.value = initial;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+
+  const button = el("button", "btn", collapsed ? "Resolve" : "Resolve");
+  button.type = "button";
+
+  const run = () => {
+    void resolve(input.value);
+  };
+  button.addEventListener("click", run);
+  input.addEventListener("keydown", (ev) => {
+    if ((ev as KeyboardEvent).key === "Enter") run();
   });
 
-  try {
-    const res = await fetch(
-      `${cfg.apiUrl}/api/v1/extension/context?handle=${encodeURIComponent(handle)}`,
-    );
-    const data = (await res.json()) as Ctx;
+  row.appendChild(input);
+  row.appendChild(button);
+  form.appendChild(row);
 
-    render(() => {
-      if (!data.found) {
-        const p = document.createElement("p");
-        p.className = "muted";
-        p.textContent = `@${handle} has no PASS profile.`;
-        root.appendChild(p);
-        return;
-      }
-
-      const h = document.createElement("h1");
-      h.textContent = data.displayName ?? handle;
-      root.appendChild(h);
-
-      const count = data.activePassCount ?? 0;
-      const s = document.createElement("p");
-      s.className = "muted";
-      s.textContent = `${count} active Pass${count === 1 ? "" : "es"} on PASS`;
-      root.appendChild(s);
-
-      const a = document.createElement("a");
-      a.className = "cta";
-      a.textContent = "Open PASS";
-      a.href = data.profileUrl ?? `${cfg.apiUrl.replace(/\/api.*$/, "")}/discover`;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      root.appendChild(a);
+  if (collapsed) {
+    const toggle = el("button", "linkbtn", "Enter a different handle");
+    toggle.type = "button";
+    toggle.addEventListener("click", () => {
+      clear();
+      app.appendChild(buildForm(input.value, false));
+      (document.getElementById("handle") as HTMLInputElement | null)?.focus();
     });
-  } catch {
-    render(() => {
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.textContent = "PASS API is unreachable.";
-      root.appendChild(p);
-    });
+    form.appendChild(toggle);
   }
+
+  return form;
+}
+
+/** Context for the X profile in the active tab, when there is one. */
+async function renderTabContext(): Promise<void> {
+  let handle = "";
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = tab?.url ?? "";
+    const m = url.match(/^https:\/\/(?:x|twitter)\.com\/([^/?#]+)/);
+    if (m && m[1]) handle = m[1].toLowerCase();
+  } catch {
+    /* tabs unavailable: fall through to the dev override */
+  }
+
+  const stored = await loadStoredHandle();
+  const target = handle || stored;
+
+  if (!target) {
+    clear();
+    app.appendChild(el("p", "muted", "Open an X profile, or type a handle below."));
+    app.appendChild(buildForm("", false));
+    return;
+  }
+
+  await resolve(target);
+}
+
+function renderHeader(): void {
+  const head = el("div", "head");
+  head.appendChild(el("span", "brand", "PASS"));
+  const api = el("span", "muted small", PASS_API_URL.replace(/^https?:\/\//, ""));
+  head.appendChild(api);
+  app.appendChild(head);
+}
+
+async function main(): Promise<void> {
+  app.appendChild(el("p", "muted", "Loading…"));
+  renderHeader();
+  await renderTabContext();
 }
 
 void main();
