@@ -43,11 +43,37 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
       }
     },
   );
+  /**
+   * CORS.
+   *
+   * The PASS web app is the normal browser caller. The Chrome extension is
+   * also a legitimate caller: its pages and service worker send an Origin of
+   * chrome-extension://<id>, which must be accepted explicitly. The ID is
+   * assigned by Chrome and differs per install and per profile, so the
+   * extension origin is matched by scheme rather than by an exact string.
+   *
+   * A wildcard is deliberately NOT used: the API is credentialed
+   * (HttpOnly session cookies), and `Access-Control-Allow-Origin: *` is
+   * illegal alongside credentials. moz-extension:// is included so a future
+   * Firefox build needs no API change.
+   *
+   * Local dev origins are added only outside production.
+   */
+  const EXTENSION_ORIGIN = /^(chrome-extension|moz-extension):\/\/[a-z0-9-]+$/i;
+
   await app.register(cors, {
     origin: (origin, cb) => {
-      // Same-origin/non-browser callers send no Origin header.
+      // Same-origin and non-browser callers send no Origin header.
       if (!origin) return cb(null, true);
-      cb(null, corsOrigins(ctx.env).includes(origin));
+      if (EXTENSION_ORIGIN.test(origin)) return cb(null, true);
+      if (corsOrigins(ctx.env).includes(origin)) return cb(null, true);
+      if (
+        ctx.env.NODE_ENV !== "production" &&
+        (origin === "http://localhost:3000" || origin === "http://127.0.0.1:3000")
+      ) {
+        return cb(null, true);
+      }
+      cb(null, false);
     },
     credentials: true,
   });
