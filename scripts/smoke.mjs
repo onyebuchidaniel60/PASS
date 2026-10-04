@@ -10,6 +10,7 @@
  */
 
 const BASE = process.env.SMOKE_API_URL ?? "http://127.0.0.1:4000";
+const WEB = process.env.SMOKE_WEB_URL ?? null;
 
 let passed = 0;
 let failed = 0;
@@ -79,10 +80,10 @@ const addr = (seed) => `0x${seed}${RUN}${RUN}`.slice(0, 42).padEnd(42, "0");
 
 const TRADER_ADDRESS = addr("1");
 const TAKER_ADDRESS = addr("2");
-const X_HANDLE = `smokeTrader$RUN`;
+const X_HANDLE = `smoke${RUN}`;
   console.log(`\nPASS smoke test against ${BASE}\n`);
 
-  // ---------------------------------------------------------------- health
+// ---------------------------------------------------------------- health
   console.log("Health");
   const anon = new Session();
   const health = await anon.get("/health");
@@ -310,6 +311,55 @@ const X_HANDLE = `smokeTrader$RUN`;
     Boolean(badOrder.body?.error?.code && badOrder.body?.error?.message && badOrder.body?.requestId),
     JSON.stringify(badOrder.body),
   );
+
+  // ------------------------------------------------------- deployed web
+  if (WEB) {
+    console.log("\nDeployed web");
+    try {
+      const head = await fetch(WEB, { method: "HEAD", redirect: "follow" });
+      check(`web root responds 200`, head.status === 200, `status ${head.status}`);
+
+      const home = await fetch(WEB, { redirect: "follow" });
+      const html = await home.text();
+      check("web root serves the hero line", html.includes("See a trade"), `len ${html.length}`);
+      check("web root serves the primary CTA", html.includes("Explore Passes"));
+      check(
+        "web root shows the Connect wallet entry point",
+        html.includes("Connect") || html.includes("Wallet") || html.includes("wallet"),
+        "wallet entry point not found in HTML",
+      );
+      check(
+        "web root warns that provider data is simulated",
+        html.includes("Demo data") || html.includes("mock mode"),
+        "demo banner not found",
+      );
+
+      // The public Pass page must render for a real published Pass.
+      const pub2 = await visitor.get(`/api/v1/passes/${publicId}`);
+      if (pub2.status === 200) {
+        const passPage = await fetch(`${WEB}/p/${publicId}`, { redirect: "follow" });
+        const passHtml = await passPage.text();
+        check(
+          `deployed Pass page renders (${publicId})`,
+          passPage.status === 200 && passHtml.includes("Trade plan"),
+          `status ${passPage.status}`,
+        );
+        check(
+          "deployed Pass page shows the Take Pass CTA",
+          passHtml.includes("Take Pass"),
+        );
+        check(
+          "deployed Pass page carries no synthetic trust score",
+          !passHtml.includes("trustScore") && !passHtml.includes("Trust Score"),
+        );
+      }
+    } catch (err) {
+      check("deployed web reachable", false, String(err));
+    }
+  } else {
+    console.log("\nDeployed web");
+    console.log("  SKIP  SMOKE_WEB_URL not set; web checks skipped");
+  }
 
   // ------------------------------------------------------------- results
   console.log(`\n${"=".repeat(60)}`);

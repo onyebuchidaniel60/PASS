@@ -6,6 +6,53 @@ Every provider adapter selects mock or live **by environment variable alone**. N
 - When a mode is `live` but credentials are missing, the adapter falls back to `mock` and logs **one** clear warning at startup.
 - In `NODE_ENV=production`, a mode set to `live` without credentials **fails startup loudly**. Mock mode is never silently promoted to production (D-018.9).
 
+---
+
+## Live deployment
+
+| Surface | URL |
+|---|---|
+| Web (Vercel production) | `https://pass-web-dun.vercel.app` |
+| API (Railway production) | `https://pass-api-production.up.railway.app` |
+| API health | `https://pass-api-production.up.railway.app/health` |
+| Database | Railway Postgres, service `422f243b-6f03-40ae-b3fb-2d056a6a9b6b` |
+| Railway project `pass` | `10716e18-6be9-4e6a-89c9-839d754c5ea1` |
+| Railway service `pass-api` | `85fe062b-041f-423d-97b1-677d21fca99e` |
+| Vercel project | `pass-web` (`prj_WOKd7QJHDyRWTdRyCGtRL36lkbjj`) |
+
+The scheduled jobs run **in-process on the API** (`ENABLE_JOBS=true`) per `docs/DECISIONS.md` D-020. There is no separate worker service.
+
+All three providers are currently in **mock** mode.
+
+### Verify a deployment
+
+```bash
+curl -s https://pass-api-production.up.railway.app/health
+curl -I https://pass-web-dun.vercel.app
+
+# Full golden path against production (43 API checks + 8 web checks)
+$env:SMOKE_WEB_URL="https://pass-web-dun.vercel.app"
+$env:SMOKE_API_URL="https://pass-api-production.up.railway.app"
+node scripts/smoke.mjs
+node scripts/smoke-approve-agent.mjs
+```
+
+### Redeploy after any variable change
+
+```bash
+# API / worker variables
+railway variables set --service pass-api KEY=value
+railway up --service pass-api
+
+# Web variables are inlined at build time, so the web must be rebuilt
+vercel env add VAR_NAME production --value "value" --yes
+vercel --prod
+```
+
+Migrations run automatically on API start, so a redeploy applies any schema change.
+
+---
+
 ## Never do this
 
 - **Never set `HYPERLIQUID_API_KEY`, an agent private key, a seed phrase, or a master key.** No such variable exists in this codebase and none may be added. The backend relays already-signed payloads and holds no signing material (D-018.3, D-018.9).
@@ -35,12 +82,11 @@ These are **read-only URLs**. Hyperliquid needs no API key for Info API reads or
 **Swap step**
 
 ```bash
-railway variables set HYPERLIQUID_MODE=live \
-  --service pass-api
-railway variables set HYPERLIQUID_MODE=live \
-  --service pass-worker
+railway variables set --service pass-api \
+  HYPERLIQUID_MODE=live \
+  "HYPERLIQUID_INFO_URL=https://api.hyperliquid.xyz/info" \
+  "HYPERLIQUID_EXCHANGE_URL=https://api.hyperliquid.xyz/exchange"
 railway up --service pass-api
-railway up --service pass-worker
 ```
 
 **Verify:** `curl $API_URL/health` shows `modes.hyperliquid = "live"`. No warning about a missing credential appears in the logs.
@@ -63,7 +109,9 @@ railway up --service pass-worker
 **Swap step**
 
 ```bash
-railway variables set ETHOS_MODE=live ETHOS_API_BASE_URL=<base-url> --service pass-api
+railway variables set --service pass-api \
+  ETHOS_MODE=live \
+  ETHOS_API_BASE_URL=<base-url>
 railway up --service pass-api
 ```
 
@@ -82,15 +130,16 @@ railway up --service pass-api
 | Where | API |
 | Obtain | Create an app in the X developer portal with OAuth 2.0 + PKCE. Enable the scopes `tweet.read tweet.write users.read offline.access` |
 
-Set `X_REDIRECT_URI` to `${APP_URL}/api/v1/auth/x/callback`.
+Set `X_REDIRECT_URI` to `https://pass-api-production.up.railway.app/api/v1/auth/x/callback`.
 
 **Swap step**
 
 ```bash
-railway variables set X_MODE=live \
-  X_CLIENT_ID=<id> X_CLIENT_SECRET=<secret> \
-  X_REDIRECT_URI=https://<api-domain>/api/v1/auth/x/callback \
-  --service pass-api
+railway variables set --service pass-api \
+  X_MODE=live \
+  X_CLIENT_ID=<id> \
+  X_CLIENT_SECRET=<secret> \
+  X_REDIRECT_URI=https://pass-api-production.up.railway.app/api/v1/auth/x/callback
 railway up --service pass-api
 ```
 
@@ -140,9 +189,9 @@ Redeploy after changing any of these; they are inlined at build time.
 ## Verification after any swap
 
 ```bash
-curl -s "$API_URL/health" | jq .modes
+curl -s https://pass-api-production.up.railway.app/health | jq .modes
 node scripts/smoke.mjs
-SMOKE_API_URL="$API_URL" node scripts/smoke.mjs
+SMOKE_API_URL=https://pass-api-production.up.railway.app node scripts/smoke.mjs
 ```
 
 `modes` must show the provider you just switched as `live`. The smoke test must still report `43 passed, 0 failed` — it is provider-agnostic and exercises both modes.

@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@pass/ui";
 import { Providers } from "@/components/Providers";
+import { ConnectWalletEntry } from "@/components/ApproveAgentControl";
 
 export const metadata: Metadata = {
   title: "PASS — See a trade. Know the trader. Take the trade.",
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               ))}
             </ul>
             <div className="ml-auto flex items-center gap-2">
+              <ConnectWalletEntry />
               <Link
                 href="/passes/new"
                 className="rounded border border-neutral-900 bg-neutral-900 px-3 py-2 text-sm font-medium text-white no-underline hover:bg-neutral-800"
