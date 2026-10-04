@@ -34,54 +34,78 @@
 
 ---
 
-## Blocked: Stage J deployment
+## Blocked: Stage J deployment — PARTIAL, precise state as of 2026-10-04
 
-Neither deploy CLI is authenticated in this environment:
+Both deploy CLIs are now authenticated (`railway` as `turntt`, `vercel` as `onyebuchidaniel60-1034`), so the original auth blocker is cleared. Two new blockers were found.
 
-```text
-railway whoami  -> Unauthorized. Please login with `railway login`
-vercel whoami   -> Logged out.
+### What exists
+
+| Resource | Identifier |
+|---|---|
+| Railway project `pass` | `10716e18-6be9-4e6a-89c9-839d754c5ea1` |
+| Railway environment | `34426eb7-fb2d-4cad-b8af-b8c029dd467c` |
+| Railway service `Postgres` | `422f243b-6f03-40ae-b3fb-2d056a6a9b6b` |
+| Railway service `pass-api` | `85fe062b-041f-423d-97b1-677d21fca99e` |
+| API public URL | `https://pass-api-production.up.railway.app` (assigned, **not serving yet**) |
+
+API variables are set: `SESSION_SECRET`, `ENCRYPTION_KEY`, `LOG_LEVEL`, `HYPERLIQUID_MODE=mock`, `ETHOS_MODE=mock`, `X_MODE=mock`, `HYPERLIQUID_INFO_URL`, `HYPERLIQUID_EXCHANGE_URL`, `APP_URL`, `CORS_ORIGINS`.
+
+### Blocker 1 — worker service cannot be provisioned
+
+```
+Free plan resource provision limit exceeded. Please upgrade to provision more resources!
 ```
 
-There is also no `DATABASE_URL` and no Docker/local `psql`.
+The account's Railway free-plan allowance is already consumed by an unrelated existing project (`handsome-encouragement`, which contains `takeover-api` and two Postgres instances). PASS must **not** be deployed into that project, and the operator's other resources must not be deleted unilaterally.
 
-### Exact next commands for the operator
+**Operator action:** upgrade the Railway plan, or delete/pause the unused resources in `handsome-encouragement`, then run:
 
 ```bash
-# 1. Authenticate (interactive, browser-based)
-railway login
-vercel  login
+railway add -s pass-worker
+railway up --service pass-worker
+```
 
-# 2. Create the Railway Postgres + two services from this repo
-railway init
-railway add --database postgres
-# service 1 -> API    : start command  pnpm --filter @pass/api start
-# service 2 -> worker : start command  pnpm --filter @pass/worker start
+### Blocker 2 — API build runs the wrong command
 
-# 3. Required non-provider variables (see docs/CREDENTIALS_SWAP.md)
-railway variables set SESSION_SECRET=<32+ chars> ENCRYPTION_KEY=<32+ chars> \
-  APP_URL=<web-url> CORS_ORIGINS=<web-url> LOG_LEVEL=info --service <api-service>
-# DATABASE_URL is injected automatically by Railway Postgres.
+Railway's Railpack auto-detects the root `package.json` and runs `pnpm run build`, which compiles the Next.js web app. That fails on Railway because the web build needs the Vercel toolchain, so the API never starts and `/health` returns 404.
 
-# 4. Deploy API and worker
-railway up --service <api-service>
-railway up --service <worker-service>
+`railway.toml` sets `buildCommand = "pnpm install --frozen-lockfile"`, but Railway reported the file as deprecated and **did not honour it**.
 
-# 5. Deploy web to Vercel from the repo root
-vercel --prod            # vercel.json already sets the build command and output dir
+**Operator action** (either works):
 
-# 6. Set web env vars, then redeploy
-vercel env add NEXT_PUBLIC_API_URL production
+```bash
+# Option A — set it on the service
+railway service settings        # Build -> "pnpm install --frozen-lockfile"
+
+# Option B — migrate to Infrastructure as Code
+railway config migrate
+```
+
+### Remaining Stage J steps once both blockers are cleared
+
+```bash
+# API
+railway up --service pass-api
+curl -s https://pass-api-production.up.railway.app/health     # expect 200
+
+# Worker
+railway up --service pass-worker
+
+# Vercel
+vercel --prod
+vercel env add NEXT_PUBLIC_API_URL production     # https://pass-api-production.up.railway.app
 vercel env add NEXT_PUBLIC_APP_URL production
 vercel env add NEXT_PUBLIC_ENV production
 vercel --prod
 
-# 7. Smoke test the deployment
-SMOKE_API_URL=https://<api-domain> node scripts/smoke.mjs
-curl -s https://<api-domain>/health
-```
+# Update the API's CORS to the real Vercel domain, then redeploy the API
+railway variables set --service pass-api CORS_ORIGINS=<vercel-domain>
+railway up --service pass-api
 
-`vercel.json` and `railway.toml` are already committed. Migrations run automatically on API and worker start.
+# Production smoke test
+SMOKE_API_URL=https://pass-api-production.up.railway.app node scripts/smoke.mjs
+SMOKE_API_URL=https://pass-api-production.up.railway.app node scripts/smoke-approve-agent.mjs
+```
 
 ---
 

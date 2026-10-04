@@ -20,7 +20,10 @@
     "dev:web": "pnpm --filter @pass/web dev",
     "dev:worker": "pnpm --filter @pass/worker dev",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test",
-    "smoke": "node scripts/smoke.mjs"
+    "start": "pnpm --filter @pass/api start",
+    "start:worker": "pnpm --filter @pass/worker start",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:approve-agent": "node scripts/smoke-approve-agent.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

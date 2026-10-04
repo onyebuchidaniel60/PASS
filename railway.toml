@@ -4,6 +4,18 @@
 
 [build]
 builder = "NIXPACKS"
+# The monorepo root has a `build` script that compiles the Next.js web app,
+# which is Vercel's job, not Railway's. Installing dependencies is all the API
+# and worker need: both run TypeScript directly through tsx.
+#
+# NOTE: as of 2026-10-04 Railway reported this file as DEPRECATED
+# ("Config as Code is deprecated... existing files keep working until
+# 2026-12-01") and in practice did NOT honour `buildCommand` — it continued to
+# auto-run `pnpm run build`, which fails because the web build needs the Vercel
+# toolchain. Set the build command on the service itself until the file is
+# migrated to Infrastructure as Code:
+#   railway service settings   -> Build -> "pnpm install --frozen-lockfile"
+buildCommand = "pnpm install --frozen-lockfile"
 
 [deploy]
 startCommand = "pnpm --filter @pass/api start"
