@@ -11,6 +11,8 @@
  *  - No trading keys, no signing, no execution surface of any kind.
  */
 
+import { profileUrl } from "./config.js";
+
 const ROOT_ID = "pass-extension-root";
 const seen = new Set<string>();
 
@@ -33,7 +35,7 @@ function currentHandle(): string | null {
   return handle;
 }
 
-function buildCard(ctx: PassContext): HTMLElement {
+function buildCard(ctx: PassContext, handle: string): HTMLElement {
   const root = document.createElement("div");
   root.id = ROOT_ID;
   root.setAttribute("data-pass-extension", "true");
@@ -59,7 +61,7 @@ function buildCard(ctx: PassContext): HTMLElement {
   const link = document.createElement("a");
   link.className = "pass-action";
   link.textContent = "View Pass";
-  link.href = ctx.profileUrl ?? "https://localhost:3000";
+  link.href = ctx.profileUrl ?? profileUrl(handle);
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   card.appendChild(link);
@@ -83,7 +85,7 @@ function mount(handle: string) {
         document.querySelector('[data-testid="UserName"]') ??
         document.querySelector("main");
       if (!anchor) return;
-      anchor.insertAdjacentElement("beforebegin", buildCard(ctx));
+      anchor.insertAdjacentElement("beforebegin", buildCard(ctx, handle));
     })
     .catch(() => {
       /* PASS API unreachable: stay silent rather than intrude. */

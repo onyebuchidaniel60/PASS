@@ -6,7 +6,12 @@ import { resolve } from "node:path";
  * All executable code is bundled locally; no remote code is loaded
  * (docs/INTEGRATION_VERIFICATION.md §14).
  */
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // `.env.production` must be loaded when building for production so the
+  // bundle targets the live API and web app. Vite only auto-loads
+  // `.env.production` for mode === "production", so pin the mode explicitly.
+  mode: mode === "development" ? "development" : "production",
+  envDir: ".",
   build: {
     outDir: "dist",
     emptyOutDir: true,
@@ -25,4 +30,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

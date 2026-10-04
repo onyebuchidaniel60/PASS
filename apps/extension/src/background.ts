@@ -6,8 +6,9 @@
  * signs, and never executes (docs/DECISIONS.md D-009, D-018.9).
  */
 
-const PASS_API =
-  (globalThis as { PASS_API_URL?: string }).PASS_API_URL ?? "http://127.0.0.1:4000";
+import { PASS_API_URL } from "./config.js";
+
+const PASS_API = PASS_API_URL;
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; data: unknown }>();
