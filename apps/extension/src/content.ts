@@ -61,6 +61,12 @@ interface PassContext {
   xHandle?: string | null;
   activePassCount?: number;
   profileUrl?: string;
+  reputation?: { credibilityScore?: number | null } | null;
+}
+
+/** Thousands separator, locale pinned so it does not follow the X user's locale. */
+function formatScore(value: number): string {
+  return value.toLocaleString("en-US");
 }
 
 /**
@@ -89,6 +95,74 @@ export function getHandleFromUrl(pathname?: string): string | null {
   return lowered;
 }
 
+/**
+ * Builds the card described in docs/EXTENSION_SPEC.md §3:
+ *
+ *   @handle
+ *   PASS   Ethos 1,742
+ *   1 Active Pass
+ *   [View Pass]
+ *
+ * Every value comes from the resolved PASS context and is written with
+ * textContent. innerHTML is never used, because X page content and API
+ * response fields are untrusted (docs/SECURITY_SPEC.md §13).
+ */
+function buildCard(ctx: PassContext, handle: string): HTMLElement {
+  const root = document.createElement("div");
+  root.id = CARD_ID;
+  root.setAttribute("data-pass-extension", "true");
+
+  const card = document.createElement("div");
+  card.className = "pass-card";
+
+  // Subject line. The API field is xHandle; fall back to the URL handle so
+  // the card always identifies whose profile this is.
+  const subject = document.createElement("div");
+  subject.className = "pass-handle";
+  subject.textContent = `@${ctx.xHandle || handle}`;
+  card.appendChild(subject);
+
+  // Eyebrow + Ethos credibility score on one row.
+  const row = document.createElement("div");
+  row.className = "pass-row";
+
+  const label = document.createElement("span");
+  label.className = "pass-label";
+  label.textContent = "PASS";
+  row.appendChild(label);
+
+  const score = ctx.reputation?.credibilityScore;
+  if (typeof score === "number" && Number.isFinite(score)) {
+    const ethos = document.createElement("span");
+    ethos.className = "pass-ethos";
+    ethos.textContent = `Ethos ${formatScore(score)}`;
+    row.appendChild(ethos);
+  }
+
+  card.appendChild(row);
+
+  // Active Pass count, pluralised.
+  const count = ctx.activePassCount ?? 0;
+  const passes = document.createElement("div");
+  passes.className = "pass-passes";
+  passes.textContent =
+    count > 0
+      ? `${formatScore(count)} Active Pass${count === 1 ? "" : "es"}`
+      : "No active Passes";
+  card.appendChild(passes);
+
+  const link = document.createElement("a");
+  link.className = "pass-action";
+  link.textContent = "View Pass";
+  link.href = ctx.profileUrl ?? profileUrl(handle);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  card.appendChild(link);
+
+  root.appendChild(card);
+  return root;
+}
+
 /** Injection anchors in priority order. No obfuscated class names. */
 function findAnchor(): { node: Element | null; selector: string } {
   const primary = document.querySelector('[data-testid="primaryColumn"]');
@@ -102,40 +176,6 @@ function findAnchor(): { node: Element | null; selector: string } {
 
 function removeCard(): void {
   document.getElementById(CARD_ID)?.remove();
-}
-
-function buildCard(ctx: PassContext, handle: string): HTMLElement {
-  const root = document.createElement("div");
-  root.id = CARD_ID;
-  root.setAttribute("data-pass-extension", "true");
-
-  const card = document.createElement("div");
-  card.className = "pass-card";
-
-  const label = document.createElement("span");
-  label.className = "pass-label";
-  label.textContent = "PASS";
-  card.appendChild(label);
-
-  const text = document.createElement("span");
-  text.className = "pass-text";
-  const count = ctx.activePassCount ?? 0;
-  text.textContent =
-    count > 0
-      ? `${count} active Pass${count === 1 ? "" : "es"}`
-      : (ctx.displayName ?? "Trader on PASS");
-  card.appendChild(text);
-
-  const link = document.createElement("a");
-  link.className = "pass-action";
-  link.textContent = "View Pass";
-  link.href = ctx.profileUrl ?? profileUrl(handle);
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  card.appendChild(link);
-
-  root.appendChild(card);
-  return root;
 }
 
 /** Injects the card for a handle. Idempotent: safe to call repeatedly. */

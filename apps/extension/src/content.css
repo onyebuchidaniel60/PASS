@@ -1,58 +1,151 @@
-/* PASS extension injected card. Minimal, neutral, and smaller than the X
-   content it sits on (docs/DECISIONS.md D-009). */
+/* PASS extension injected card.
+ *
+ * Runs inside X's page, so none of PASS's app-level design tokens are
+ * available here: every colour is a literal. Neutral values are chosen to
+ * read on both X light and X dark mode rather than matching X's palette
+ * (docs/DECISIONS.md D-009).
+ *
+ * Selectors are scoped to #pass-overlay-card, which is the id the content
+ * script actually creates in content.ts. */
 
-#pass-extension-root {
-  margin: 8px 0;
+#pass-overlay-card {
+  /* Sit in the normal flow so the card cannot intercept scrolling or
+     keyboard events meant for X. */
+  position: static;
+  pointer-events: none;
+  margin: 0 0 12px 0;
+  max-width: 600px;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #171717;
+  -webkit-font-smoothing: antialiased;
 }
 
-#pass-extension-root .pass-card {
+#pass-overlay-card .pass-card {
+  /* Neutral translucent surface: legible on light and dark X without
+     matching either theme exactly. */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #d4d4d4;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.08);
+  /* Clicks reach the card's own contents (the link) but the surrounding
+     padding does not swallow clicks meant for X beneath. */
+  pointer-events: auto;
+}
+
+#pass-overlay-card .pass-handle {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: #171717;
+  word-break: break-all;
+}
+
+#pass-overlay-card .pass-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid #d4d4d4;
-  border-radius: 6px;
-  background: #ffffff;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 13px;
-  color: #171717;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-#pass-extension-root .pass-label {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+#pass-overlay-card .pass-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #525252;
-  border: 1px solid #d4d4d4;
+  border: 1px solid #a3a3a3;
   border-radius: 4px;
-  padding: 1px 5px;
-}
-
-#pass-extension-root .pass-text {
-  color: #262626;
-}
-
-#pass-extension-root .pass-action {
-  margin-left: auto;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid #171717;
-  border-radius: 4px;
-  background: #171717;
-  color: #ffffff;
-  font-weight: 500;
-  text-decoration: none;
+  padding: 2px 6px;
   white-space: nowrap;
 }
 
-#pass-extension-root .pass-action:hover {
-  background: #404040;
+#pass-overlay-card .pass-ethos {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #404040;
+  white-space: nowrap;
 }
 
-#pass-extension-root .pass-action:focus-visible {
+#pass-overlay-card .pass-passes {
+  font-size: 14px;
+  color: #262626;
+}
+
+#pass-overlay-card .pass-action {
+  align-self: flex-start;
+  /* Comfortable hit target without dominating X's own controls. */
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid #171717;
+  border-radius: 6px;
+  background: #171717;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#pass-overlay-card .pass-action:hover {
+  background: #404040;
+  border-color: #404040;
+  text-decoration: underline;
+}
+
+#pass-overlay-card .pass-action:focus-visible {
   outline: 2px solid #171717;
   outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  #pass-overlay-card {
+    color: #e7e9ea;
+  }
+
+  #pass-overlay-card .pass-card {
+    border-color: #2f3336;
+    background: rgba(128, 128, 128, 0.16);
+  }
+
+  #pass-overlay-card .pass-handle {
+    color: #e7e9ea;
+  }
+
+  #pass-overlay-card .pass-label {
+    color: #a3a3a3;
+    border-color: #536471;
+  }
+
+  #pass-overlay-card .pass-ethos {
+    color: #b0b3b4;
+  }
+
+  #pass-overlay-card .pass-passes {
+    color: #d7d9da;
+  }
+
+  #pass-overlay-card .pass-action {
+    background: #e7e9ea;
+    border-color: #e7e9ea;
+    color: #0f1419;
+  }
+
+  #pass-overlay-card .pass-action:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+  }
+
+  #pass-overlay-card .pass-action:focus-visible {
+    outline-color: #e7e9ea;
+  }
 }

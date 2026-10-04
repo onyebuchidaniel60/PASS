@@ -215,6 +215,12 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
       displayName: p.profile.name,
       xHandle: p.xHandle,
       activePassCount: p.counts.active,
+      // Public Ethos context for the overlay card (docs/EXTENSION_SPEC.md §3).
+      // credibilityScore is null until a trader has connected and synced
+      // Ethos; the card hides the row when it is null.
+      reputation: {
+        credibilityScore: p.reputation?.credibilityScore ?? null,
+      },
       // Minimal context only. No prices, no PnL, no execution (D-009).
       passes: active.map((a) => ({
         publicId: a.publicId,
