@@ -267,7 +267,51 @@ function buildForm(initial: string, collapsed: boolean): HTMLDivElement {
     form.appendChild(toggle);
   }
 
+  // Manual re-trigger: asks the content script in the active X tab to
+  // re-run detection and injection immediately. Makes debugging the overlay
+  // possible without navigating or reloading.
+  const rerun = el("button", "linkbtn", "Show overlay on this tab");
+  rerun.type = "button";
+  rerun.addEventListener("click", () => void triggerOverlay(input.value));
+  form.appendChild(rerun);
+
   return form;
+}
+
+/** Asks the active tab's content script to re-inject the overlay. */
+async function triggerOverlay(handle: string): Promise<void> {
+  const queried = normalise(handle || (await loadStoredHandle()));
+  const note = el("p", "muted", "");
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = tab?.url ?? "";
+    if (!/^https:\/\/(?:x|twitter)\.com\//.test(url)) {
+      note.textContent = "Open an X profile tab first.";
+      note.className = "err";
+      return;
+    }
+    if (tab?.id === undefined) {
+      note.textContent = "Could not identify the active tab.";
+      note.className = "err";
+      return;
+    }
+
+    await chrome.tabs.sendMessage(tab.id, {
+      type: "pass:rerun",
+      handle: queried.slug,
+    });
+    note.textContent = `Asked the tab to re-check ${queried.slug ? `@${queried.slug}` : "this profile"}. Check the X page console for [PASS] logs.`;
+    note.className = "muted";
+  } catch (err) {
+    note.textContent = `Could not reach the content script: ${
+      err instanceof Error ? err.message : "unknown"
+    }. Reload the extension at chrome://extensions.`;
+    note.className = "err";
+  }
+
+  // Append the status line under the form without disturbing the card.
+  app.appendChild(note);
 }
 
 /** Context for the X profile in the active tab, when there is one. */
