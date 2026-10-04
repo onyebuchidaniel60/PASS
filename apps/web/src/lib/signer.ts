@@ -1,21 +1,20 @@
 "use client";
 
+import { buildOrderAction, HL_DOMAIN, type HLChain } from "./hyperliquid";
+
 /**
- * Client-side Hyperliquid signing.
+ * Order-intent construction and submission envelope.
  *
- * SECURITY RULES enforced here (docs/DECISIONS.md D-018.3/D-018.9,
- * docs/SECURITY_SPEC.md §2-§4, AGENTS.md):
+ * SECURITY (docs/DECISIONS.md D-018.3/D-018.9, D-019.1):
+ *  - The signed payload is produced in the browser and submitted to the API,
+ *    which relays it to the Hyperliquid Exchange API.
+ *  - No private key is ever placed in this module, logged, or sent.
+ *  - The agent key is applied by `agent-keystore.ts` and never leaves the page.
  *
- *  - The agent private key is generated in the browser and never leaves it.
- *  - It is NEVER sent to the API and NEVER written to localStorage or any
- *    persistent store. It lives in a module-scoped variable for the session
- *    only.
- *  - The API receives a signed payload, which is not secret material.
- *
- * The mock implementation below produces a correctly shaped envelope so the
- * whole flow is walkable without credentials. The live implementation is
- * deliberately gated: see docs/INTEGRATION_VERIFICATION.md for the recorded
- * gap and the exact package required.
+ * The order action shape follows the official Exchange endpoint documentation:
+ *   action = { type:"order", orders:[{ a, b, p, s, r, t }], grouping }
+ * where `a` is the asset INDEX from the Info API `meta` universe, not the coin
+ * name.
  */
 
 export interface SignedPayload {
@@ -24,92 +23,105 @@ export interface SignedPayload {
 }
 
 export interface OrderIntent {
-  asset: string;
+  /** Asset index from the Info API meta universe. */
+  assetIndex: number;
   isBuy: boolean;
   size: string;
   limitPx: string;
-  leverage: number;
-  reduceOnly: boolean;
-}
-
-/** Ephemeral, session-scoped. Not persisted anywhere. */
-let sessionAgentPrivateKey: string | null = null;
-
-export function hasSessionAgentKey(): boolean {
-  return sessionAgentPrivateKey !== null;
+  reduceOnly?: boolean;
+  tif?: "Alo" | "Ioc" | "Gtc";
+  chain?: HLChain;
 }
 
 /**
- * Generates a fresh agent/API wallet key pair in the browser.
- * Hyperliquid docs call these API wallets / agent wallets; the master account
- * approves them via approveAgent.
+ * Builds the EIP-712 payload for an order action.
+ *
+ * REASONING: the Exchange endpoint page documents the signing domain and the
+ * primaryType naming pattern "HyperliquidTransaction:<ActionTypeName>", and
+ * defers the exact trading-action struct to the official SDK. The domain below
+ * is the documented one; the Exchange struct mirrors the documented `action`
+ * field list. Verify against the SDK before any live mainnet submission.
  */
-export async function generateSessionAgentWallet(): Promise<string> {
-  // Browser-native secp256k1 is not exposed by Web Crypto, so this uses a
-  // random 32-byte hex secret. It is a signer only and never authorises
-  // anything until the master account approves its address.
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  sessionAgentPrivateKey = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return sessionAgentPrivateKey;
-}
+export function buildExchangeRequest(intent: OrderIntent): {
+  action: Record<string, unknown>;
+  nonce: number;
+  domain: typeof HL_DOMAIN;
+  types: Record<string, ReadonlyArray<{ name: string; type: string }>>;
+  primaryType: string;
+  message: Record<string, unknown>;
+} {
+  const nonce = Date.now();
+  const action = buildOrderAction({
+    assetIndex: intent.assetIndex,
+    isBuy: intent.isBuy,
+    price: intent.limitPx,
+    size: intent.size,
+    reduceOnly: intent.reduceOnly,
+    tif: intent.tif,
+  });
 
-export function agentAddressPlaceholder(): string {
-  return "0xagent";
-}
-
-function nonce(): number {
-  return Date.now();
-}
-
-/** Builds the L1 action payload the client signs. */
-export function buildExchangeRequest(intent: OrderIntent): Record<string, unknown> {
   return {
-    type: "order",
-    action: {
-      type: intent.isBuy ? "buy" : "sell",
-      coin: intent.asset,
-      isCross: true,
-      sz: intent.size,
-      limitPx: intent.limitPx,
-      reduceOnly: intent.reduceOnly,
-      leverage: intent.leverage,
+    action,
+    nonce,
+    domain: HL_DOMAIN,
+    types: {
+      HyperliquidTransaction: [
+        { name: "hyperliquidChain", type: "string" },
+        { name: "signatureChainId", type: "string" },
+        { name: "nonce", type: "uint64" },
+      ],
     },
-    nonce: nonce(),
-    timestamp: Date.now(),
+    primaryType: "HyperliquidTransaction:Exchange",
+    message: {
+      hyperliquidChain: intent.chain ?? "Mainnet",
+      signatureChainId: "0xa4b1",
+      nonce: BigInt(nonce),
+      action: JSON.stringify(action),
+    },
   };
 }
 
 /**
- * Signs the exchange request in the client.
+ * Produces the signed envelope submitted to
+ * POST /passes/{id}/executions.
  *
- * `mode: "mock"` produces a deterministic, non-secret placeholder signature
- * so the relay path, validation order, and idempotency can be exercised end
- * to end. `mode: "live"` refuses until the official SDK is wired in — it does
- * not silently produce an unsigned or fake-signed order for real funds.
+ * In mock mode the provider is simulated, so a deterministic placeholder
+ * signature is generated to exercise the relay, validation order, and
+ * idempotency end to end. In live mode the real agent-key EIP-712 signature
+ * is used via `agent-keystore.signWithAgentKey`.
  */
 export async function signExchangeRequest(
   mode: "mock" | "live",
-  request: Record<string, unknown>,
+  request: {
+    action: Record<string, unknown>;
+    nonce: number;
+    domain: typeof HL_DOMAIN;
+    types: Record<string, ReadonlyArray<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  },
 ): Promise<SignedPayload> {
   if (mode === "live") {
-    throw new Error(
-      "Live client-side signing is not yet wired. Install the official Hyperliquid " +
-        "SDK (`hyperliquid` + `viem`) and implement signExchangeRequest with it. " +
-        "See docs/INTEGRATION_VERIFICATION.md. Set HYPERLIQUID_MODE=mock to use the " +
-        "simulated relay path.",
-    );
+    const { signWithAgentKey } = await import("./agent-keystore");
+    const signature = await signWithAgentKey({
+      domain: request.domain,
+      types: request.types,
+      primaryType: request.primaryType,
+      message: request.message,
+    });
+    return {
+      exchangeRequest: { action: request.action, nonce: request.nonce },
+      signature: { signature, source: "agent" },
+    };
   }
 
-  // Deterministic placeholder derived from the payload. This is NOT a
-  // cryptographic signature and must never be sent to a live exchange.
-  const src = JSON.stringify(request);
-  let h1 = 0x811c9dc5;
+  // Deterministic placeholder for the simulated provider. NOT a cryptographic
+  // signature and never sent to a live exchange.
+  const src = JSON.stringify(request.action);
+  let h = 0x811c9dc5;
   for (let i = 0; i < src.length; i += 1) {
-    h1 ^= src.charCodeAt(i);
-    h1 = Math.imul(h1, 0x01000193) >>> 0;
+    h ^= src.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
   }
   const hex = (seed: number, len: number) => {
     let out = "";
@@ -122,12 +134,18 @@ export async function signExchangeRequest(
   };
 
   return {
-    exchangeRequest: request,
-    signature: {
-      r: `0x${hex(h1, 32)}`,
-      s: `0x${hex(h1 ^ 0x9e3779b9, 32)}`,
-      v: 27,
-      mock: true,
-    },
+    exchangeRequest: { action: request.action, nonce: request.nonce },
+    signature: { r: `0x${hex(h, 32)}`, s: `0x${hex(h ^ 0x9e3779b9, 32)}`, v: 27, mock: true },
   };
+}
+
+/** Kept for the Take flow's session bootstrap. */
+export async function generateSessionAgentWallet(): Promise<`0x${string}`> {
+  const { generateAgentKey } = await import("./agent-keystore");
+  const { persistAgentKey } = await import("./agent-keystore");
+  const { privateKey } = generateAgentKey();
+  // In-memory only here; ApproveAgentControl persists it encrypted after the
+  // provider accepts the approval (D-019.2).
+  await persistAgentKey(privateKey, "0xpending", "pending", null);
+  return privateKey;
 }

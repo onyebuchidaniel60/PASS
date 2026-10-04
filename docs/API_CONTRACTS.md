@@ -130,6 +130,43 @@ Cancels an active Pass. Cancellation is terminal for that Pass instance.
 
 ## 8. Execution endpoints
 
+### POST `/me/trading-accounts/{id}/approve-agent`
+
+Approves a Hyperliquid API/agent wallet on behalf of the authenticated owner (see `docs/DECISIONS.md` D-019.1).
+
+The client generates the agent key in the browser, asks the **master wallet** to sign the `approveAgent` EIP-712 payload, and submits only the signature and the agent address. The server never receives a private key (D-018.3, D-018.9).
+
+Request:
+
+```json
+{
+  "agentAddress": "0x…",
+  "nonce": 1760000000000,
+  "signature": { "r": "0x…", "s": "0x…", "v": 27 }
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "agentAddress": "0x…",
+  "accountAddress": "0x…",
+  "mode": "live"
+}
+```
+
+Validation order:
+
+1. authenticate the caller;
+2. resolve the trading account and verify it belongs to the caller;
+3. reject a malformed `agentAddress` or `nonce`;
+4. relay the signed `approveAgent` action to the Hyperliquid Exchange API;
+5. record `trading_accounts.agent_address` **only after** the provider accepts it.
+
+A user-cancelled wallet signature produces no request. A provider rejection returns `SIGNATURE_REJECTED` and records nothing, so a rejected approval never leaves a stored agent association.
+
 ### POST `/passes/{id}/execution-preview`
 
 Request:

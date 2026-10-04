@@ -23,7 +23,12 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "keccak",
+      "bufferutil",
+      "utf-8-validate"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

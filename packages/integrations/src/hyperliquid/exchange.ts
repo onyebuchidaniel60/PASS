@@ -83,6 +83,67 @@ export class HyperliquidExchangeClient {
     };
   }
 
+  /**
+   * Relays a client-signed approveAgent action (D-019.1). Only the signature
+   * and the agent address are sent; no key material is present.
+   */
+  async relayApproveAgent(params: {
+    agentAddress: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }): Promise<{ ok: boolean; raw?: unknown }> {
+    const action = {
+      type: "approveAgent",
+      hyperliquidChain: "Mainnet",
+      signatureChainId: "0xa4b1",
+      agentAddress: params.agentAddress,
+      nonce: params.nonce,
+    };
+
+    let res: Response;
+    try {
+      res = await fetch(this.exchangeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          nonce: params.nonce,
+          signature: params.signature,
+        }),
+      });
+    } catch (err) {
+      throw new ProviderUnavailableError("hyperliquid", String(err));
+    }
+
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = text;
+    }
+
+    if (!res.ok) {
+      throw new ProviderError(
+        `Hyperliquid Exchange API ${res.status}: ${text.slice(0, 200)}`,
+        "hyperliquid",
+        res.status >= 500,
+      );
+    }
+
+    const body = parsed as { status?: string; response?: unknown } | null;
+    if (body?.status === "err") {
+      // Includes "Unable to recover signer" for an invalid signature.
+      throw new ProviderError(
+        `Hyperliquid rejected the agent approval: ${JSON.stringify(body.response ?? {})}`,
+        "hyperliquid",
+        false,
+      );
+    }
+
+    return { ok: true, raw: parsed };
+  }
+
   async getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null> {
     const oid = Number(providerOrderId);
     if (!Number.isFinite(oid)) return null;

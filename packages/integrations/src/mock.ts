@@ -13,6 +13,7 @@ import type {
   XPostResult,
   XUser,
 } from "@pass/contracts";
+import { ProviderError } from "./ports.js";
 import type {
   AccountDataPort,
   EthosPort,
@@ -153,11 +154,28 @@ function mockOrderId(signed: SignedPayload): string {
 export class MockExchange implements ExchangePort {
   readonly mode = "mock" as const;
   private readonly known = new Map<string, { status: string }>();
+  private readonly approvedAgents = new Map<string, number>();
 
   async relaySignedAction(signed: SignedPayload): Promise<HLRelayResult> {
     const providerOrderId = mockOrderId(signed);
     this.known.set(providerOrderId, { status: "open" });
     return { providerOrderId, status: "open" };
+  }
+
+  /**
+   * Simulated approveAgent. Mock mode never contacts the live provider, so no
+   * real agent is approved and no funds are at risk (D-018.9).
+   */
+  async relayApproveAgent(params: {
+    agentAddress: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }): Promise<{ ok: boolean; raw?: unknown }> {
+    if (!/^0x[0-9a-f]{40}$/i.test(params.agentAddress)) {
+      throw new ProviderError("Invalid agent address", "hyperliquid", false);
+    }
+    this.approvedAgents.set(params.agentAddress.toLowerCase(), params.nonce);
+    return { ok: true, raw: { status: "ok", response: { type: "default" }, mock: true } };
   }
 
   async getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null> {
@@ -192,6 +210,11 @@ export class MockHyperliquid
   getOpenOrders = (a: string) => this.account.getOpenOrders(a);
   getFills = (a: string) => this.account.getFills(a);
   relaySignedAction = (s: SignedPayload) => this.exchange.relaySignedAction(s);
+  relayApproveAgent = (p: {
+    agentAddress: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }) => this.exchange.relayApproveAgent(p);
   getOrderStatus = (id: string) => this.exchange.getOrderStatus(id);
 }
 

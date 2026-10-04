@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@pass/ui";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "PASS — See a trade. Know the trader. Take the trade.",
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-neutral-900 antialiased">
+        <Providers>
         <DemoBanner />
         <header className="border-b border-neutral-200">
           <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
@@ -51,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           orders with your own position size. Historical performance is not a
           guarantee of future results.
         </footer>
+        </Providers>
       </body>
     </html>
   );

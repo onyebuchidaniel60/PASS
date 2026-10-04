@@ -19,6 +19,10 @@ import {
   generateSessionAgentWallet,
   signExchangeRequest,
 } from "@/lib/signer";
+import {
+  ApproveAgentControl,
+  ConnectWalletEntry,
+} from "@/components/ApproveAgentControl";
 
 /**
  * docs/UX_SPEC.md §8 — four steps: choose size, review, authorize, confirm.
@@ -83,6 +87,7 @@ export default function TakePassPage({
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"mock" | "live">("mock");
+  const [assetIndexByName, setAssetIndexByName] = useState<Record<string, number>>({});
 
   useEffect(() => {
     params.then((p) => setPublicId(p.publicId));
@@ -100,6 +105,15 @@ export default function TakePassPage({
         setAccounts(a.accounts ?? []);
         setAccountId(a.accounts?.find((x) => x.isPrimary)?.id ?? a.accounts?.[0]?.id ?? "");
         setMode(a.demoMode ? "mock" : "live");
+        // The Exchange API addresses assets by their index in the Info API
+        // meta universe, so the mapping is resolved up front.
+        clientGet<{ assets: { asset: string; assetId: number }[] }>("/api/v1/markets")
+          .then((m) =>
+            setAssetIndexByName(
+              Object.fromEntries((m.assets ?? []).map((x) => [x.asset, x.assetId])),
+            ),
+          )
+          .catch(() => undefined);
         if (p.status !== "active" && p.status !== "entry_pending") {
           setError(`This Pass is ${statusLabel(p.status).toLowerCase()} and cannot be taken.`);
         }
@@ -137,12 +151,13 @@ export default function TakePassPage({
       // The agent key is created here, in the browser, and never leaves it.
       await generateSessionAgentWallet();
 
+      // `asset` is the asset INDEX from the Info API meta universe, which is
+      // what the Exchange API expects (documented under "Asset").
       const intent = {
-        asset: pass?.asset ?? "",
+        assetIndex: assetIndexByName[pass?.asset ?? ""] ?? 0,
         isBuy: pass?.direction === "long",
         size: preview?.positionSize ?? size,
         limitPx: preview?.requestedEntry ?? preview?.markPrice ?? "0",
-        leverage: Number(preview?.leverage ?? 1),
         reduceOnly: false,
       };
       const request = buildExchangeRequest(intent);
@@ -348,6 +363,12 @@ export default function TakePassPage({
             <li>Your account pays fees and holds the resulting position.</li>
             <li>Prices can move and the order may be rejected.</li>
           </ul>
+          <div className="mt-5">
+            <ConnectWalletEntry />
+          </div>
+          <div className="mt-4">
+            <ApproveAgentControl accountId={accountId || null} />
+          </div>
           <div className="mt-5">
             <Button
               variant="primary"

@@ -68,6 +68,14 @@ export class LiveHyperliquid implements HyperliquidPort {
     return this.exchange.relaySignedAction(signed);
   }
 
+  relayApproveAgent(params: {
+    agentAddress: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }): Promise<{ ok: boolean; raw?: unknown }> {
+    return this.exchange.relayApproveAgent(params);
+  }
+
   getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null> {
     return this.exchange.getOrderStatus(providerOrderId);
   }

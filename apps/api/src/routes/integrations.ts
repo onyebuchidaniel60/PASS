@@ -112,6 +112,66 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
     return { ok: true };
   });
 
+  /**
+   * Approve an API/agent wallet (docs/DECISIONS.md D-019.1).
+   *
+   * The client signs the approveAgent EIP-712 payload with the MASTER wallet
+   * and submits only the signature plus the agent address. This endpoint never
+   * receives a private key (D-018.3, D-018.9) and relays to the Hyperliquid
+   * Exchange API.
+   */
+  app.post<{ Params: { id: string } }>(
+    "/api/v1/me/trading-accounts/:id/approve-agent",
+    async (req) => {
+    const userId = await requireUser(req);
+    const body = z
+      .object({
+        agentAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+        nonce: z.number().int().positive(),
+        signature: z.record(z.unknown()),
+      })
+      // Strict: any extra field is refused. This guarantees the endpoint can
+      // never be handed key material (D-018.9, D-019.1).
+      .strict()
+      .parse(req.body);
+
+    const accounts = await getTradingAccounts(ctx, userId);
+    const account = accounts.find((a) => a.id === req.params.id);
+    // Ownership is resolved server-side, never trusted from the client
+    // (docs/SECURITY_SPEC.md §10).
+    if (!account) throw new AppError("FORBIDDEN", "That trading account is not yours.");
+
+    const agentAddress = body.agentAddress.toLowerCase();
+
+    // Relayed through the provider adapter so mock mode simulates the approval
+    // and never contacts the live Hyperliquid endpoint (D-018.9).
+    try {
+      await ctx.adapters.hyperliquid.relayApproveAgent({
+        agentAddress,
+        nonce: body.nonce,
+        signature: body.signature,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/reject|recover signer|err/i.test(msg)) {
+        throw new AppError("SIGNATURE_REJECTED", `Hyperliquid rejected the agent approval: ${msg.slice(0, 200)}`);
+      }
+      throw new AppError("PROVIDER_UNAVAILABLE", `Could not reach Hyperliquid: ${msg.slice(0, 160)}`);
+    }
+
+    // Recorded only after the provider accepted it, so a rejected approval
+    // never leaves a stored agent association behind.
+    await recordAgentApproval(ctx, userId, account.accountAddress, agentAddress);
+
+    return {
+      ok: true,
+      agentAddress,
+      accountAddress: account.accountAddress,
+      mode: ctx.adapters.hyperliquid.mode,
+    };
+    },
+  );
+
   app.get("/api/v1/markets", async () => {
     try {
       const assets = await ctx.adapters.hyperliquid.listAssets();

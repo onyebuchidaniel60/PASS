@@ -44,6 +44,16 @@ export interface ExchangePort {
    * This adapter never holds a private key (D-018.3, D-018.9).
    */
   relaySignedAction(signed: SignedPayload): Promise<HLRelayResult>;
+  /**
+   * Relays a client-signed `approveAgent` action so a generated API wallet is
+   * approved by the master account (D-019.1). Mock mode must simulate this and
+   * must never contact the live provider.
+   */
+  relayApproveAgent(params: {
+    agentAddress: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }): Promise<{ ok: boolean; raw?: unknown }>;
   getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null>;
 }
 
