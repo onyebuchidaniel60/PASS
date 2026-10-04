@@ -273,3 +273,38 @@ convenience; `/u/{slug}` is acceptable.
 
 `docs/PRODUCT_PRD.md` §16 and any other doc that references `/@{slug}` must
 be updated to `/u/{slug}`.
+
+## D-020 — Worker runs in-process on the API (MVP only)
+
+**Decision:** For the MVP deployment, the worker's scheduled jobs run inside
+the API process via an in-process scheduler. A separate worker service is not
+deployed.
+
+**Context:** Railway's free tier does not permit provisioning the additional
+worker service alongside the API and Postgres without consuming the
+workspace's remaining allowance, which is held by an unrelated project that
+must remain running. Upgrading is out of scope for the hackathon window.
+
+**Rationale:** The worker's jobs (Pass expiry reconciliation, order/execution
+reconciliation, performance aggregation, Ethos profile refresh, stale-data
+cleanup) are lightweight and already documented as safe to retry and
+idempotent per `docs/DEPLOYMENT_OPERATIONS.md` §11. Running them in-process
+is acceptable for MVP load.
+
+**Constraints:**
+- `apps/worker/` remains a package exporting job definitions. The API imports
+  and runs them. Do not delete the package — the future split must be a
+  deployment change, not a code rewrite.
+- Jobs are gated behind `ENABLE_JOBS=true`. Tests and local development
+  default to `false` unless explicitly enabled.
+- Jobs must remain idempotent and safe to retry.
+- Jobs must not block the API event loop. Anything CPU-bound must yield; do
+  not run synchronous long loops.
+
+**Overrides:** `docs/DEPLOYMENT_OPERATIONS.md` §4 currently lists a separate
+"worker/job runner" as a required production component. D-020 overrides this
+for the MVP. The doc must be updated to state the override and the future
+requirement to split the worker out before real load or production SLA.
+
+**Expiry:** D-020 is MVP-only. It must be revisited before any real traffic,
+any paying user, or any production SLA.
