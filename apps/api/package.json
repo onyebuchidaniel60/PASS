@@ -16,6 +16,7 @@
     "@pass/db": "workspace:*",
     "@pass/domain": "workspace:*",
     "@pass/integrations": "workspace:*",
+    "@pass/worker": "workspace:*",
     "drizzle-orm": "^0.38.3",
     "fastify": "^5.2.0",
     "tsx": "^4.19.2",

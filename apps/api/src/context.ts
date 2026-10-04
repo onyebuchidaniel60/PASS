@@ -6,6 +6,8 @@ import { createLogger, type Logger } from "./logger.js";
 export interface AppContext {
   env: ApiEnv;
   db: Db;
+  /** Raw handle, used by the in-process job scheduler (D-020). */
+  handle: DbHandle;
   adapters: Adapters;
   log: Logger;
   close: () => Promise<void>;
@@ -32,6 +34,7 @@ export async function createContext(
   return {
     env,
     db: handle.db,
+    handle,
     adapters,
     log,
     demoMode,

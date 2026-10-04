@@ -46,6 +46,16 @@ export const ApiEnvSchema = z.object({
 
   PORT: z.coerce.number().int().positive().default(4000),
   HOST: z.string().default("0.0.0.0"),
+
+  /**
+   * Runs the worker's scheduled jobs inside the API process.
+   * MVP hosting model per docs/DECISIONS.md D-020. Defaults to false so tests
+   * and local development never start background jobs implicitly.
+   */
+  ENABLE_JOBS: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export type ApiEnv = z.infer<typeof ApiEnvSchema>;
