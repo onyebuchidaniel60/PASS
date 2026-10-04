@@ -40,12 +40,25 @@ Vercel's current preview model gives branches/PRs individual deployment URLs, wh
 
 - web application;
 - API;
-- worker/job runner;
+- ~~worker/job runner~~ — **for the MVP the worker's jobs run in-process on
+  the API per `docs/DECISIONS.md` D-020.** Must be split into a separate
+  service before real load or production SLA;
 - PostgreSQL;
 - HTTPS/custom domain if available;
 - monitoring/logging;
 - environment configuration;
 - extension package.
+
+## 4a. MVP hosting model (D-020)
+
+The API service sets `ENABLE_JOBS=true` to run the scheduled jobs in-process.
+`apps/worker` remains a package that exports the job definitions; the API
+imports and runs them. No separate worker service is deployed on the free tier.
+
+This is an MVP-only arrangement. D-020 must be revisited before any real
+traffic, any paying user, or any production SLA, at which point the worker
+must be split into its own service. The split is a deployment change, not a
+code rewrite.
 
 ## 5. Environment variables
 
@@ -133,6 +146,9 @@ Provide:
 - deployment status.
 
 ## 11. Background workers
+
+Per `docs/DECISIONS.md` D-020, these run in-process on the API for the MVP. The
+requirements below are unchanged; only the hosting model differs.
 
 Jobs should be safe to retry.
 

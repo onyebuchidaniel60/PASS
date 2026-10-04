@@ -168,6 +168,13 @@ The extension loads in Chrome, remains stable during X SPA navigation, and can t
 
 The deployed product is usable end-to-end.
 
+MVP hosting note: per `docs/DECISIONS.md` D-020 the worker's jobs run
+in-process on the API (`ENABLE_JOBS=true`) because the Railway free tier cannot
+provision a separate worker service. The worker split is **deferred, not
+abandoned**: `apps/worker` still exports the job definitions, and splitting it
+into its own service is a deployment change that must happen before real load
+or any production SLA.
+
 ### Stage K — Frontend design track (post-one-shot)
 
 **This stage begins only after Stage J verification is signed off.** It is not part of the one-shot build.

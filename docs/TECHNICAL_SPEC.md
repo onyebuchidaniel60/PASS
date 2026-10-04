@@ -46,7 +46,9 @@
 apps/
   web/                # PASS web application
   api/                # HTTP API
-  worker/             # lifecycle/market/analytics jobs
+worker/            # lifecycle/market/analytics jobs.
+                     # Exports job definitions. Deployed in-process on the
+                     # API in the MVP per docs/DECISIONS.md D-020.
   extension/          # Chrome Manifest V3 extension
 packages/
   domain/             # pure domain logic and types
@@ -257,6 +259,12 @@ Recommended:
 - execution confirmation: never rely on stale cache as final truth.
 
 ## 15. Background jobs
+
+These run **in-process on the API** for the MVP per `docs/DECISIONS.md` D-020;
+`apps/worker` exports the job definitions and the API imports and schedules
+them when `ENABLE_JOBS=true`. No separate worker service is deployed on the
+free tier. The worker must be split into its own service before real load or
+production SLA.
 
 Required initial jobs:
 
