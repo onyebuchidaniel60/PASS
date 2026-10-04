@@ -2,9 +2,17 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 /**
- * Chrome MV3 extension build (docs/EXTENSION_SPEC.md).
+ * Popup + background build pass (docs/EXTENSION_SPEC.md).
  * All executable code is bundled locally; no remote code is loaded
  * (docs/INTEGRATION_VERIFICATION.md §14).
+ *
+ * These two entries load as ES modules (manifest background.service_worker
+ * type: module, popup via <script type="module">), so `es` format is correct
+ * and they may share a chunk.
+ *
+ * The content script is deliberately NOT built here. MV3 content scripts are
+ * classic scripts and cannot contain import statements, so it gets its own
+ * IIFE pass in vite.config.content.ts. Run that pass first, then this one.
  */
 export default defineConfig(({ mode }) => ({
   // `.env.production` must be loaded when building for production so the
@@ -14,12 +22,12 @@ export default defineConfig(({ mode }) => ({
   envDir: ".",
   build: {
     outDir: "dist",
-    emptyOutDir: true,
+    // Do not wipe dist: the content-script pass already wrote content.js here.
+    emptyOutDir: false,
     target: "es2022",
     rollupOptions: {
       input: {
         background: resolve(__dirname, "src/background.ts"),
-        content: resolve(__dirname, "src/content.ts"),
         popup: resolve(__dirname, "src/popup.ts"),
       },
       output: {
