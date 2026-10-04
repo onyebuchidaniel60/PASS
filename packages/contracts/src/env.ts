@@ -56,6 +56,13 @@ export const ApiEnvSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((v) => v === "true"),
+
+  /**
+   * Seeds a demo Trader profile and Pass so the deployed mock-mode API can be
+   * demonstrated end to end. Defaults to enabled whenever any provider is
+   * running in mock mode; set to "never" to disable explicitly.
+   */
+  SEED_DEMO_DATA: z.enum(["auto", "always", "never"]).default("auto"),
 });
 
 export type ApiEnv = z.infer<typeof ApiEnvSchema>;

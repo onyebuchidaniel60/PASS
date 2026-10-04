@@ -3,6 +3,7 @@ import { loadEnv } from "./env.js";
 import { createLogger } from "./logger.js";
 import { buildApp } from "./app.js";
 import { describeSchedules, startScheduler } from "@pass/worker";
+import { seedDemoData } from "./seed.js";
 
 const env = loadEnv();
 const log = createLogger("server");
@@ -10,6 +11,13 @@ const log = createLogger("server");
 async function main() {
   const ctx = await createContext(env, log);
   const app = await buildApp(ctx);
+
+  // Demo data so the mock-mode deployment can be demonstrated end to end.
+  // No-ops when every provider is live (docs/API seed policy).
+  const seed = await seedDemoData(ctx);
+  if (seed.seeded) {
+    log.info("demo data seeded", { slug: seed.slug, publicId: seed.publicId });
+  }
 
   /**
    * MVP hosting model (docs/DECISIONS.md D-020): the worker's jobs run

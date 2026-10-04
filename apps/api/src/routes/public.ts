@@ -222,7 +222,8 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
         direction: a.direction,
         status: a.status,
       })),
-      profileUrl: `${ctx.env.APP_URL}/@${p.profile.slug}`,
+      // Public profile URL convention per docs/DECISIONS.md D-019.3.
+      profileUrl: `${ctx.env.APP_URL}/u/${p.profile.slug}`,
     };
   });
 }
