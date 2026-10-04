@@ -5,9 +5,11 @@
   "description": "Surfaces PASS context for trade plans published on X and links to the PASS web app.",
   "permissions": ["storage"],
   "host_permissions": [
+    "https://pass-api-production.up.railway.app/*",
+    "https://pass-web-dun.vercel.app/*",
     "https://api.x.com/*",
-    "https://twitter.com/*",
-    "https://x.com/*"
+    "https://x.com/*",
+    "https://twitter.com/*"
   ],
   "background": {
     "service_worker": "background.js",

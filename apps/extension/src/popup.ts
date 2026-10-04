@@ -39,6 +39,14 @@ interface Profile {
   } | null;
 }
 
+interface ProfileResponse {
+  ok: boolean;
+  status?: number;
+  url?: string;
+  profile?: unknown;
+  error?: string;
+}
+
 interface NormalisedHandle {
   raw: string;
   slug: string;
@@ -137,7 +145,13 @@ function renderMessage(text: string, kind: "error" | "info", queried: Normalised
   app.appendChild(buildForm(queried.raw, false));
 }
 
-/** Resolve a handle against the deployed PASS API. */
+/**
+ * Resolve a handle for the authenticated Taker / Operator.
+ *
+ * The request is delegated to the service worker, which owns all API access
+ * (docs/EXTENSION_SPEC.md §6). The popup never calls fetch() against the
+ * PASS API itself, so there is exactly one code path and one cache.
+ */
 async function resolve(raw: string): Promise<void> {
   const queried = normalise(raw);
   if (!queried.slug) {
@@ -147,46 +161,61 @@ async function resolve(raw: string): Promise<void> {
 
   await storeHandle(queried.slug);
 
-  const url = `${PASS_API_URL}/api/v1/profiles/${encodeURIComponent(queried.slug)}`;
-
   clear();
   app.appendChild(el("p", "muted", `Resolving @${queried.slug}…`));
 
-  let res: Response;
+  let result: ProfileResponse;
   try {
-    res = await fetch(url);
+    result = (await chrome.runtime.sendMessage({
+      type: "pass:profile",
+      handle: queried.slug,
+    })) as ProfileResponse;
   } catch (err) {
     renderMessage(
-      `PASS API unreachable. Tried ${url} (${err instanceof Error ? err.message : "network error"})`,
+      `Could not reach the PASS extension service worker (${err instanceof Error ? err.message : "unknown"}). ` +
+        `Try reloading the extension at chrome://extensions.`,
       "error",
       queried,
     );
     return;
   }
 
-  if (res.status === 404) {
+  if (!result) {
+    renderMessage(
+      "The PASS service worker did not respond. Reload the extension at chrome://extensions and try again.",
+      "error",
+      queried,
+    );
+    return;
+  }
+
+  // Network failure: the worker reports the URL it attempted so the operator
+  // can see which deployment this build targets.
+  if (result.ok === false && result.error) {
+    renderMessage(
+      `PASS API unreachable. Tried ${result.url} (${result.error})`,
+      "error",
+      queried,
+    );
+    return;
+  }
+
+  if (result.status === 404) {
     renderMessage(`No PASS profile for @${queried.slug}`, "error", queried);
     return;
   }
 
-  if (!res.ok) {
+  if (!result.ok || !result.profile) {
     renderMessage(
-      `PASS API returned ${res.status} for ${url}`,
+      `PASS API returned ${result.status ?? "an error"} for ${result.url ?? "the request"}`,
       "error",
       queried,
     );
     return;
   }
 
-  let body: Profile | null = null;
-  try {
-    body = (await res.json()) as Profile;
-  } catch {
-    renderMessage(`PASS API returned a malformed response from ${url}`, "error", queried);
-    return;
-  }
-
-  if (!body || typeof body.slug !== "string") {
+  const body = result.profile as Profile;
+  if (typeof body.slug !== "string") {
     renderMessage(`PASS API returned no profile for @${queried.slug}`, "error", queried);
     return;
   }
