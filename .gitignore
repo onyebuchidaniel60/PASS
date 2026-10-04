@@ -26,3 +26,8 @@ extension/dist/
 apps/extension/dist/
 .vercel
 .env*
+# Public build configuration for the extension: these hold only public URLs,
+# never secrets, and the production values must be versioned so a build is
+# reproducible from the repository alone.
+!apps/extension/.env.example
+!apps/extension/.env.production
