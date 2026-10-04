@@ -24,3 +24,5 @@ Thumbs.db
 
 extension/dist/
 apps/extension/dist/
+.vercel
+.env*
