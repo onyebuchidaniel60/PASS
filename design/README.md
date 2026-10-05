@@ -47,30 +47,56 @@ Status of each wave and screen against
 | 6 | Extension surfaces | Not started |
 | 7 | Screens | Not started |
 
-| Screen | `DESIGN.md` § | Status |
-|---|---|---|
-| Landing | §10.1 | Not started |
-| Discover | §10.2 | Not started |
-| Pass detail | §10.3 | Not started |
-| Trader profile | §10.4 | Not started |
-| Create Pass | §10.5 | Not started |
-| Take flow (4 steps) | §10.6 | Not started |
-| Stale Pass interstitial | §10.7 | Not started |
-| My Passes (dashboard) | §10.8 | Not started |
-| Executions | §10.9 | Not started |
-| Profile and connections | §10.10 | Not started |
-| Onboarding and connect | §10.11 | Not started |
-| Error and not-found | §10.12 | Not started |
-| Social preview (Open Graph) | §10.14 | Not started |
-| Gallery (dev route) | §10.15 | Not started |
+| Screen | `DESIGN.md` § | Wave | Status |
+|---|---|---|---|
+| Landing | §10.1 | 7 | Not started |
+| Discover / Explore Passes | §10.2 | 7 | Not started |
+| Pass detail — the core conversion surface | §10.3 | 7 | Not started |
+| Trader profile | §10.4 | 7 | Not started |
+| Create Pass | §10.5 | 7 | Not started |
+| Take flow (steps 1–4) | §10.6 | 7 | Not started |
+| Stale Pass interstitial | §10.7 | 7 | Not started |
+| My Passes (dashboard) | §10.8 | 7 | Not started |
+| Executions | §10.9 | 7 | Not started |
+| Profile and connections (own) | §10.10 | 7 | Not started |
+| Onboarding and connect | §10.11 | 7 | Not started |
+| Error and not-found | §10.12 | 7 | Not started |
+| Social preview (Open Graph) | §10.14 | 7 | Not started |
+| Extension surfaces (card, badge, popup) | §10.13 | 6 | Not started |
+| Gallery (development route) | §10.15 | 1 | Not started |
 
-### Open questions blocking the screen inventory
+**13 web screens + 1 extension surface set + 1 development gallery.** §10 is the
+authoritative list; the Stage K brief's eleven-screen list is superseded and was
+wrong in three ways — see G-16 below.
 
-- **G-16** — `DESIGN.md` §10.8 defines **one** screen, "My Passes (dashboard)",
-  but the Stage K brief lists "Dashboard" and "My Passes" as two separate
-  screens and omits four screens the design document requires (§10.7, §10.11,
-  §10.12, §10.14). `DESIGN.md` §10 and `docs/UX_SPEC.md` §3 agree there is no
-  separate Dashboard. Confirming this is needed before Wave 7.
+### G-16 — the brief's screen list was superseded by §10
+
+Resolved 2026-10-06. `design/DESIGN.md` §10 is the screen contract, and it is
+consistent with `docs/UX_SPEC.md` §3, which names four global destinations
+(`Discover · My Passes · Executions · Profile`) and no Dashboard.
+
+- The brief split **"Dashboard"** and **"My Passes"** into two screens. §10.8
+  defines **one** screen, "My Passes (dashboard)". There is no separate Dashboard
+  and none was invented. The build confirms this: there is no `/me` route, only
+  `/me/passes` and `/me/executions`.
+- The brief **omitted** four subsections the design document requires: §10.7
+  Stale Pass interstitial, §10.11 Onboarding and connect, §10.12 Error and
+  not-found, and §10.14 Social preview.
+- The brief counted **§10.13** extension surfaces as a screen item while
+  **omitting §10.15** Gallery, which is §10's own verification surface and is
+  built in Wave 1 rather than Wave 7.
+
+`design/FRONTEND_IMPLEMENTATION_PLAN.md` §3 Wave 7 independently lists the same
+13 web screens, so the plan and the design document agree and the brief was the
+outlier.
+
+### G-15 — closed 2026-10-06
+
+`--color-line-strong` measured 1.37:1 on `--color-surface` as the input border,
+failing the 3:1 UI-boundary minimum. DESIGN.md §2.3 and §5.3 amended to
+`#656577` (3.33:1); derivation and four-surface measurement in §5.3.1. The value
+is now asserted by `scripts/check-contrast.mjs`, so a regression fails the
+build.
 
 ## Where to start
 
