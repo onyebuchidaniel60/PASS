@@ -139,6 +139,40 @@ Every status, direction, and state below must carry a second, non-colour signal:
 | Verified / not verified | Data positive / tertiary | Text label + icon |
 | Live / stale data | Accent / tertiary | `LIVE` / `STALE` text + timestamp |
 
+### 2.9 Errata (measured)
+
+Five contrast figures quoted in §2.4, §2.5, and §2.6 do not match computation.
+This subsection records the discrepancy and **does not change the original
+stated values**, so both what was specified and what was measured survive.
+
+Measured 2026-10-06 with the WCAG 2.1 relative-luminance formula, by
+`scripts/check-contrast.mjs`, which runs on every `pnpm run check`.
+
+| Token | §2 states | Measured | Delta | Verdict affected? |
+|---|---|---|---|---|
+| `--color-text-secondary` on `--color-canvas` | 8.9:1 | **8.99:1** | +0.09 | No — passes 4.5:1 either way |
+| `--color-text-disabled` on `--color-canvas` | 2.6:1 | **2.80:1** | +0.20 | No — already a reported residual, scoped to disabled controls by §2.4 |
+| `--color-text-on-accent` on `--color-accent` | 5.6:1 | **5.02:1** | −0.58 | No — passes 4.5:1, but the largest discrepancy here |
+| `--color-accent-text` on `--color-canvas` | 5.9:1 | **6.22:1** | +0.32 | No — passes 4.5:1 |
+| `--color-data-positive` on `--color-canvas` | 8.7:1 | **8.65:1** | −0.05 | No — passes 4.5:1 |
+
+**No entry changes a pass/fail verdict, so none is escalated to a design gap.**
+Confirmed individually above. The largest single discrepancy is
+`--color-text-on-accent`, which the document overstates by 0.58; it is the one
+to re-check first if the value is ever moved, because it has the least headroom
+of the passing text pairings at 5.02:1 against a 4.5:1 minimum.
+
+Figures not listed above were computed and matched their stated value:
+`--color-text-primary` 17.59:1 against a stated 17.6:1,
+`--color-text-tertiary` 5.40:1 against 5.4:1, `--color-data-negative` 5.32:1
+against 5.3:1.
+
+Two measured figures are recorded outside the §2 tables and are not errata,
+because §2 never stated them: `--color-line-strong` on `--color-surface`, now
+**3.33:1** after the G-15 amendment (§5.3.1), and `--color-line-hairline` on
+`--color-surface` at 1.16:1, which is decorative and therefore exempt from the
+non-text minimum.
+
 ---
 
 ## 3. Typography system
