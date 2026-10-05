@@ -200,10 +200,68 @@ design document was **not** edited to match:
 - **Horizontal overflow.** No screen was rendered.
 - **Above-the-fold field positions.** No screen exists.
 - **Font loading verified by rendered pixels.** `design/DESIGN.md` §3.1 and
-  Wave 0's gate require this. **Not done** — it needs a browser. Nine woff2
-  files of the correct weights are committed and `@font-face` declares each one,
-  but whether a face actually resolves and paints is unverified. This is the
-  single most important carry-over into Wave 1.
+  Wave 0's gate require this. **Still not done** — it needs a browser.
+
+### 8.4 Font verification — added 2026-10-06 (`efe6b48`)
+
+`scripts/check-fonts.mjs` now verifies everything short of rendering, and is
+wired into `pnpm run check` as `check:fonts`.
+
+Verified programmatically:
+
+- All nine latin woff2 faces exist, are non-zero, and carry the `wOF2`
+  signature, so a truncated or empty file cannot pass silently.
+- All nine `@font-face` blocks resolve to existing files; family and weight
+  agree with the filename, which is where a quoting or camelCase mismatch
+  causes the silent fallback described in `SKILL_FRONTEND_DESIGN.md` §12
+  Phase 3.
+- No face uses `font-display: block`; all nine use `swap`, so text is never
+  hidden on a slow load.
+- **Provenance:** each committed file's SHA-256 equals a freshly fetched Google
+  Fonts latin woff2 for that same family **and that same weight**. All nine are
+  byte-identical. This is why no woff2 decoder was added as a dependency:
+  byte-identity with the upstream file for a given weight is a stronger claim
+  than a parsed `OS/2.usWeightClass`, because it also rules out a truncated or
+  substituted file.
+
+No fix was needed.
+
+The check was proved to fail before its clean result was trusted: declaring
+weight `650` for the three 600 faces produced three named failures and exit 1,
+and reverting returned exit 0.
+
+**Still unverified, and it is the whole point:** that the faces **paint**. A
+file can be valid, correctly named, correctly weighted, and byte-identical to
+upstream while the browser still declines to apply it, and that is only visible
+as rendered pixels. The script says so on every run.
+
+### 8.5 Operator font checklist (required — Wave 0's gate is open until returned)
+
+1. `pnpm --filter @pass/web dev`, open the site.
+2. DevTools Console — run all nine, expect `true` for each:
+
+```js
+document.fonts.check('500 16px Archivo')        // true
+document.fonts.check('600 16px Archivo')        // true
+document.fonts.check('700 16px Archivo')        // true
+document.fonts.check('400 16px "Inter Tight"')  // true
+document.fonts.check('500 16px "Inter Tight"')  // true
+document.fonts.check('600 16px "Inter Tight"')  // true
+document.fonts.check('400 16px "IBM Plex Mono"') // true
+document.fonts.check('500 16px "IBM Plex Mono"') // true
+document.fonts.check('600 16px "IBM Plex Mono"') // true
+```
+
+3. Network tab filtered to `fonts` — expect nine requests to
+   `/fonts/*.woff2`, every one **200**, none from a third-party origin.
+4. **Zoom to 200% on a heading.** If it renders in a **serif**, a face did not
+   resolve and the entire type system fell back. This is the known defect in
+   `SKILL_FRONTEND_DESIGN.md` §12 Phase 3 and **no test fails** when it
+   happens.
+5. Repeat on a deployed URL, not only localhost.
+
+Report each of the nine results, the request count, and pass/fail on step 4.
+
 
 ## 9. Findings
 
@@ -239,40 +297,48 @@ What was investigated and cleared, separated from what was found:
 
 ### G-15 (new, this wave) — input border fails the non-text contrast minimum
 
+**CLOSED 2026-10-06 — `e5cd559`.** Resolved by amending the design document.
+
 - **Screen:** any form. First hit at `apps/web/src/app/passes/new/page.tsx`.
 - **What was needed:** an input and focused-container border that identifies the
   control.
-- **What is missing:** `design/DESIGN.md` §5.3 mandates
-  `1px solid var(--color-line-strong)`. Measured **1.37:1** against
-  `--color-surface`, failing the **3:1** non-text minimum in plan §4.4.
-  A 1px line at that contrast does not identify a control.
-- **What was deliberately NOT done:** no replacement border colour was chosen.
-  `design/DESIGN.md` specifies no alternative, and inventing one would be
-  filling a specification hole with improvised visual language
-  (`design/DESIGN.md` §13.2 step 1).
-- **Status:** awaiting a design decision. Reported in full on every
-  `pnpm run check` run so it cannot be forgotten.
+- **What was missing:** `design/DESIGN.md` §5.3 mandated
+  `1px solid var(--color-line-strong)` with the token specified as `#2C2C34` in
+  the §2.3 table. Measured **1.37:1** against `--color-surface`, failing the
+  **3:1** non-text minimum in plan §4.4. A 1px line at that ratio does not
+  identify a control.
+- **What was NOT done at the time:** no replacement colour was chosen.
+  `design/DESIGN.md` specified no alternative, and inventing one would fill a
+  specification hole with improvised visual language (§13.2 step 1).
+- **Resolution:** no value in the §2.3 line ramp reached 3:1; the darkest
+  existing value that did was a text token at 5.18:1, which would make every
+  input border read as body text. `#2C2C34` was therefore scaled uniformly by
+  2.29, preserving its blue tint, to **`#656577`** — measured 3.33:1 on
+  `--color-surface`, 3.47:1 on `--color-canvas`, 3.51:1 on
+  `--color-surface-sunken`, 3.16:1 on `--color-surface-raised`. §2.3 and §5.3
+  were amended and §5.3.1 added with the full derivation. The value is now
+  asserted by `scripts/check-contrast.mjs`, so reverting it fails the build.
 
 ### G-16 (new, this wave) — "Dashboard" has no route
 
+**CLOSED 2026-10-06 — `2c13b67`.** Resolved by deriving the list from §10.
+
 - **Scope:** the Stage K screen inventory.
-- **Observed:** the Stage K brief lists 11 screens and includes both
-  "Dashboard" (6) and "My Passes" (8) as separate items. `design/DESIGN.md`
-  §10.8 defines **one** screen, "My Passes (dashboard)". The brief also omits
-  four screens the design document and the plan's Wave 7 both require: the
-  Stale Pass interstitial (§10.7), Onboarding and connect (§10.11), Error and
-  not-found (§10.12), and the social preview (§10.14). `design/DESIGN.md` §10
-  states its screen inventory is derived from `docs/UX_SPEC.md` §3–§14, and
-  `docs/UX_SPEC.md` §3 names a global navigation of
-  `Discover · My Passes · Executions · Profile` — four destinations, no
-  separate Dashboard.
-- **What was deliberately NOT done:** no dashboard route was invented. Creating
-  `/me` as a new destination would be adding product navigation that neither
-  the UX spec nor the design document specifies, and the task forbids changing
-  product behaviour.
-- **Resolution needed:** confirm that "My Passes (dashboard)" is one screen and
-  that the four omitted screens are in Stage K scope. If so the inventory is 13
-  screens, not 11.
+- **Observed:** the Stage K brief listed 11 screens and included both
+  "Dashboard" and "My Passes" as separate items. `design/DESIGN.md` §10.8
+  defines **one** screen, "My Passes (dashboard)". The brief also omitted
+  §10.7 Stale Pass interstitial, §10.11 Onboarding and connect, §10.12 Error and
+  not-found, and §10.14 Social preview. `docs/UX_SPEC.md` §3 names four global
+  destinations — `Discover · My Passes · Executions · Profile` — with no
+  Dashboard, and the build has no `/me` route.
+- **What was NOT done:** no dashboard route was invented. Adding a destination
+  to global navigation that neither the UX spec nor the design document
+  specifies would be a product-behaviour change, which Stage K forbids.
+- **Resolution:** 13 web screens, taken from §10 and independently corroborated
+  by the plan's Wave 7 list, plus §10.13 extension surfaces (Wave 6) and §10.15
+  Gallery (Wave 1). Recorded in `design/README.md` and
+  `design/BUILD_CONTINUATION.md`. `design/DESIGN.md` was **not** edited — it was
+  already correct; the defect was in the derived list.
 
 ### Existing gaps that bind this wave
 
@@ -285,12 +351,36 @@ What was investigated and cleared, separated from what was found:
 
 ## 12. Design amendments
 
-**None.** `design/DESIGN.md` was not edited in this phase.
+Three, all recorded here as separately logged acts, never as side effects of
+coding (`SKILL_FRONTEND_DESIGN.md` §4, `design/DESIGN.md` §13.2 step 3).
 
-The measured-versus-documented ratio discrepancies in §8.1 were left in the
-document. Correcting a design document to match an implementation is the
-reverse of the correct direction (`SKILL_FRONTEND_DESIGN.md` §4), and none of
-them changes a pass/fail verdict.
+### A1 — G-15, `--color-line-strong` (§5.3, §5.3.1, §2.3) — `e5cd559`
+
+**Reason.** §5.3 mandated a value that failed the 3:1 non-text minimum in plan
+§4.4, measured at 1.37:1. No value in the line ramp reached 3:1, so one had to
+be derived: `#2C2C34` scaled uniformly by 2.29 to `#656577`, measured 3.33:1 on
+`--color-surface` and 3.16–3.51:1 on the other three surfaces an input can sit
+on. Amendment text, derivation, and the four measurements are in §5.3.1. The
+value is asserted by `scripts/check-contrast.mjs`, so a regression fails.
+
+### A2 — §2.9 Errata (measured) — `d352554`
+
+**Reason.** Five contrast figures quoted in §2.4, §2.5, and §2.6 did not match
+computation. The **original stated values were preserved** and the measured
+values recorded alongside them, because correcting the document to agree with an
+implementation destroys the record that it was ever wrong. No entry changed a
+pass/fail verdict, so none was escalated to a gap. Committed separately from
+A1 so the two change types stay distinguishable in history.
+
+### A3 — G-14, token layer path — closed, no amendment needed — `ebfe349`
+
+§13.1 listed the token layer path as unowned. Wave 0 bound it to
+`apps/web/src/styles/tokens.css`, matching the plan's provisional path. This
+closed the gap by resolving it; `design/DESIGN.md` §13.1 was not edited.
+
+**Not amended:** the discrepancies between §2.4's stated ratios and measurement
+were handled as errata (A2), not by editing §2.4. `design/DESIGN.md` §7.3, §8,
+§9, §10, and §12 were not touched in any session.
 
 ## 13. Rejected alternatives
 
