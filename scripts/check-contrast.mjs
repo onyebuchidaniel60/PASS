@@ -71,7 +71,9 @@ const PAIRS = [
   { fg: "color-data-negative", bg: "color-canvas", min: 4.5, doc: 5.3, clause: "§2.6", use: "Negative PnL, price down" },
 
   // Non-text: UI component boundaries and focus indicators, §4.4 row 3.
-  { fg: "color-line-strong", bg: "color-surface", min: 3, doc: null, clause: "§5.3", use: "Input and focused-container border", nonText: true, gap: "G-15" },
+  // --color-line-strong is asserted here as a REQUIRED pairing: it was amended
+  // to meet the minimum, so a regression of the amended value must fail.
+  { fg: "color-line-strong", bg: "color-surface", min: 3, doc: 3.33, clause: "§5.3 as amended", use: "Input and focused-container border", nonText: true },
   { fg: "color-accent", bg: "color-canvas", min: 3, doc: null, clause: "§2.5", use: "Focus ring", nonText: true },
 ];
 
@@ -93,14 +95,20 @@ const EXEMPT = [
  * their ratio and the mandating clause, and are NOT silently corrected. They
  * are listed here so a NEW failure still exits non-zero while these stay
  * permanently visible in every run.
+ *
+ * G-15 (--color-line-strong as the input border, 1.37:1) was CLOSED on
+ * 2026-10-06: DESIGN.md §2.3 and §5.3 were amended to #656577, measured
+ * 3.33:1. The check below now asserts it as a required pairing, so a future
+ * regression of the amended value fails the build. See DESIGN.md §5.3.1.
+ *
+ * --color-text-disabled is NOT a gap. DESIGN.md §2.4 scopes it to disabled
+ * controls and states it is never load-bearing text, so failing the body-text
+ * minimum is the documented intent rather than an unresolved hole. It is
+ * reported every run so the scope is never assumed rather than checked.
  */
-const MANDATED_GAPS = {
-  "G-15":
-    "DESIGN.md §5.3 mandates 1px solid var(--color-line-strong) as the input and " +
-    "focused-container border. Measured 1.37:1 against --color-surface, failing the " +
-    "3:1 non-text minimum in plan §4.4. An input border this faint does not " +
-    "identify the control. DESIGN.md is silent on any alternative border value, so " +
-    "none was invented (DESIGN.md §13.2). Awaiting a design decision.",
+const DOCUMENTED_NOT_A_GAP = {
+  "color-text-disabled":
+    "DESIGN.md §2.4 scopes this token to disabled controls only and states it is never load-bearing text.",
 };
 
 console.log("PASS design-token contrast measurement");
@@ -126,8 +134,12 @@ for (const p of PAIRS) {
     // A residual is a documented design decision; a gap is an unresolved design
     // hole. Both are reported; neither blocks, because the alternative is
     // inventing a value DESIGN.md does not specify.
-    if (p.residual || p.gap) {
-      residuals.push({ id: p.residual ? "disabled-text" : p.gap, text: `--${p.fg} on --${p.bg}: ${r.toFixed(2)}:1`, note: p.residual ? "DESIGN.md §2.4 scopes this token to disabled controls only and states it is never load-bearing text." : MANDATED_GAPS[p.gap] });
+    if (p.residual || DOCUMENTED_NOT_A_GAP[p.fg]) {
+      residuals.push({
+        id: p.residual ? "disabled-text" : "documented",
+        text: `--${p.fg} on --${p.bg}: ${r.toFixed(2)}:1`,
+        note: p.residual ? DOCUMENTED_NOT_A_GAP[p.fg] : DOCUMENTED_NOT_A_GAP[p.fg],
+      });
     } else {
       failures++;
     }

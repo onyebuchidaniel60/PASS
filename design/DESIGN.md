@@ -72,7 +72,7 @@ Surfaces step by lightness, never by shadow. Elevation on dark is expressed as a
 | Token | Hex | Use |
 |---|---|---|
 | `--color-line-hairline` | `#1F1F25` | Default 1px rules, panel borders, table dividers |
-| `--color-line-strong` | `#2C2C34` | Emphasised dividers, input borders, hovered row borders |
+| `--color-line-strong` | `#656577` | Emphasised dividers, input borders, hovered row borders |
 | `--color-line-grid` | `#141418` | Background column/row grid lines (structural, not decorative) |
 
 ### 2.4 Text
@@ -253,10 +253,50 @@ Chamfer is used on at most one panel per viewport region, and never on more than
 ### 5.3 Borders
 
 - Default border: `1px solid var(--color-line-hairline)`.
-- Input and focused-container border: `1px solid var(--color-line-strong)`.
+- Input and focused-container border: `1px solid var(--color-line-strong)`. This token was **amended** from `#2C2C34` to `#656577`; see §2.3.1 for the derivation and the measurement that forced it.
 - Accent edge on a key panel: `1px solid var(--color-accent-edge)` on the **top edge only**, as an inset box-shadow or border-top.
 - Focus ring: `2px solid var(--color-accent)` with `2px` offset, always paired with a visible change of surface so it survives forced-colors mode.
 - Structural dividers inside dense data regions (`--color-line-hairline`) may be used to group rows. Row striping is prohibited.
+
+A border that identifies a control is a UI component boundary and must meet the
+3:1 non-text minimum. A border that only separates content is decorative and is
+exempt. `--color-line-strong` is the first kind; `--color-line-hairline` is the
+second.
+
+#### 2.3.1 Amendment record — `--color-line-strong` (gap G-15, 2026-10-06)
+
+The original value `#2C2C34` was specified for use as the input and
+focused-container border in §5.3. Measured against `--color-surface`
+(`#101013`) it resolves to **1.37:1**, which fails the 3:1 minimum that
+`design/FRONTEND_IMPLEMENTATION_PLAN.md` §4.4 sets for UI component boundaries.
+A 1px line at that ratio does not identify its control. The defect was in this
+document, not in any implementation: no value in the §2.3 line ramp reached 3:1,
+the darkest candidate that did being a text token at 5.18:1, which would have
+made every input border read as body text.
+
+**Derivation.** `#2C2C34` (44, 44, 52) was scaled uniformly by 2.29, preserving
+its slight blue tint, giving `#656577`. A uniform scale was used so the token
+stays on the same neutral ramp rather than introducing a new hue, and a margin
+above the threshold was targeted rather than the exact edge, so the value cannot
+tip below the minimum through rounding or a slightly different surface.
+
+**Measured result**, computed with the WCAG 2.1 relative-luminance formula by
+`scripts/check-contrast.mjs`:
+
+| Against | Ratio | Minimum | Result |
+|---|---|---|---|
+| `--color-surface` `#101013` | **3.33:1** | 3:1 | PASS |
+| `--color-canvas` `#0A0A0A` | **3.47:1** | 3:1 | PASS |
+| `--color-surface-sunken` `#08080A` | **3.51:1** | 3:1 | PASS |
+| `--color-surface-raised` `#16161A` | **3.16:1** | 3:1 | PASS |
+
+All four PASS was checked because an input may sit on any of them.
+
+This amendment was made under `SKILL_FRONTEND_DESIGN.md` §9 rule 9, which
+requires a design-mandated value that fails a stated standard to be measured,
+reported with its ratio, escalated rather than silently corrected in code. The
+value was changed here, in the design document, as a logged act — not patched in
+the token layer to make a check pass.
 
 ### 5.4 Elevation
 
@@ -887,6 +927,7 @@ Per `SKILL_FRONTEND_DESIGN.md` §4, when a screen needs a visual decision this d
 | G-12 | Localisation and number/date locale formatting beyond UTC | MVP is English + UTC (§11.5) | Do not add locale switching |
 | G-13 | The `SignalLine` sweep beyond the hero | Deliberately limited (§6.4) | Do not animate signal lines on inner panels |
 | G-14 | Token layer file path | Owned by the one-shot build's workspace layout, which does not exist yet. `design/FRONTEND_IMPLEMENTATION_PLAN.md` names it provisionally | Do not create a second token source |
+| G-15 | Input border contrast | **Closed 2026-10-06.** `--color-line-strong` measured 1.37:1 on `--color-surface`, failing the 3:1 UI-boundary minimum. §5.3 and §2.3 amended to `#656577` (3.33:1). Derivation in §5.3.1. | Resolved — the value was amended in this document, not patched in code |
 
 ### 13.2 When a gap is hit
 

@@ -112,9 +112,12 @@
   --color-surface-sunken: #08080a;
   --color-scrim: rgba(5, 5, 5, 0.72);
 
-  /* §2.3 Borders and lines */
+  /* §2.3 Borders and lines.
+     --color-line-strong was amended 2026-10-06 from #2c2c34 (1.37:1 on
+     --color-surface, failing the 3:1 UI-boundary minimum) to #656577
+     (3.33:1). Derivation and measurement: DESIGN.md §5.3.1, gap G-15. */
   --color-line-hairline: #1f1f25;
-  --color-line-strong: #2c2c34;
+  --color-line-strong: #656577;
   --color-line-grid: #141418;
 
   /* §2.4 Text */
