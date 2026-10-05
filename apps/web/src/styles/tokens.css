@@ -1,0 +1,351 @@
+/* PASS design token layer.
+ *
+ * THE single source of truth for every colour, type step, spacing value,
+ * radius, duration, easing, and layout dimension in the PASS web app.
+ * Per design/FRONTEND_IMPLEMENTATION_PLAN.md §2.1 there is exactly one token
+ * layer; if a second one appears it is deleted, not merged (design/DESIGN.md
+ * gap G-14).
+ *
+ * No component, screen, or style file may define a raw value. If a value is
+ * missing, add it here FIRST (design/DESIGN.md §13.2 step 3), then use it.
+ * `scripts/check-design-tokens.mjs` enforces this mechanically and runs in
+ * `pnpm run check`.
+ *
+ * Every token below is traceable to a clause of design/DESIGN.md.
+ */
+
+/* -------------------------------------------------------------------------
+ * Fonts (design/DESIGN.md §3.1)
+ *
+ * Self-hosted; no runtime font CDN. Each listed weight is loaded as its own
+ * face, because a single family name covering several weights with no matching
+ * loaded face silently falls the whole type system back to a system serif and
+ * no test fails (SKILL_FRONTEND_DESIGN.md §12, Phase 3).
+ *
+ * All three families are SIL Open Font License 1.1. Files are committed to
+ * apps/web/public/fonts/ by scripts/fetch-web-fonts.mjs.
+ * ---------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/archivo-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/archivo-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/archivo-700.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+
+@font-face {
+  font-family: "Inter Tight";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-tight-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: "Inter Tight";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/inter-tight-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: "Inter Tight";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter-tight-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF;
+}
+
+:root {
+  /* -----------------------------------------------------------------------
+   * §2.2 Base and surfaces. Surfaces step by lightness, never by shadow.
+   * -------------------------------------------------------------------- */
+  --color-void: #050505;
+  --color-canvas: #0a0a0a;
+  --color-surface: #101013;
+  --color-surface-raised: #16161a;
+  --color-surface-sunken: #08080a;
+  --color-scrim: rgba(5, 5, 5, 0.72);
+
+  /* §2.3 Borders and lines */
+  --color-line-hairline: #1f1f25;
+  --color-line-strong: #2c2c34;
+  --color-line-grid: #141418;
+
+  /* §2.4 Text */
+  --color-text-primary: #f5f1ea;
+  --color-text-secondary: #b4aea4;
+  --color-text-tertiary: #8a857c;
+  --color-text-disabled: #5c5852;
+  --color-text-on-accent: #0a0a0a;
+
+  /* §2.5 The ember accent. Rationed: one thing per viewport. */
+  --color-accent: #f03a1c;
+  --color-accent-hover: #ff4a2c;
+  --color-accent-active: #d0300f;
+  --color-accent-text: #ff5533;
+  --color-accent-muted: rgba(240, 58, 28, 0.12);
+  --color-accent-edge: rgba(240, 58, 28, 0.35);
+
+  /* §2.6 Price-data pair. Strictly subordinate to the accent, never
+     decorative, never a control fill. */
+  --color-data-positive: #46c08c;
+  --color-data-negative: #e2554f;
+  --color-data-neutral: var(--color-text-secondary);
+
+  /* -----------------------------------------------------------------------
+   * §3.1 Families. Data is never set in a body face; headlines are never set
+   * in a data face.
+   * -------------------------------------------------------------------- */
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter Tight", Inter, "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* -----------------------------------------------------------------------
+   * §3.3 Size steps. Steps are named, not numbered. Each step is four tokens:
+   * size, line-height, tracking, family. All sizes are rem, all tracking em.
+   * -------------------------------------------------------------------- */
+  --type-display-xl-size: clamp(2.5rem, 1.4rem + 4.4vw, 4.5rem);
+  --type-display-xl-line: 1.02;
+  --type-display-xl-track: -0.03em;
+  --type-display-xl-font: var(--font-display);
+
+  --type-display-l-size: clamp(2rem, 1.4rem + 2.4vw, 2.75rem);
+  --type-display-l-line: 1.06;
+  --type-display-l-track: -0.026em;
+  --type-display-l-font: var(--font-display);
+
+  --type-display-m-size: 2.125rem;
+  --type-display-m-line: 1.12;
+  --type-display-m-track: -0.022em;
+  --type-display-m-font: var(--font-display);
+
+  --type-title-l-size: 1.5rem;
+  --type-title-l-line: 1.25;
+  --type-title-l-track: -0.015em;
+  --type-title-l-font: var(--font-display);
+
+  --type-title-m-size: 1.1875rem;
+  --type-title-m-line: 1.26;
+  --type-title-m-track: -0.01em;
+  --type-title-m-font: var(--font-display);
+
+  --type-title-s-size: 1rem;
+  --type-title-s-line: 1.25;
+  --type-title-s-track: 0;
+  --type-title-s-font: var(--font-display);
+
+  --type-body-l-size: 1.0625rem;
+  --type-body-l-line: 1.53;
+  --type-body-l-track: 0;
+  --type-body-l-font: var(--font-body);
+
+  --type-body-m-size: 0.9375rem;
+  --type-body-m-line: 1.47;
+  --type-body-m-track: 0;
+  --type-body-m-font: var(--font-body);
+
+  --type-body-s-size: 0.8125rem;
+  --type-body-s-line: 1.38;
+  --type-body-s-track: 0;
+  --type-body-s-font: var(--font-body);
+
+  --type-data-xl-size: 2.5rem;
+  --type-data-xl-line: 1;
+  --type-data-xl-track: -0.02em;
+  --type-data-xl-font: var(--font-data);
+
+  --type-data-l-size: 1.75rem;
+  --type-data-l-line: 1.14;
+  --type-data-l-track: -0.015em;
+  --type-data-l-font: var(--font-data);
+
+  --type-data-m-size: 1.1875rem;
+  --type-data-m-line: 1.26;
+  --type-data-m-track: -0.01em;
+  --type-data-m-font: var(--font-data);
+
+  --type-data-s-size: 0.9375rem;
+  --type-data-s-line: 1.33;
+  --type-data-s-track: 0;
+  --type-data-s-font: var(--font-data);
+
+  --type-data-xs-size: 0.75rem;
+  --type-data-xs-line: 1.33;
+  --type-data-xs-track: 0;
+  --type-data-xs-font: var(--font-data);
+
+  --type-eyebrow-size: 0.6875rem;
+  --type-eyebrow-line: 1.27;
+  --type-eyebrow-track: 0.18em;
+  --type-eyebrow-font: var(--font-data);
+
+  --type-label-size: 0.75rem;
+  --type-label-line: 1.33;
+  --type-label-track: 0.06em;
+  --type-label-font: var(--font-data);
+
+  /* §3.4 Measure caps */
+  --measure-body: 68ch;
+  --measure-thesis: 62ch;
+  --measure-display: 18ch;
+
+  /* §11.1 Data uses tabular figures everywhere so digits align in columns
+     and a changing value does not reflow its neighbours. */
+  --numeric-tabular: tabular-nums;
+
+  /* -----------------------------------------------------------------------
+   * §4 Spacing. A single 4px-based scale.
+   * -------------------------------------------------------------------- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --space-10: 128px;
+
+  /* §4 Vertical rhythm */
+  --rhythm-section: var(--space-8);
+  --rhythm-section-desktop: var(--space-9);
+  --rhythm-block: var(--space-6);
+  --rhythm-panel: var(--space-5);
+  --rhythm-field: var(--space-4);
+
+  /* -----------------------------------------------------------------------
+   * §5 Radii, chamfer, elevation
+   * -------------------------------------------------------------------- */
+  /* §5.1 The system is nearly square. No radius above --radius-md anywhere. */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+
+  /* §5.2 Corner-bracket framing. A framing device only; never with a shadow. */
+  --chamfer-size: 10px;
+
+  /* §5.4 Elevation is a step up in surface lightness plus a hairline border.
+     The single shadow token is permitted ONLY on the overlay tier. */
+  --shadow-overlay: 0 24px 48px rgba(0, 0, 0, 0.64);
+
+  /* §5.3 Borders */
+  --border-hairline: 1px solid var(--color-line-hairline);
+  --border-strong: 1px solid var(--color-line-strong);
+  /* §5.3 Focus ring: 2px solid accent with 2px offset. */
+  --focus-ring: 2px solid var(--color-accent);
+  --focus-ring-offset: 2px;
+
+  /* -----------------------------------------------------------------------
+   * §6 Motion. Durations and easings live here; no component writes either.
+   * -------------------------------------------------------------------- */
+  --duration-instant: 0ms;
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+  --duration-deliberate: 420ms;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-linear: linear;
+
+  /* -----------------------------------------------------------------------
+   * §7 Iconography and §8 Layout
+   * -------------------------------------------------------------------- */
+  /* §7.1 20x20 grid, 16px optical inline. Icon-only controls keep a 44px hit
+     area regardless of glyph size. */
+  --size-icon-grid: 20px;
+  --size-icon: 16px;
+  --size-target-min: 44px;
+  --stroke-icon: 1.5px;
+
+  /* §8.2/§8.3 Grid. Breakpoints are media queries and cannot be custom
+     properties; they are recorded here as the single source of the numbers:
+       mobile  0-767px     single column, bottom nav,  16px gutter
+       tablet  768-1023px  one or two columns,          24px gutter
+       desktop 1024-1439px 12 columns, sidebar,        24px gutter
+       wide    1440px+     12 columns, content locked  */
+  --layout-columns: 12;
+  --layout-content-max: 1280px;
+  --layout-gutter-mobile: 16px;
+  --layout-gutter: 24px;
+  --layout-margin-mobile: 20px;
+  --layout-margin-tablet: 40px;
+  --layout-margin-desktop: 80px;
+
+  /* §8.3/§8.4 Navigation shells. Each shell exports its own dimension so the
+     space reserved for it and the space it occupies cannot drift apart
+     (SKILL_FRONTEND_DESIGN.md §9 rule 10 / Phase 10B lesson). */
+  --layout-topbar: 64px;
+  --layout-sidebar: 240px;
+  --layout-bottomnav: 56px;
+
+  /* §8.5 Thesis clamps to 6 lines with an expand affordance. */
+  --line-limit-thesis: 6;
+}
+
+/* -------------------------------------------------------------------------
+ * §6.6 Reduced motion.
+ *
+ * Every --duration-* token except --duration-fast resolves to 0ms. Transform
+ * animations are removed by the motion helpers, not shortened; opacity
+ * cross-fades are retained but capped at --duration-fast.
+ *
+ * Overriding the tokens here is what lets every helper honour the setting
+ * without any component re-implementing the check.
+ * ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-deliberate: 0ms;
+  }
+}

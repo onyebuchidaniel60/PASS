@@ -1,24 +1,144 @@
+/* PASS global foundation — Wave 0.
+ *
+ * Consumes the token layer (apps/web/src/styles/tokens.css) and defines NO raw
+ * values. design/DESIGN.md §2.7: PASS ships dark-only; there is no light theme
+ * in the MVP and no theme toggle. The previous provisional base was light
+ * (#ffffff on :root color-scheme: light), which contradicted the design.
+ *
+ * Tailwind directives are retained while the Wave 7 screens are migrated off
+ * utility classes. New components must use tokens, not utilities. Tracked in
+ * design/phase-records/PHASE_00_tokens.md.
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  /* §2.7 Dark-only. Declared on :root so UA form controls, scrollbars, and
+     the canvas behind everything are dark too. */
+  color-scheme: dark;
+
+  /* §12.5 A dark surface that does not extend to the viewport edge is a P0
+     visual defect at every breakpoint. */
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
 }
 
-html,
+html {
+  /* Fill the viewport so no light gap can appear below a short page. */
+  min-height: 100%;
+  background-color: var(--color-canvas);
+}
+
 body {
-  background: #ffffff;
-  color: #171717;
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* §3.2/§3.4 Display type is tight-tracked and set flush left. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+/* §3.4 Body measure is capped at 68ch. */
+p,
+li {
+  max-width: var(--measure-body);
+}
+
+/* §11.1 Data uses tabular figures everywhere, so digits align in columns and a
+   changing value does not reflow its neighbours. Applied as a utility the data
+   primitives opt into, not globally: body prose is not tabular. */
+.pass-data {
+  font-family: var(--font-data);
+  font-variant-numeric: var(--numeric-tabular);
 }
 
 a {
+  color: var(--color-text-primary);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: var(--focus-ring-offset);
 }
 
-/* Visible focus for keyboard users (docs/UX_SPEC.md §12). */
+/* No hover thickness rule: DESIGN.md §9.3 LinkButton is an underline that
+   APPEARS on hover, so links keep a single-weight underline here. */
+/* §5.3 Focus ring: 2px solid accent with 2px offset, always paired with a
+   visible change of surface so it survives forced-colors mode (docs/UX_SPEC.md
+   §12 requires visible focus states). */
 :focus-visible {
-  outline: 2px solid #171717;
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Never remove focus styling without a replacement. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* §5.3 Default border. Inputs use --border-strong per §5.3. */
+input,
+select,
+textarea {
+  background-color: var(--color-surface);
+  border: var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+textarea {
+  font-family: var(--font-body);
+  resize: vertical;
+}
+
+/* §9.5 Data inputs set mono numerals with an explicit input mode. */
+.pass-numeric {
+  font-family: var(--font-data);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+hr {
+  border: 0;
+  border-top: var(--border-hairline);
+  margin: 0;
+}
+
+::selection {
+  background-color: var(--color-accent-muted);
+  color: var(--color-text-primary);
+}
+
+/* Reduced motion is handled by overriding the duration tokens themselves in
+ * tokens.css (§6.6), so every helper honours it without re-checking. This rule
+ * only removes the non-token smooth scrolling that would otherwise survive. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

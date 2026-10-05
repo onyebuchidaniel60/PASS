@@ -1,0 +1,56 @@
+[
+  {
+    "family": "archivo",
+    "weight": 500,
+    "file": "archivo-500.woff2",
+    "bytes": 14600
+  },
+  {
+    "family": "archivo",
+    "weight": 600,
+    "file": "archivo-600.woff2",
+    "bytes": 13820
+  },
+  {
+    "family": "archivo",
+    "weight": 700,
+    "file": "archivo-700.woff2",
+    "bytes": 14508
+  },
+  {
+    "family": "inter-tight",
+    "weight": 400,
+    "file": "inter-tight-400.woff2",
+    "bytes": 22016
+  },
+  {
+    "family": "inter-tight",
+    "weight": 500,
+    "file": "inter-tight-500.woff2",
+    "bytes": 22616
+  },
+  {
+    "family": "inter-tight",
+    "weight": 600,
+    "file": "inter-tight-600.woff2",
+    "bytes": 22660
+  },
+  {
+    "family": "ibm-plex-mono",
+    "weight": 400,
+    "file": "ibm-plex-mono-400.woff2",
+    "bytes": 14708
+  },
+  {
+    "family": "ibm-plex-mono",
+    "weight": 500,
+    "file": "ibm-plex-mono-500.woff2",
+    "bytes": 14888
+  },
+  {
+    "family": "ibm-plex-mono",
+    "weight": 600,
+    "file": "ibm-plex-mono-600.woff2",
+    "bytes": 15620
+  }
+]
