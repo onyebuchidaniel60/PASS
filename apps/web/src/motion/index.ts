@@ -200,3 +200,35 @@ export function dataTransition(property = "width"): string {
   const duration = prefersReducedMotion() ? DURATION.fast : DURATION[spec.duration];
   return `${property} ${duration} ${EASE.linear}`;
 }
+
+/**
+ * CSS that collapses motion for a subtree, for surfaces that need to PREVIEW the
+ * reduced-motion state rather than respond to the OS setting.
+ *
+ * Lives here, not in a component, because plan §2.2 permits a duration literal
+ * in the motion helper module and nowhere else.
+ *
+ * This exists because faking `matchMedia` only fools code that READS matchMedia.
+ * The `@media (prefers-reduced-motion: reduce)` rules in styles/components.css are
+ * evaluated by the browser's CSS engine, which no JS override can reach — so the
+ * gallery's first reduced-motion toggle was theatre: it flipped the JS switch and
+ * left every reduced-motion CSS rule inactive. Found by inspecting the built
+ * output, not by reading the code.
+ *
+ * Applied via a document attribute so the browser's own cascade evaluates it.
+ */
+export function reducedMotionPreviewCss(attribute = "data-pass-reduced-motion"): string {
+  return `
+[${attribute}="true"] .pass-signal-line[data-reveal="true"] > hr {
+  animation: none;
+  transform: none;
+}
+[${attribute}="true"] *,
+[${attribute}="true"] *::before,
+[${attribute}="true"] *::after {
+  transition-duration: 0ms;
+  animation-duration: 0ms;
+  animation-iteration-count: 1;
+}
+`;
+}

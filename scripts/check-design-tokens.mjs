@@ -34,6 +34,7 @@ const WEB = join(root, "apps", "web", "src");
  */
 const EXCLUSIONS = [
   { path: "apps/web/src/styles/tokens.css", reason: "The token layer. This is the single source of truth (plan §2.1, design gap G-14)." },
+  { path: "apps/web/src/motion/index.ts", reason: "The motion helper module. Plan §2.2 check 4 permits duration literals here and nowhere else, because animation behaviour lives here and nowhere else." },
   { path: "scripts/check-design-tokens.mjs", reason: "This scanner. Its patterns necessarily contain the literals it looks for." },
   { path: "scripts/check-contrast.mjs", reason: "Contrast checker. Carries documented design/doc ratio figures as data." },
 ];
