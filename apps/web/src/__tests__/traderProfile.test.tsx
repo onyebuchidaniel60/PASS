@@ -41,7 +41,7 @@ beforeEach(() => mockGet.mockReset());
 async function renderProfile(passes: unknown[] = []) {
   mockGet.mockImplementation((url?: unknown) =>
     Promise.resolve(
-      typeof url === "string" && url.includes("/api/v1/passes") ? passes : PROFILE,
+      typeof url === "string" && url.includes("/passes") ? { passes } : PROFILE,
     ),
   );
   // The async act boundary is required: the screen resolves its data in an

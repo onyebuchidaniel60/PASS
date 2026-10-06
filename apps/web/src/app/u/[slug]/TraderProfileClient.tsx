@@ -93,10 +93,13 @@ export function TraderProfileClient({ slug }: { slug: string }) {
       const p = await clientGet<Profile>(`/api/v1/profiles/${slug}`);
       setProfile(p);
       try {
-        const list = await clientGet<{ passes?: PassSummary[] } | PassSummary[]>(
-          `/api/v1/passes?trader=${encodeURIComponent(p.handle)}`,
+        // /api/v1/profiles/{slug}/passes — the real route. The previous
+        // /api/v1/passes?trader= does not exist and 404s, which made the Active
+        // Passes section silently degrade to its empty state on every profile.
+        const list = await clientGet<{ passes?: PassSummary[] }>(
+          `/api/v1/profiles/${encodeURIComponent(slug)}/passes`,
         );
-        setPasses(Array.isArray(list) ? list : (list.passes ?? []));
+        setPasses(list.passes ?? []);
       } catch {
         // The Pass list is supplementary context. A failure to load it must not
         // take the identity surface down with it, so it degrades to empty.
