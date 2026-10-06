@@ -11,6 +11,12 @@ export const metadata: Metadata = {
     "PASS turns Hyperliquid trade plans into shareable, executable links.",
 };
 
+/**
+ * UX_SPEC §3 global navigation: Discover · My Passes · Executions · Profile.
+ * There is deliberately no Dashboard — DESIGN.md §10.8 defines one "My Passes
+ * (dashboard)" screen, and adding a fifth destination would change product
+ * navigation the spec does not define (gap G-16).
+ */
 const NAV = [
   { href: "/discover", label: "Discover" },
   { href: "/me/passes", label: "My Passes" },
@@ -18,43 +24,45 @@ const NAV = [
   { href: "/settings", label: "Profile" },
 ];
 
+/**
+ * Public shell — DESIGN.md §8.4: sticky top bar with a hairline bottom border.
+ *
+ * Rebuilt on tokens. The previous shell was Tailwind utility classes on a white
+ * background, which contradicted §2.7 (PASS is dark-only) and meant every
+ * screen rendered light regardless of the token layer.
+ */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-white text-neutral-900 antialiased">
+      <body>
         <Providers>
-        <DemoBanner />
-        <header className="border-b border-neutral-200">
-          <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
-            <Link href="/" className="text-base font-semibold tracking-tight no-underline">
-              PASS
-            </Link>
-            <ul className="flex flex-wrap items-center gap-4 text-sm">
-              {NAV.map((n) => (
-                <li key={n.href}>
-                  <Link href={n.href} className="text-neutral-700 no-underline hover:text-neutral-900">
-                    {n.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <div className="ml-auto flex items-center gap-2">
-              <ConnectWalletEntry />
-              <Link
-                href="/passes/new"
-                className="rounded border border-neutral-900 bg-neutral-900 px-3 py-2 text-sm font-medium text-white no-underline hover:bg-neutral-800"
-              >
-                Create a Pass
+          <DemoBanner />
+          <header className="pass-topbar">
+            <nav className="pass-topbar-inner" aria-label="Primary">
+              <Link href="/" className="pass-wordmark">
+                PASS
               </Link>
-            </div>
-          </nav>
-        </header>
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-6xl border-t border-neutral-200 px-4 py-6 text-xs text-neutral-500">
-          PASS is a social execution layer for Hyperliquid. You authorize your own
-          orders with your own position size. Historical performance is not a
-          guarantee of future results.
-        </footer>
+              <ul className="pass-nav">
+                {NAV.map((n) => (
+                  <li key={n.href}>
+                    <Link href={n.href} className="pass-nav-link">
+                      {n.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <div className="pass-topbar-actions">
+                <ConnectWalletEntry />
+              </div>
+            </nav>
+          </header>
+          {/* PageShell inside each screen owns the main landmark. */}
+          {children}
+          <footer className="pass-footer">
+            PASS is a social execution layer for Hyperliquid. You authorize your
+            own orders with your own position size. Historical performance is not
+            a guarantee of future results.
+          </footer>
         </Providers>
       </body>
     </html>

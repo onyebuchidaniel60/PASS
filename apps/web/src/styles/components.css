@@ -622,3 +622,202 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* -------------------------------------------------------------------------
+ * §10.1 Landing
+ *
+ * Full-bleed canvas. GridField behind the HERO ONLY (§8.2) — never behind body
+ * content and never as a decorative overlay on top of text.
+ *
+ * §3.4 display type is tight-tracked and set flush left; the hero is the one
+ * place centring is permitted, and it is not centred here.
+ * ---------------------------------------------------------------------- */
+
+.pass-landing {
+  position: relative;
+  padding-block: var(--space-10) var(--space-8);
+  min-width: 0;
+}
+
+.pass-landing-field {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  /* Structural grid, behind the hero, inert. */
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pass-landing-hero,
+.pass-landing-ctas,
+.pass-landing-loop,
+.pass-landing-support {
+  position: relative;
+  /* Above the grid field, so the grid can never sit on top of text. */
+  z-index: 1;
+}
+
+.pass-hero-line {
+  font-family: var(--type-display-xl-font);
+  font-size: var(--type-display-xl-size);
+  line-height: var(--type-display-xl-line);
+  letter-spacing: var(--type-display-xl-track);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  /* §3.4 capped at 18ch so the hero never runs to three lines on desktop. */
+  max-width: var(--measure-display);
+  margin-block-end: var(--space-5);
+  text-align: start;
+}
+
+.pass-landing-ctas {
+  margin-block-start: var(--space-6);
+}
+
+/* The anchor wraps a Button; the anchor itself must not add a second hit area
+   or a text-decoration. */
+.pass-landing-cta-primary,
+.pass-landing-cta-ghost {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  min-height: var(--size-target-min);
+}
+
+.pass-landing-loop {
+  margin-block-start: var(--space-7);
+}
+
+/* §8.2 the grid is 12 columns; the loop is a statement strip, not a card grid. */
+.pass-loop-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--rhythm-block);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.pass-landing-support {
+  font-family: var(--type-body-l-font);
+  font-size: var(--type-body-l-size);
+  line-height: var(--type-body-l-line);
+  letter-spacing: var(--type-body-l-track);
+  color: var(--color-text-secondary);
+  /* §3.4 body measure capped at 68ch. */
+  max-width: var(--measure-body);
+  margin-block-start: var(--space-7);
+}
+
+@media (min-width: 1024px) {
+  .pass-landing {
+    padding-block: var(--space-10) var(--space-9);
+  }
+}
+
+/* Reduced motion: §6.6 the signal line renders final-state with no sweep, and
+   nothing moves. The token override handles the duration; this removes the
+   transform entirely so no residue of the sweep remains. */
+@media (prefers-reduced-motion: reduce) {
+  .pass-landing * {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * §8.4 Public shell: sticky top bar, 64px, hairline bottom border.
+ * The bar exports its own height as a token so the space reserved for it and
+ * the space it occupies cannot drift apart (skill §9 rule 10).
+ * ---------------------------------------------------------------------- */
+
+.pass-topbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 10;
+  height: var(--layout-topbar);
+  background-color: var(--color-canvas);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  height: 100%;
+  width: 100%;
+  max-width: var(--layout-content-max);
+  margin-inline: auto;
+  padding-inline: var(--layout-margin-mobile);
+}
+
+@media (min-width: 768px) {
+  .pass-topbar-inner {
+    padding-inline: var(--layout-margin-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-topbar-inner {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+.pass-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--type-title-s-size);
+  font-weight: 700;
+  letter-spacing: var(--type-title-s-track);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  min-height: var(--size-target-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* §7.3 No custom logo mark exists until gap G-2 closes, so the wordmark is set
+   as type only. No favicon or mark was improvised. */
+
+.pass-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pass-nav-link {
+  font-family: var(--type-body-m-font);
+  font-size: var(--type-body-m-size);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  min-height: var(--size-target-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+.pass-nav-link:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.pass-topbar-actions {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pass-footer {
+  width: 100%;
+  max-width: var(--layout-content-max);
+  margin-inline: auto;
+  padding: var(--space-6) var(--layout-margin-mobile);
+  border-block-start: var(--border-hairline);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  color: var(--color-text-tertiary);
+  max-width: var(--measure-body);
+}
