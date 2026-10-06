@@ -1,0 +1,22 @@
+# Vercel upload exclusions for apps/web (deploy runs from the repo root).
+#
+# Vercel runs `pnpm install` and `next build` itself, so build output and
+# dependencies must not be uploaded: they are regenerated on Vercel and would
+# otherwise be both wasted upload and a source of stale-artifact bugs. Without
+# this the upload exceeded Vercel's 15000-file limit.
+
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.vercel
+**/.vercel
+*.log
+**/*.log
+.git
+**/.git
+
+# Generated fonts manifest is committed but the woff2 faces are what matter.
+apps/extension/dist
