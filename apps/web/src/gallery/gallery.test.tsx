@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 
-import GalleryPage from "./page";
-import { GalleryClient } from "./gallery-client";
+import GalleryPage from "./impl";
+import { GalleryClient } from "./client";
 import { isGalleryEnabled } from "./gating";
 import { reducedMotionPreviewCss } from "@/motion";
 

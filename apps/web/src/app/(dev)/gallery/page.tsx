@@ -1,33 +1,12 @@
 /**
- * Gallery — SERVER component.
+ * The gallery route.
  *
- * The route is removed from a production build by calling `notFound()`, so the
- * gallery is never served and never prerendered.
+ * This file is deliberately empty of gallery code. It re-exports through the
+ * `#gallery` specifier, which `next.config.mjs` aliases to `./stub` in
+ * production, so a production build never resolves — and therefore never bundles
+ * — the gallery implementation.
  *
- * This replaced a runtime `return null`, which was NOT a gate. That version
- * passed every unit test and still shipped: the route was registered at
- * /gallery and its component source was present in the production JS chunks.
- * Verified by building and grepping the output, which is the only way this class
- * of defect is caught — see design/BUILD_CONTINUATION.md.
- *
- * The gallery UI itself is a client component, imported statically so Next keeps
- * it out of the server graph. In production this module is never rendered, so the
- * page and its 404 are all that ship from here.
- *
- * Verification that must be repeated after any change to this file:
- *   pnpm --filter @pass/web build
- *   grep the .next js chunks for "narrow-width stress"
- *   -> must return nothing
+ * Do NOT import the implementation directly from here. A direct relative import
+ * would bypass the alias and reintroduce the leak.
  */
-import { notFound } from "next/navigation";
-
-import { isGalleryEnabled } from "./gating";
-import { GalleryClient } from "./gallery-client";
-
-export default function GalleryPage() {
-  if (!isGalleryEnabled()) {
-    // Removes the route from the production build rather than hiding it.
-    notFound();
-  }
-  return <GalleryClient />;
-}
+export { default } from "pass-gallery";

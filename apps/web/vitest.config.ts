@@ -20,6 +20,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      // Mirrors the build-time alias in next.config.mjs. In a production build
+      // that alias points at src/gallery/stub.tsx instead; tests always exercise
+      // the real implementation, which is what should be tested.
+      "pass-gallery": path.resolve(__dirname, "src/gallery/impl.tsx"),
       "@pass/contracts": path.resolve(__dirname, "../../packages/contracts/src/index.ts"),
       "@pass/ui": path.resolve(__dirname, "../../packages/ui/src/index.tsx"),
     },
