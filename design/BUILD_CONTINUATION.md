@@ -1,158 +1,172 @@
 # Stage K — build continuation
 
-**Written:** 2026-10-06 (second revision — corrections session)
-**Reason:** context limit reached. Tasks 1–4 of the corrections session are
-complete, committed, and pushed. Wave 1 was **not started**; nothing is
-half-built.
+**Written:** 2026-10-06 (third revision — Wave 1 session)
+**Reason:** context limit. Wave 1's **components** are complete, tested, and
+pushed. The **gallery is not built**, so Wave 1's gate is **not cleared**.
 
 ## Current SHA
 
-`d352554` — `docs(design): errata — measured contrast ratios`
+`8f37312` — `feat(design): wave 1 — signature devices and framing`
 
 Pushed to `main`. Working tree clean.
 
-Session commits, in order:
-
 | SHA | Commit | Content |
 |---|---|---|
-| `efe6b48` | `fix(design): verify fonts and add programmatic font check` | Tasks 1 |
-| `e5cd559` | `docs(design): G-15 amendment — input border contrast` | Task 2 |
-| `2c13b67` | `docs(design): G-16 — screen list derived from DESIGN.md §10` | Task 3 |
-| `d352554` | `docs(design): errata — measured contrast ratios` | Task 4 |
-
-## Operator resolutions applied
-
-All four items from the previous session are closed.
-
-| Item | Was | Now |
-|---|---|---|
-| Font loading | unverified | 9/9 faces verified byte-identical to Google Fonts per family **and weight**; `@font-face` cross-checked; `font-display: swap` confirmed; check proved to fail on a planted mismatch. **Paint is still unverified — needs a browser.** |
-| G-15 | open, `--color-line-strong` at 1.37:1 | **Closed.** `DESIGN.md` §2.3 and §5.3 amended to `#656577` (3.33:1), derivation in §5.3.1, now asserted so a regression fails the build |
-| G-16 | open, screen list disputed | **Closed.** 13 web screens derived from §10; brief's 11 superseded |
-| Contrast errata | 5 mismatches undocumented | **`DESIGN.md` §2.9 added.** Original stated values preserved alongside measured |
+| `47a2664` | `test(web): add DOM test harness` | Task 1 |
+| `518b5a6` | `feat(design): motion helpers` | Task 2 |
+| `8f37312` | `feat(design): wave 1 — signature devices and framing` | Task 3 |
 
 ## Complete
 
-| Wave | Status | Commit |
+| Unit | Status | Tests |
 |---|---|---|
-| **Wave 0 — Foundation** | Built, not visually verified. Fonts structurally verified; font *paint* gate still open. | `ebfe349`, `efe6b48` |
-| **Corrections session** | Tasks 1–4 complete | `efe6b48` … `d352554` |
+| Wave 0 — Foundation | Built, not visually verified. Fonts structurally verified; paint gate open. | — |
+| Corrections (G-15, G-16, errata) | Closed | — |
+| Web DOM test harness | Complete | 3 |
+| Motion helpers | Complete | 12 |
+| Wave 1 components (13) | Built, **gate not cleared** | 44 |
+
+`pnpm run check`: **104 tests green** (45 package + 59 web), token scan PASS,
+contrast PASS, fonts PASS.
+
+## Wave 1 component inventory
+
+`apps/web/src/components/wave1/layout.tsx`
+
+| Component | § | Test status |
+|---|---|---|
+| `Stack` | §9.1 | 3 tests — renders, gap maps to a token, defaults to a token |
+| `Inline` | §9.1 | 3 tests — renders, wraps by default, opt-out |
+| `Section` | §9.1 | 2 tests — landmark only when named |
+| `Panel` | §9.1 | 2 tests — renders, no inline style |
+| `ChamferPanel` | §5.2, §9.1 | 4 tests — renders, accent edge off by default, opt-in, `aria-label` |
+| `Rule` | §5.3 | 2 tests — hidden when meaningless, exposed when labelled |
+| `GridField` | §8.2, §9.1 | 2 tests — 12 columns, aria-hidden |
+| `PageShell` | §8.4 | 3 tests — one `main`, nav space off by default, opt-in |
+| `ShellContent` | §8.2 | 1 test — renders |
+
+`apps/web/src/components/wave1/signature.tsx`
+
+| Component | § | Test status |
+|---|---|---|
+| `Eyebrow` | §9.2 | 4 tests — renders, delimiters on by default, opt-out, section number |
+| `SectionNumber` | §9.2 | 3 tests — zero-pad, two-digit, string |
+| `SignalLine` | §9.2 | 5 tests — renders, no reveal by default, reveal opt-in, `hr` hidden not wrapper, reticle node |
+| `Reticle` | §7.1–§7.3 | 3 tests — accessible name required, label required to compile, inherits `currentColor` |
+| `CoordinatePair` | §9.2, §11.2–§11.3 | 5 tests — label/value, no re-rounding, no tone variant, full value for a11y, both sizes |
+| `CoordinateGrid` | §11.3 | 1 test — renders children |
+
+Styles in `apps/web/src/styles/components.css`. Tokens only; three border
+tokens were added to the token layer because that file was writing
+`1px solid <colour>` directly and the scan correctly rejected it.
+
+## Two defects the tests caught
+
+Both were real and both would have shipped from a source read.
+
+1. **`Section` was never a landmark.** HTML-AAM gives `<section>` the `region`
+   role only when it has an accessible name; an unnamed section is generic and
+   invisible to landmark navigation. Fixed: optional `label` → `aria-label`. The
+   test now asserts named-is-a-region and unnamed-is-not, rather than assuming.
+
+2. **`SignalLine` hid its own reticle.** The wrapper had `aria-hidden` to keep
+   the decorative rule out of the accessibility tree — but §10.1 puts a `reticle`
+   node on the hero signal line, and §7.3 requires every glyph to have an
+   accessible name. Hiding the wrapper hid that name with it. `aria-hidden` now
+   sits on the `<hr>` alone. A test asserts the wrapper is **not** hidden.
+
+## Two scanner bugs found and fixed, both re-proved
+
+| Bug | Consequence | Fix |
+|---|---|---|
+| Block-comment state not tracked across lines | A continuation line mentioning `0ms` inside `/* */` was scanned as code — false positive, and a false negative for any real violation following a block comment | Track `/* … */` state per file |
+| `inline-style-object` rejected every style object | Flagged `gap: var(--space-7)`, which is the **required** token form | Reject only style objects whose values are not token references |
+| `px-literal` flagged media-query breakpoints | `min-width: 1024px` is a documented §8.1 breakpoint and **cannot** be a token — CSS custom properties are invalid in media query conditions | Exclude breakpoint conditions; the four values are recorded beside `--layout-*` |
+
+After relaxing the rules, the original plant was re-run: **all four violations
+reported, exit 1**; removing it returned exit 0. A relaxed rule that no longer
+fails is worthless.
 
 ## Not reached
 
-Waves 1 through 7. No component and no screen has been built.
+- **Task 4 — the gallery route.** Not started.
+- Wave 2, Wave 3, and everything after.
+- No screen.
 
-## Wave 1 — status: NOT STARTED, with one prerequisite found
+## Exact next step
 
-Investigated before stopping, so the next session does not discover it
-mid-wave.
+**Build the gallery route**, then close Wave 1's gate.
 
-### Blocker found: no DOM test environment exists
+1. Re-read `design/DESIGN.md` §9, §10.15, §5, §6 and
+   `design/FRONTEND_IMPLEMENTATION_PLAN.md` §3 Wave 1's gate. Required.
+2. `apps/web/src/app/(dev)/gallery/page.tsx`, rendering **every variant of every
+   Wave 1 component** at 375 / 768 / 1280 / 1440, plus the §10.15
+   narrow-width stress section: long values, wrapping rows, long labels,
+   extreme numbers.
+3. **Gate the gallery out of production, and verify the gating both anonymously
+   and signed in.** Not assumed — `SKILL_FRONTEND_DESIGN.md` §12 Phase 4 records
+   that an ungated dev route is how a gallery leaks into a shipped build.
+4. Wave 1's gate, all five items:
+   - every variant renders at 375 / 768 / 1280 / 1440;
+   - `SignalLine` reveals once and is then still, and does not animate on any
+     inner panel (asserted mechanically already: `signalLineReveal` is the only
+     spec on `--duration-deliberate`);
+   - at most three chamfered panels per built screen; chamfer size comes from
+     `--chamfer-size`;
+   - no shadow elevation outside the overlay tier (asserted: `--shadow-overlay`
+     is absent from `components.css`);
+   - reduced motion forced on: `SignalLine` renders final-state with no sweep.
+5. Only then start **Wave 2** — actions and form controls: `Button`, `IconButton`,
+   `LinkButton`, `SegmentedControl`, `Field`, `TextInput`, `NumericInput`,
+   `Textarea`, `Select`, `LeverageStepper`, `ExpiryControl`, `Checkbox`,
+   `Toggle`, `ValidationMessage`.
 
-`design/FRONTEND_IMPLEMENTATION_PLAN.md` §2.4 requires every component to ship
-with "a test". Wave 1's thirteen components are React components whose only
-meaningful assertions are rendered output, accessible names, and computed
-styles. None of that is assertable today:
-
-- Root `vitest.config.ts` sets `include: ["packages/**/*.test.ts", "apps/api/**/*.test.ts"]`
-  and `environment: "node"`. `apps/web/**` is **not** in the include list, so a
-  web component test would not run at all.
-- Confirmed absent everywhere (root and `apps/web/node_modules`): `jsdom`,
-  `happy-dom`, `@testing-library/react`, `@vitejs/plugin-react`.
-
-**What the next session must do first:** decide on and install a DOM test
-environment for `apps/web`, then extend `vitest.config.ts` with a second
-project covering `apps/web/**/*.test.tsx` under a DOM environment with JSX
-transformed.
-
-This is the one place where the "no new dependencies" constraint is in tension
-with a stated requirement. The reasoning to record: a DOM environment is a
-**verification tool**, which the constraint explicitly permits, and §2.4's
-"and a test" is not optional. The alternative — writing Wave 1's thirteen
-components with no tests — is a process anti-pattern in both
-`SKILL_FRONTEND_DESIGN.md` §11 and the plan §7 ("Building a screen before its
-components existed, and discovering mid-screen that a needed primitive had no
-reduced-motion or empty-state behaviour").
-
-If adding the harness proves difficult, the honest fallback is to record it as a
-gap with a manual checklist, not to quietly skip the tests.
-
-### Then, Wave 1 in the plan's order
-
-1. Re-read `design/DESIGN.md` §9.1, §9.2, §5, §6 and
-   `design/FRONTEND_IMPLEMENTATION_PLAN.md` §3. Required before each wave.
-2. `apps/web/src/motion/` — durations and easings live in tokens; animation
-   **behaviour** lives in helpers; components call helpers. Every helper must
-   collapse to instant or fade-only under `prefers-reduced-motion`, and the
-   switch is read in one place. The token scan already rejects a direct
-   animation-library import from a component.
-3. Components: `Stack`, `Inline`, `Section`, `Panel`, `ChamferPanel`, `Rule`,
-   `GridField`, `Eyebrow`, `SectionNumber`, `SignalLine`, `Reticle`,
-   `CoordinatePair`, `PageShell`.
-4. Gallery route at `apps/web/src/app/(dev)/gallery/page.tsx`, rendering every
-   variant at 375 / 768 / 1280 / 1440 plus the narrow-width stress section
-   (§10.15), gated out of production with the gating **verified** both
-   anonymously and signed in.
-
-Wave 1's gate: gallery renders every variant at all four breakpoints;
-`SignalLine` reveals once and is then still and never animates on an inner
-panel; at most three chamfered panels per built screen; no shadow elevation
-outside the overlay tier; reduced motion forced on renders `SignalLine` in its
-final state with no sweep.
-
-## The authoritative Stage K screen list (G-16, closed)
-
-`design/DESIGN.md` §10 governs. 13 web screens in Wave 7, in the plan's order:
-
-| # | Screen | §  | Wave |
-|---|---|---|---|
-| 1 | Landing | §10.1 | 7 |
-| 2 | Discover / Explore Passes | §10.2 | 7 |
-| 3 | Pass detail — the core conversion surface | §10.3 | 7 |
-| 4 | Trader profile | §10.4 | 7 |
-| 5 | Create Pass | §10.5 | 7 |
-| 6 | Take flow, steps 1–4 | §10.6 | 7 |
-| 7 | Stale Pass interstitial | §10.7 | 7 |
-| 8 | My Passes (dashboard) | §10.8 | 7 |
-| 9 | Executions | §10.9 | 7 |
-| 10 | Profile and connections (own) | §10.10 | 7 |
-| 11 | Onboarding and connect | §10.11 | 7 |
-| 12 | Error and not-found | §10.12 | 7 |
-| 13 | Social preview (Open Graph) | §10.14 | 7 |
-
-Plus, outside Wave 7: §10.13 Extension surfaces (Wave 6) and §10.15 Gallery
-(Wave 1).
-
-**The brief's eleven-screen list is superseded.** It split "Dashboard" from
-"My Passes" — §10.8 defines one "My Passes (dashboard)" screen, and there is no
-`/me` route in the build — and it omitted §10.7, §10.11, §10.12, and §10.14.
-`design/FRONTEND_IMPLEMENTATION_PLAN.md` §3 Wave 7 independently lists the same
-13, so the plan and the design document agree and the brief was the outlier.
-
-## Blocked on the operator
-
-1. **Font paint.** `pnpm run check:fonts` proves the files are correct, not that
-   they render. A face can be a valid, correctly-named, correctly-weighted file
-   the browser still declines to apply. Checklist in
-   `design/phase-records/PHASE_00_tokens.md` §8.3: nine
-   `document.fonts.check(...)` calls, nine `/fonts/*.woff2` requests all 200,
-   and zoom in on a heading — a serif there means a face did not resolve and the
-   whole type system silently fell back, which no test catches.
+Wave 2's gate is where `--color-line-strong` finally becomes visible, so note the
+amended value `#656577` is already in place and asserted at 3.33:1.
 
 ## Standing constraints
 
 - **No browser automation here.** Everything is "built, not visually verified".
   Never write "verified" next to something not observed. Keep the phase open.
-- No UI framework. No animation library.
-- Do not edit `SKILL_FRONTEND_DESIGN.md` or `docs/DECISIONS.md` or
-  `docs/SECURITY_SPEC.md`. `design/DESIGN.md` may be amended only as a logged
-  act with a stated reason — three have been made, all recorded in
-  `design/README.md`: G-15 (§5.3.1), the §2.9 errata, and G-14's token-layer
-  path.
-- No product-behaviour or API changes. Touch `apps/api` only if a design change
-  requires a read-side field.
-- Extension overlay: visual harmonisation only. Detection, injection, and API
-  logic are out of scope.
+- No UI framework. No component library. No animation library. Testing tools
+  only — the DOM harness is authorised and installed.
+- Tailwind stays until Wave 7. `@tailwind` directives are still in `globals.css`
+  and the Wave 7 screens are still utility-class based.
+- The extension overlay is **not touched**; Wave 6.
+- Do not edit `SKILL_FRONTEND_DESIGN.md`, `docs/DECISIONS.md`, or
+  `docs/SECURITY_SPEC.md`. `design/DESIGN.md` only as a logged amendment — four
+  exist, all recorded in `design/README.md`.
 - One commit per wave, one per screen.
-- `pnpm run check` currently green: 45/45 tests, token scan PASS, contrast PASS,
-  fonts PASS.
+- **Keep `PENDING_MIGRATION` in `scripts/check-design-tokens.mjs` current.** Seven
+  out-of-token values remain in four not-yet-rebuilt Wave 7 screens. Remove an
+  entry as its screen is rebuilt; the ratchet fails on both too many and too
+  few.
+
+## Still open on the operator — the font paint check
+
+**`pnpm run check:fonts` proves the files are correct. It does not prove they
+paint.** A face can be valid, correctly named, correctly weighted, and
+byte-identical to Google Fonts while the browser still declines to apply it, and
+that failure is visible only as rendered pixels. It is also the failure where the
+whole type system silently falls back to a system serif and **no test fails**.
+
+1. `pnpm --filter @pass/web dev`, open the site.
+2. DevTools Console — run all nine, expect `true` for each:
+
+```js
+document.fonts.check('500 16px Archivo');        // true
+document.fonts.check('600 16px Archivo');        // true
+document.fonts.check('700 16px Archivo');        // true
+document.fonts.check('400 16px "Inter Tight"');  // true
+document.fonts.check('500 16px "Inter Tight"');  // true
+document.fonts.check('600 16px "Inter Tight"');  // true
+document.fonts.check('400 16px "IBM Plex Mono"'); // true
+document.fonts.check('500 16px "IBM Plex Mono"'); // true
+document.fonts.check('600 16px "IBM Plex Mono"'); // true
+```
+
+3. Network tab filtered to `fonts` — expect nine requests to
+   `/fonts/*.woff2`, **every one 200**, none from a third-party origin.
+4. **Zoom to 200% on a heading.** A **serif** there means a face did not resolve
+   and the entire type system fell back. This is the defect the gate exists for.
+5. Repeat on the deployed URL, not only localhost.
