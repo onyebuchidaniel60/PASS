@@ -339,6 +339,13 @@
 
   /* §8.5 Thesis clamps to 6 lines with an expand affordance. */
   --line-limit-thesis: 6;
+
+  /* Screen-reader-only clip technique. An accessibility utility rather than a
+     design-scale value, but still a token: the scanner rejects raw px anywhere
+     but this file, and a "just this once" exception would be exactly the habit
+     the scan exists to prevent. */
+  --size-a11y-hidden: 1px;
+  --offset-a11y-hidden: -1px;
 }
 
 /* -------------------------------------------------------------------------

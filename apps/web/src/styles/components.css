@@ -292,3 +292,333 @@
   gap: var(--rhythm-block);
   min-width: 0;
 }
+
+/* -------------------------------------------------------------------------
+ * §9.3 Actions and §9.4 Form controls — Wave 2
+ *
+ * Press feedback is defined ONCE here and inherited by every variant
+ * (DESIGN.md 6.5). Measured minimum target is --size-target-min (44px) for any
+ * interactive element; icon-only controls keep the full hit area regardless of
+ * the glyph's optical size (7.1).
+ *
+ * The accent fills only the PRIMARY action (2.5). Secondary is an outline,
+ * ghost is text-only, destructive uses the data-negative text colour rather than
+ * a second saturated fill.
+ * ---------------------------------------------------------------------- */
+
+.pass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-weight: 500;
+  line-height: var(--type-body-m-line);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  border: var(--border-strong);
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+/* 6.5 press feedback: scale 1 -> 0.98 at --duration-fast, defined once. */
+.pass-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.pass-btn[data-size="sm"] {
+  min-height: var(--size-target-min);
+  padding-inline: var(--space-3);
+  font-size: var(--type-body-s-size);
+}
+
+.pass-btn[data-size="md"] {
+  min-height: var(--size-target-min);
+  padding-inline: var(--space-4);
+  font-size: var(--type-body-m-size);
+}
+
+.pass-btn[data-size="lg"] {
+  min-height: var(--size-target-min);
+  padding-inline: var(--space-6);
+  font-size: var(--type-body-l-size);
+}
+
+/* 2.5 the single accent-filled control per viewport */
+.pass-btn[data-variant="primary"] {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-weight: 600;
+}
+
+.pass-btn[data-variant="primary"]:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.pass-btn[data-variant="primary"]:active:not(:disabled) {
+  background-color: var(--color-accent-active);
+  border-color: var(--color-accent-active);
+}
+
+.pass-btn[data-variant="secondary"] {
+  background-color: transparent;
+  color: var(--color-text-primary);
+}
+
+.pass-btn[data-variant="secondary"]:hover:not(:disabled) {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-line-strong);
+}
+
+.pass-btn[data-variant="ghost"] {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-text-primary);
+  padding-inline: var(--space-2);
+}
+
+.pass-btn[data-variant="ghost"]:hover:not(:disabled) {
+  border-color: var(--color-line-strong);
+}
+
+/* Destructive is text colour, not a second saturated fill (2.5, 2.6) */
+.pass-btn[data-variant="destructive"] {
+  background-color: transparent;
+  border-color: var(--color-line-strong);
+  color: var(--color-data-negative);
+}
+
+.pass-btn:disabled {
+  cursor: not-allowed;
+  color: var(--color-text-disabled);
+  border-color: var(--color-line-hairline);
+  background-color: transparent;
+}
+
+.pass-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--color-text-disabled);
+  border-color: var(--color-line-hairline);
+  background-color: transparent;
+}
+
+/* 7.1 an icon-only control keeps the full 44px hit area */
+.pass-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--size-target-min);
+  min-height: var(--size-target-min);
+  padding: 0;
+  background-color: transparent;
+  border: var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.pass-icon-btn:hover:not(:disabled) {
+  background-color: var(--color-surface-raised);
+}
+
+.pass-icon-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* 9.3 a text link whose underline APPEARS on hover */
+.pass-link-btn {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  min-height: var(--size-target-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+.pass-link-btn:hover {
+  text-decoration: underline;
+}
+
+.pass-link-btn[aria-disabled="true"] {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* 9.3 Long/Short, entry-type, period selection */
+.pass-segmented {
+  display: inline-flex;
+  border: var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.pass-segmented-option {
+  min-height: var(--size-target-min);
+  padding-inline: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background-color: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.pass-segmented-option + .pass-segmented-option {
+  border-left: var(--border-strong);
+}
+
+/* 2.5 active nav item / selection is a listed accent use */
+.pass-segmented-option[aria-pressed="true"] {
+  background-color: var(--color-accent-muted);
+  color: var(--color-text-primary);
+}
+
+/* 9.4 Fields */
+.pass-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.pass-field-label {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.pass-field-required {
+  color: var(--color-accent-text);
+}
+
+.pass-field-helper {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-tertiary);
+}
+
+.pass-control {
+  min-height: var(--size-target-min);
+  width: 100%;
+  background-color: var(--color-surface);
+  border: var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding-inline: var(--space-3);
+  color: var(--color-text-primary);
+}
+
+.pass-control[aria-invalid="true"] {
+  border-color: var(--color-data-negative);
+}
+
+/* 9.4 Validation is text + aria-live, never colour alone (2.8) */
+.pass-validation {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-data-negative);
+}
+
+.pass-textarea {
+  min-height: calc(var(--size-target-min) * 2);
+  padding: var(--space-3);
+  resize: vertical;
+  line-height: var(--type-body-m-line);
+}
+
+/* 8.5 thesis clamps to a line limit; it never grows without bound */
+.pass-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: var(--line-limit-thesis);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pass-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pass-stepper-value {
+  font-family: var(--font-data);
+  font-variant-numeric: var(--numeric-tabular);
+  font-size: var(--type-data-m-size);
+  min-width: var(--space-7);
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+.pass-checkbox-row,
+.pass-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-target-min);
+  cursor: pointer;
+}
+
+.pass-toggle-track {
+  position: relative;
+  width: var(--space-6);
+  height: var(--space-5);
+  border: var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  flex: 0 0 auto;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.pass-toggle-track[aria-checked="true"] {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.pass-toggle-track::after {
+  content: "";
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-start: var(--space-1);
+  width: var(--space-4);
+  height: var(--space-4);
+  background-color: var(--color-text-primary);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.pass-toggle-track[aria-checked="true"]::after {
+  transform: translateX(var(--space-4));
+}
+
+/* Screen-reader-only text. The standard clip technique: removed from the visual
+   box but still in the accessibility tree, so a required-field marker can be
+ * both visible (ember asterisk) and announced (the word "required"). */
+.visually-hidden {
+  position: absolute;
+  width: var(--size-a11y-hidden);
+  height: var(--size-a11y-hidden);
+  margin: var(--offset-a11y-hidden);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
