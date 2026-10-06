@@ -1,80 +1,65 @@
-# Stage K — build continuation
+﻿# Stage K — build continuation
 
-**Written:** 2026-10-06 (seventh revision — Landing shipped and deployed)
-**Deadline note:** screens first. Wave order is subordinate to screen visibility.
+**Written:** 2026-10-06 (eighth revision — batch session)
+**Deadline mode.** Screens first; wave order is subordinate to visibility.
 
 ## Current SHA
 
-`ebcd852` — `feat(design): landing screen`
+See `git log --oneline -1`. Pushed to `main`. Tree clean.
 
-Pushed to `main`. Tree clean.
-
-## Deployed
-
-**https://pass-web-dun.vercel.app** — `/` → **200, serves the new landing**
-· `/gallery` → 404 (gate holds)
-
-Verified in the deployed HTML: hero copy, `Explore Passes`, `Create a Pass`,
-the loop, the support line, `pass-hero-line`. The old light shell (`bg-white`,
-`text-neutral-900`, `max-w-6xl`) is **absent**.
+| SHA | Commit |
+|---|---|
+| `3605539` | `feat(design): status chip primitive` |
+| `5a1ae5c` | `feat(design): pass detail screen` |
+| `5abe6c7` | `feat(design): trader profile screen` |
 
 ## Complete
 
-| Item | Detail | Tests |
-|---|---|---|
-| Wave 0 | tokens, fonts, dark base, 3 checks | — |
-| Corrections | G-15, G-16, §2.9 errata | — |
-| DOM harness | — | 3 |
-| Motion helpers | 10 specs | 12 |
-| Wave 1 | 13 components | 44 |
-| Wave 2 | 14 components | 30 |
-| Gallery | — | 18 |
-| **Landing (§10.1)** | **first screen** | **18** |
-| **Total** | **27 components + 1 screen** | **170** (125 web + 45 package) |
+| Item | Tests |
+|---|---|
+| Wave 0 foundation · corrections · DOM harness · motion helpers | 15 |
+| Wave 1 — 13 components | 44 |
+| Wave 2 — 14 components | 30 |
+| Wave 3/4 primitives — 15 components | 27 |
+| Wave 5 — `Dialog` + stale interstitial | 7 |
+| Gallery | 18 |
+| §10.1 Landing | 18 |
+| §10.3 Pass detail | 21 |
+| §10.4 Trader profile | 13 |
+| **Total** | **231** (186 web + 45 package) |
 
 lint ✅ · typecheck ✅ · tokens ✅ · contrast ✅ · fonts ✅
 
-## Next session — Pass detail (§10.3)
+## Screens done: 3 of 13. Landing, Pass detail, Trader profile.
 
-**Step 1: build Wave 3's `StatusChip` first.** It does not exist and §11.7
-specifies it exactly: uppercase mono, text-first, colour is a secondary cue, and
-**no chip uses a filled accent background.** The mapping is in §11.7:
+## Exact next step
 
-| State | Treatment |
-|---|---|
-| `DRAFT`, `EXPIRED`, `CANCELLED`, `INVALIDATED` | tertiary text, hairline border |
-| `ACTIVE`, `OPEN` | `--color-text-primary`, hairline border |
-| `ENTRY_PENDING` | `--color-accent-text`, accent hairline |
-| `TP_HIT` | `--color-data-positive`, hairline |
-| `SL_HIT` | `--color-data-negative`, hairline |
-| `MANUALLY_CLOSED` | `--color-text-secondary`, hairline |
+**1. Extract the presentational states from `PassDetailClient` into a pure view
+component and close the one open test gap** — the network-failure → error-state
+transition. Recorded in `design/phase-records/PHASE_02_batch_session.md`; it
+resisted four mocking approaches and needs a refactor, not another tweak.
 
-**Step 2: build Pass detail** at `/p/[publicId]`. `DESIGN.md` §10.3 and
-`UX_SPEC.md` §5 fix the order: status → asset+direction → trader + Ethos →
-ENTRY/TP/SL/LEVERAGE → thesis → market context → takers → TAKE PASS. Use the
-existing `ChamferPanel` for the plan block, `CoordinateGrid` + `CoordinatePair`
-for the four levels, `Reticle` at the panel's top-left, `Button` primary for
-TAKE PASS.
+**2. §10.6 Take flow.** Needs `NumericInput` + `LeverageStepper` (exist) and the
+`Dialog` (exists). Four steps: size → preview → authorize → confirmation. Must
+feel like a document being signed, not a checkout. Taker's size is empty by
+default and never pre-filled from the Trader's size (§10.6 Step 1, D-015).
 
-Rules that will bite: the three price levels are **equal weight and never
-colour-coded** (§11.3); `BTC LONG` is the largest element on the page; PASS
-performance and Hyperliquid account performance stay in separate blocks (§11.4).
+**3. §10.2 Discover.** Check the API list route first — `/api/v1/passes?limit=2`
+returns 404, so the discover route is something else. Grep
+`apps/api/src/routes/public.ts` for it.
 
-**Step 3: Trader profile (§10.4)** — needs Wave 4's `PerformanceBlock` and
-`ReputationBlock` with a **mandatory `Rule` between them** (D-007 / PRD §12, a
-P0 anti-pattern to merge them).
-
-Verify: `/p/UvvuxpWPZ4` (seeded demo Pass) and `/u/turnttfup99`.
+**4. Then** §10.5 Create Pass · §10.7 stale interstitial as a route · §10.8 My
+Passes · §10.9 Executions · §10.10 Profile · §10.11 Onboarding · §10.12
+Error/404 · §10.14 OG. Then §10.13 extension overlay harmonisation (visual only),
+then Tailwind removal.
 
 ## Still on provisional UI at the deadline
 
-**Screens not rebuilt — 12 of 13:**
+**Screens not rebuilt — 10 of 13:**
 - §10.2 Discover
-- §10.3 Pass detail ← **next**
-- §10.4 Trader profile
 - §10.5 Create Pass
 - §10.6 Take flow (4 steps)
-- §10.7 Stale Pass interstitial
+- §10.7 Stale Pass interstitial (component exists, no route)
 - §10.8 My Passes (dashboard)
 - §10.9 Executions
 - §10.10 Profile and connections
@@ -82,53 +67,35 @@ Verify: `/p/UvvuxpWPZ4` (seeded demo Pass) and `/u/turnttfup99`.
 - §10.12 Error and not-found
 - §10.14 Social preview / OG
 
-**Primitives those screens still need — Wave 3–6:**
-- Wave 3: `StatBlock`, `StatRow`, `DataTable`, `DataCell`, `PriceCell`,
-  `PnlCell`, **`StatusChip`**, `Tag`, `Timestamp`, `Address`, `DirectionBadge`
-- Wave 4: `Avatar`, `HandleBlock`, **`ReputationBlock`**, **`PerformanceBlock`**,
-  `ConnectionChip`, `LoadingBlock`, `EmptyBlock`, `ErrorBlock`,
-  `UnavailableBlock`, `StaleBlock`, `PermissionBlock`, `RejectedBlock`
-- Wave 5: `Dialog`, `BottomSheet`, `Popover`, `Tooltip`, `Toast`, `Sidebar`,
-  `BottomNav`
-- Wave 6: `ExtensionBadge` harmonisation (§10.13) — the extension overlay is
-  still the neutral on-X palette, not PASS's
+**Primitives those screens still need — Wave 3/5 remainder:**
+- `DataTable` (CSS exists), `PriceCell`, `DataCell`, `StatRow`, `Tag`
+- `BottomSheet`, `Popover`, `Tooltip`, `Toast`
+- `Sidebar`, `BottomNav` — must **export their dimensions as tokens**
+- `Avatar`, `ConnectionChip`, `PermissionBlock`, `StaleBlock`
+- §10.13 extension overlay still on the neutral on-X palette, not PASS's
 
-**Operator verifications outstanding:**
-1. **Landing** — hero and CTAs visible in the first viewport at 375×812 and
-   1280×800; CTA target ≥44px; reduced motion renders the signal line with no
-   sweep.
-2. **Target sizes** — no jsdom box has layout, so every `--size-target-min`
-   declaration is unmeasured.
+## Operator verification checklist
+
+1. **Font paint** — nine `document.fonts.check(...)` calls, Network → `fonts`
+   nine `/fonts/*.woff2` all 200, **zoom 200% on a heading: a serif means a face
+   did not resolve**.
+2. **Target sizes** — every control declares `--size-target-min` (44px) but
+   nothing measured it; jsdom has no layout.
 3. **Press state** — click and read computed `transform` (expect `scale(0.98)`).
-4. **Focus ring in forced-colors.**
-5. **Rendered contrast** — currently proven against token values, not pixels.
-6. **Font paint check** — below.
-7. **Gallery** in development at both viewports.
-
-## Operator checklist — font paint check
-
-```js
-document.fonts.check('500 16px Archivo');        // true
-document.fonts.check('600 16px Archivo');        // true
-document.fonts.check('700 16px Archivo');        // true
-document.fonts.check('400 16px "Inter Tight"');  // true
-document.fonts.check('500 16px "Inter Tight"');  // true
-document.fonts.check('600 16px "Inter Tight"');  // true
-document.fonts.check('400 16px "IBM Plex Mono"'); // true
-document.fonts.check('500 16px "IBM Plex Mono"'); // true
-document.fonts.check('600 16px "IBM Plex Mono"'); // true
-```
-
-Run against production. Network → `fonts`: nine `/fonts/*.woff2`, all 200, no
-third-party. **Zoom 200% on a heading — a serif means a face did not resolve**
-and the whole type system fell back.
+4. **Focus ring** in forced-colors.
+5. **Above the fold** — on Pass detail and the Take flow, asset+direction,
+   status, entry/TP/SL and the CTA must be in the first viewport at 375×812.
+6. **Reduced motion** — no element moves; signal line final-state.
+7. **Rendered contrast** — proven against token values, not pixels.
+8. **Screens** — Landing, `/p/UvvuxpWPZ4`, `/u/turnttfup99` at 375×812 and
+   1280×800.
 
 ## Standing constraints
 
-- No browser automation. Everything is "built, not visually verified".
+- No browser automation. Nothing is visually verified. Phase stays open.
 - No UI framework, component library, or animation library. Testing tools only.
-- Tailwind stays until Wave 7. `layout.tsx` and `page.tsx` are off it; the other
-  12 screens are still utility-class based.
+- Tailwind until Wave 7. Landing, Pass detail, and Trader profile are off it;
+  the other 10 screens are still utility-class based.
 - Do not edit `SKILL_FRONTEND_DESIGN.md`, `docs/DECISIONS.md`,
   `docs/SECURITY_SPEC.md`, or `docs/API_CONTRACTS.md`. `design/DESIGN.md` only as
   a logged amendment — four exist, in `design/README.md`.
