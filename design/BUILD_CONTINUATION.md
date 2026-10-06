@@ -1,64 +1,56 @@
 ﻿# Stage K — build continuation
 
-**Written:** 2026-10-06 (eighth revision — batch session)
-**Deadline mode.** Screens first; wave order is subordinate to visibility.
+**Written:** 2026-10-06 (ninth revision — screens-first session)
+**Deadline mode.** Screens first; primitives built only when a screen pulls them.
 
 ## Current SHA
 
 See `git log --oneline -1`. Pushed to `main`. Tree clean.
 
-| SHA | Commit |
-|---|---|
-| `3605539` | `feat(design): status chip primitive` |
-| `5a1ae5c` | `feat(design): pass detail screen` |
-| `5abe6c7` | `feat(design): trader profile screen` |
-
 ## Complete
 
 | Item | Tests |
 |---|---|
-| Wave 0 foundation · corrections · DOM harness · motion helpers | 15 |
-| Wave 1 — 13 components | 44 |
-| Wave 2 — 14 components | 30 |
-| Wave 3/4 primitives — 15 components | 27 |
-| Wave 5 — `Dialog` + stale interstitial | 7 |
+| Wave 0 foundation · corrections · harness · motion | 15 |
+| Wave 1 (13) · Wave 2 (14) | 74 |
+| Wave 3/4 primitives (15) · Wave 5 Dialog + interstitial | 34 |
 | Gallery | 18 |
-| §10.1 Landing | 18 |
-| §10.3 Pass detail | 21 |
-| §10.4 Trader profile | 13 |
-| **Total** | **231** (186 web + 45 package) |
+| §10.1 Landing · §10.2 Discover · §10.3 Pass detail · §10.4 Trader profile | 62 |
+| **Total** | **241** (196 web + 45 package) |
 
 lint ✅ · typecheck ✅ · tokens ✅ · contrast ✅ · fonts ✅
 
-## Screens done: 3 of 13. Landing, Pass detail, Trader profile.
-
 ## Exact next step
 
-**1. Extract the presentational states from `PassDetailClient` into a pure view
-component and close the one open test gap** — the network-failure → error-state
-transition. Recorded in `design/phase-records/PHASE_02_batch_session.md`; it
-resisted four mocking approaches and needs a refactor, not another tweak.
+**1. Take flow (§10.6) — retry, with its 14 tests already drafted.**
+`apps/web/src/app/passes/[publicId]/take/` is back on the provisional build and
+`TakeFlowClient.tsx` + `takeFlow.test.tsx` were reverted. The real route exists:
+`POST /api/v1/passes/:id/execution-preview` (auth-gated, in
+`apps/api/src/routes/pass.ts`) then `POST /api/v1/passes/:id/executions`. A GET
+to the preview route 404s because it is POST-only, which is what made it look
+missing.
 
-**2. §10.6 Take flow.** Needs `NumericInput` + `LeverageStepper` (exist) and the
-`Dialog` (exists). Four steps: size → preview → authorize → confirmation. Must
-feel like a document being signed, not a checkout. Taker's size is empty by
-default and never pre-filled from the Trader's size (§10.6 Step 1, D-015).
+Three things to carry forward:
+- `window.scrollTo` must be guarded; jsdom does not implement it and an
+  unguarded call interrupts the step transition.
+- The order summary restates the size **as typed**, not re-formatted.
+- The four failures were formatting-expectation bugs in the tests, not product
+  defects.
 
-**3. §10.2 Discover.** Check the API list route first — `/api/v1/passes?limit=2`
-returns 404, so the discover route is something else. Grep
-`apps/api/src/routes/public.ts` for it.
-
-**4. Then** §10.5 Create Pass · §10.7 stale interstitial as a route · §10.8 My
-Passes · §10.9 Executions · §10.10 Profile · §10.11 Onboarding · §10.12
-Error/404 · §10.14 OG. Then §10.13 extension overlay harmonisation (visual only),
-then Tailwind removal.
+**2. §10.12 Error/404** — small: a `not-found.tsx` and an error boundary.
+**3. §10.5 Create Pass** — reuse the provisional auth mechanism, do not build a
+   new auth pattern. Needs no new primitives.
+**4. §10.14 OG metadata** — verify `/p/{publicId}` OG tags match the spec format.
+**5. §10.7 stale route** — the component exists; it only needs its own route.
+**6. Then** §10.8 My Passes · §10.9 Executions · §10.10 Profile · §10.11
+Onboarding. Then §10.13 extension overlay harmonisation (visual only), then
+Tailwind removal in Wave 7.
 
 ## Still on provisional UI at the deadline
 
-**Screens not rebuilt — 10 of 13:**
-- §10.2 Discover
+**Screens not rebuilt — 9 of 13:**
 - §10.5 Create Pass
-- §10.6 Take flow (4 steps)
+- §10.6 Take flow (4 steps) — **reverted this session, retry first**
 - §10.7 Stale Pass interstitial (component exists, no route)
 - §10.8 My Passes (dashboard)
 - §10.9 Executions
@@ -67,8 +59,8 @@ then Tailwind removal.
 - §10.12 Error and not-found
 - §10.14 Social preview / OG
 
-**Primitives those screens still need — Wave 3/5 remainder:**
-- `DataTable` (CSS exists), `PriceCell`, `DataCell`, `StatRow`, `Tag`
+**Primitives those screens still need — build on demand, not in advance:**
+- `DataTable` (CSS only), `PriceCell`, `DataCell`, `StatRow`, `Tag`
 - `BottomSheet`, `Popover`, `Tooltip`, `Toast`
 - `Sidebar`, `BottomNav` — must **export their dimensions as tokens**
 - `Avatar`, `ConnectionChip`, `PermissionBlock`, `StaleBlock`
@@ -76,26 +68,28 @@ then Tailwind removal.
 
 ## Operator verification checklist
 
-1. **Font paint** — nine `document.fonts.check(...)` calls, Network → `fonts`
-   nine `/fonts/*.woff2` all 200, **zoom 200% on a heading: a serif means a face
-   did not resolve**.
-2. **Target sizes** — every control declares `--size-target-min` (44px) but
-   nothing measured it; jsdom has no layout.
-3. **Press state** — click and read computed `transform` (expect `scale(0.98)`).
-4. **Focus ring** in forced-colors.
-5. **Above the fold** — on Pass detail and the Take flow, asset+direction,
-   status, entry/TP/SL and the CTA must be in the first viewport at 375×812.
-6. **Reduced motion** — no element moves; signal line final-state.
-7. **Rendered contrast** — proven against token values, not pixels.
-8. **Screens** — Landing, `/p/UvvuxpWPZ4`, `/u/turnttfup99` at 375×812 and
-   1280×800.
+1. Open `/`, `/discover`, `/p/UvvuxpWPZ4`, `/u/turnttfup99` in a browser — all
+   four are client-fetched, so served HTML shows only a loading state.
+2. Confirm `/u/turnttfup99` now lists the trader's Active Pass (it was broken
+   by a wrong API URL until this session).
+3. Font paint: nine `document.fonts.check(...)` calls; Network → `fonts` nine
+   `/fonts/*.woff2` all 200; **zoom 200% on a heading — a serif means a face did
+   not resolve**.
+4. Target sizes ≥44px — declared in CSS, never measured.
+5. Press state — computed `transform` should be `scale(0.98)` while active.
+6. Focus ring in forced-colors.
+7. Above the fold on Pass detail at 375×812: asset+direction, status, entry/TP/SL, CTA.
+8. Reduced motion — nothing moves; signal line final-state.
+9. Confirm the Rule sits between PASS Performance and Reputation on the profile.
 
 ## Standing constraints
 
 - No browser automation. Nothing is visually verified. Phase stays open.
 - No UI framework, component library, or animation library. Testing tools only.
-- Tailwind until Wave 7. Landing, Pass detail, and Trader profile are off it;
-  the other 10 screens are still utility-class based.
+- Tailwind until Wave 7. Landing, Discover, Pass detail, and Trader profile are
+  off it; the other 9 screens are utility-class based.
+- **Build a primitive only when the screen in front of you needs it.** This is
+  the rule that changed the pace and it held this session.
 - Do not edit `SKILL_FRONTEND_DESIGN.md`, `docs/DECISIONS.md`,
   `docs/SECURITY_SPEC.md`, or `docs/API_CONTRACTS.md`. `design/DESIGN.md` only as
   a logged amendment — four exist, in `design/README.md`.
