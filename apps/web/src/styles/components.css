@@ -963,3 +963,116 @@
   height: var(--space-5);
   border-radius: var(--radius-sm);
 }
+
+/* -------------------------------------------------------------------------
+ * §5.4 Overlay tier. The ONLY tier permitted a shadow, and --shadow-overlay
+ * appears nowhere else in the codebase (plan §3 Wave 5 gate).
+ * ---------------------------------------------------------------------- */
+
+.pass-scrim {
+  position: fixed;
+  inset: 0;
+  /* §5.4 backdrop */
+  background-color: var(--color-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 100;
+}
+
+.pass-dialog {
+  width: 100%;
+  max-width: var(--measure-body);
+  max-height: 90vh;
+  overflow-y: auto;
+  background-color: var(--color-surface-raised);
+  border: var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  /* §5.4 the single permitted shadow */
+  box-shadow: var(--shadow-overlay);
+}
+
+.pass-dialog-title {
+  font-family: var(--type-display-m-font);
+  font-size: var(--type-display-m-size);
+  line-height: var(--type-display-m-line);
+  letter-spacing: var(--type-display-m-track);
+  color: var(--color-text-primary);
+  margin-block-end: var(--space-4);
+}
+
+.pass-dialog-body {
+  font-family: var(--type-body-m-font);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  color: var(--color-text-secondary);
+}
+
+.pass-dialog-action {
+  margin-block-start: var(--space-5);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* §9.5 DataTable: header in --type-label, tabular figures, hairline rules.
+   §5.3 row striping is prohibited. */
+.pass-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+.pass-data-table th,
+.pass-data-table td {
+  text-align: start;
+  padding: var(--space-3);
+  border-block-end: var(--border-hairline);
+  font-size: var(--type-data-s-size);
+  color: var(--color-text-primary);
+}
+
+.pass-data-table thead th {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+}
+
+/* §10.3 The Pass object line. BTC LONG is the largest element on the page. */
+.pass-asset-line {
+  font-family: var(--type-display-l-font);
+  font-size: var(--type-display-l-size);
+  line-height: var(--type-display-l-line);
+  letter-spacing: var(--type-display-l-track);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.pass-thesis {
+  font-family: var(--type-body-l-font);
+  font-size: var(--type-body-l-size);
+  line-height: var(--type-body-l-line);
+  color: var(--color-text-secondary);
+  max-width: var(--measure-thesis);
+}
+
+.pass-row-link {
+  display: block;
+  padding: var(--space-4);
+  border-block-end: var(--border-hairline);
+  text-decoration: none;
+  color: inherit;
+}
+
+.pass-row-link:hover {
+  background-color: var(--color-surface-raised);
+}
