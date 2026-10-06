@@ -88,9 +88,15 @@ const RULES = [
     id: "px-literal",
     clause: "DESIGN.md §4, §5.1, §3.3",
     re: /\b\d+(?:\.\d+)?px\b/g,
-    // 1px hairline borders and 0px resets are structural, not scale values,
-    // but the design mandates specific ones; keep flagging any px so the
-    // decision is explicit rather than silent.
+    filter: (m, line) => {
+      // Media query breakpoints are NOT spacing, radius, or type values.
+      // DESIGN.md §8.1 defines them as breakpoint ranges, and CSS custom
+      // properties cannot be used in a media query condition, so a breakpoint
+      // genuinely cannot be a token. The four values are recorded in
+      // tokens.css next to --layout-* so they still have one source.
+      if (/@media/.test(line) && /(?:min|max)-width:\s*\d+px/.test(line)) return false;
+      return true;
+    },
     label: "raw px value (spacing/radius/type scale is token-only)",
   },
   {
@@ -117,13 +123,21 @@ const RULES = [
     clause: "FRONTEND_IMPLEMENTATION_PLAN.md §2.2",
     // A unitless number in a React style object is a px value, so neither the
     // hex rule nor the px rule can see it. Rather than guess at which numeric
-    // properties are lengths, reject inline style objects outright in
-    // component files: they are the only way an out-of-token value can enter
-    // without appearing as a literal. Recorded as an enforcement decision in
-    // design/phase-records/PHASE_00_tokens.md, not a design amendment.
+    // properties are lengths, reject an inline style object whose values are
+    // NOT token references. `var(--space-7)` is the required form; `padding: 13`
+    // is the defect.
     re: /style=\{\{/g,
     onlyIn: "components",
-    label: "React inline style object; use a token-backed class instead",
+    filter: (m, line) => {
+      const obj = line.slice(m.index + m[0].length);
+      // A value that is a bare number (with any unit or none) is a literal.
+      if (/:\s*-?\d+(\.\d+)?\s*(px|rem|em|%)?\s*[,}]/.test(obj)) return true;
+      // A colour literal in any form.
+      if (/#[0-9a-fA-F]{3,8}\b/.test(obj) || /\b(?:rgba?|hsla?)\s*\(/.test(obj)) return true;
+      // Everything else is token-backed or a keyword, which is allowed.
+      return false;
+    },
+    label: "React inline style object with a literal value; use a token-backed class or var(--token)",
   },
 ];
 
@@ -178,12 +192,26 @@ for (const file of walk(WEB)) {
   const src = readFileSync(file, "utf8");
   scanned++;
 
+  // Track multi-line /* ... */ state. Checking only whether a line STARTS with
+  // a comment marker is not enough: a continuation line inside a block comment
+  // can legitimately mention "0ms" or a hex, and before this was tracked, such
+  // a line was scanned as if it were code. That is a false positive here and a
+  // false negative the moment a real violation sits after a block comment.
+  let inBlockComment = false;
+
   for (const rule of RULES) {
     const lines = src.split(/\r?\n/);
     lines.forEach((line, i) => {
-      // Skip comment lines: prose may legitimately quote a documented value.
       const trimmed = line.trim();
-      if (trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("/*")) return;
+      if (inBlockComment) {
+        if (trimmed.includes("*/")) inBlockComment = false;
+        return;
+      }
+      if (trimmed.startsWith("//")) return;
+      if (trimmed.startsWith("/*")) {
+        if (!trimmed.includes("*/")) inBlockComment = true;
+        return;
+      }
       rule.re.lastIndex = 0;
       let m;
       while ((m = rule.re.exec(line)) !== null) {

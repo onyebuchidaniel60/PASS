@@ -282,6 +282,13 @@
   /* §5.3 Borders */
   --border-hairline: 1px solid var(--color-line-hairline);
   --border-strong: 1px solid var(--color-line-strong);
+  /* §5.3 Accent edge on a key panel: 1px solid var(--color-accent-edge) on the
+     TOP edge only. */
+  --border-accent-edge: 1px solid var(--color-accent-edge);
+  /* §8.2 Structural background column rules. */
+  --border-grid: 1px solid var(--color-line-grid);
+  /* §9.2 The signal-line rule itself: the one place accent is a line. */
+  --border-signal: 1px solid var(--color-accent);
   /* §5.3 Focus ring: 2px solid accent with 2px offset. */
   --focus-ring: 2px solid var(--color-accent);
   --focus-ring-offset: 2px;

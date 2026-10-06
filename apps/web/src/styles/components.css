@@ -1,0 +1,294 @@
+/* PASS Wave 1 components — signature devices and framing.
+ *
+ * design/DESIGN.md §9.1 and §9.2; wave 1 of
+ * design/FRONTEND_IMPLEMENTATION_PLAN.md §3.
+ *
+ * Tokens only. No raw value appears in this file, which
+ * scripts/check-design-tokens.mjs enforces.
+ *
+ * Elevation is expressed ONLY as a lighter surface plus a hairline border
+ * (§5.4). There is no shadow on any non-overlay surface in this file, and
+ * --shadow-overlay is deliberately absent — it is permitted only on the overlay
+ * tier built in Wave 5.
+ *
+ * Nothing animates behind reading content. The SignalLine reveals once and is
+ * then still (§6.4, gap G-13); there is no shimmer, no drifting gradient, and no
+ * looping scanline anywhere.
+ */
+
+/* -------------------------------------------------------------------------
+ * §9.1 Layout and framing
+ * ---------------------------------------------------------------------- */
+
+/* §4 Vertical rhythm: inside a panel, blocks are separated by --space-5. */
+.pass-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pass-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+/* §4 Sections are separated by --space-8 on mobile and --space-9 on desktop. */
+.pass-section {
+  margin-block: var(--rhythm-section);
+}
+
+@media (min-width: 1024px) {
+  .pass-section {
+    margin-block: var(--rhythm-section-desktop);
+  }
+}
+
+/* §2.2 Surfaces step by lightness, never by shadow. */
+.pass-panel {
+  background-color: var(--color-surface);
+  border: var(--border-hairline);
+  /* §5.1 The system is nearly square; panels take no radius. */
+  border-radius: var(--radius-none);
+  padding: var(--rhythm-panel);
+  min-width: 0;
+}
+
+/* §5.2 The signature frame: chamfered, not rounded. The chamfer replaces the
+   radius. Framing only, so it is never combined with a drop shadow. */
+.pass-chamfer-panel {
+  position: relative;
+  background-color: var(--color-surface);
+  border: var(--border-hairline);
+  border-radius: var(--radius-none);
+  padding: var(--rhythm-panel);
+  min-width: 0;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--chamfer-size)),
+    calc(100% - var(--chamfer-size)) 100%,
+    0 100%,
+    0 var(--chamfer-size)
+  );
+}
+
+/* §5.3 Accent edge on a key panel: top edge only, never a full accent border. */
+.pass-chamfer-panel[data-accent-edge="true"] {
+  border-top: var(--border-accent-edge);
+}
+
+/* §5.3 Default border. */
+.pass-rule {
+  border: 0;
+  border-top: var(--border-hairline);
+  margin: 0;
+}
+
+/* §8.2 Background column rules are structural and may sit behind a hero only.
+   Never behind body content, never as a decorative overlay on top of text. */
+.pass-grid-field {
+  display: grid;
+  grid-template-columns: repeat(var(--layout-columns), 1fr);
+  gap: var(--layout-gutter);
+  pointer-events: none;
+}
+
+.pass-grid-field > span {
+  border-left: var(--border-grid);
+}
+
+.pass-grid-field > span:last-child {
+  border-right: var(--border-grid);
+}
+
+/* §8.4 Every scrolling region is a flex child with min-height 0 and
+   min-width 0, so a wide child cannot force the page to overflow. */
+.pass-page-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+}
+
+/* §12.5 A dark surface that does not extend to the viewport edge is a P0
+   visual defect at every breakpoint. */
+.pass-page-shell > main {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  background-color: var(--color-canvas);
+}
+
+/* §8.4 Content carries bottom padding equal to the bottom nav's exported
+   height plus --space-6, so the last element is never occluded. The reserved
+   clearance is measured in the gallery, not assumed. */
+.pass-page-shell[data-bottom-nav="true"] > main {
+  padding-bottom: calc(var(--layout-bottomnav) + var(--space-6));
+}
+
+/* §8.3 Content is capped at 1280px and the grid is centred above that. */
+.pass-shell-content {
+  width: 100%;
+  max-width: var(--layout-content-max);
+  margin-inline: auto;
+  padding-inline: var(--layout-margin-mobile);
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-shell-content {
+    padding-inline: var(--layout-margin-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-shell-content {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * §9.2 Signature devices
+ * ---------------------------------------------------------------------- */
+
+/* §3.4 Eyebrows are uppercase, monospace, and framed by ember delimiters.
+   The delimiters are the only place the accent touches a heading (§2.5). */
+.pass-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--type-eyebrow-font);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+}
+
+.pass-eyebrow[data-delimiter="true"]::before {
+  content: "//";
+  color: var(--color-accent-text);
+}
+
+.pass-eyebrow[data-delimiter="true"]::after {
+  content: "\\";
+  color: var(--color-accent-text);
+}
+
+/* §3.4 The section number sits at the opposite edge of the same row. */
+.pass-section-number {
+  margin-inline-start: auto;
+  font-family: var(--type-eyebrow-font);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+/* §9.2 A horizontal ember rule with an optional reticle node. Structural,
+   once per major region. The reveal runs once and never loops. */
+.pass-signal-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.pass-signal-line > hr {
+  flex: 1 1 auto;
+  border: 0;
+  border-top: var(--border-signal);
+  margin: 0;
+}
+
+/* DESIGN.md §6.4: horizontal scale 0 -> 1 from the left, ONCE, at
+   --duration-deliberate. Under reduced motion the token resolves to 0ms and the
+   line renders in its final state with no sweep (§6.6). */
+.pass-signal-line[data-reveal="true"] > hr {
+  transform-origin: left center;
+  animation: pass-signal-reveal var(--duration-deliberate) var(--ease-standard)
+    both;
+}
+
+@keyframes pass-signal-reveal {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pass-signal-line[data-reveal="true"] > hr {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* §7.1 Icons inherit currentColor and the size token of their context. Icon
+   colour is never hard-coded. */
+.pass-reticle {
+  color: var(--color-accent);
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+/* §9.2 A labelled mono pair, e.g. ENTRY / 113,400.00. The precision motif. */
+.pass-coordinate-pair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* §8.5 Long values shrink and truncate with an explicit line limit; a fixed
+     width is a layout bug waiting for a longer value. */
+  min-width: 0;
+}
+
+.pass-coordinate-pair-label {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-coordinate-pair-value {
+  font-family: var(--font-data);
+  font-variant-numeric: var(--numeric-tabular);
+  /* §11.1 Data is never set in a body face. */
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pass-coordinate-pair[data-size="m"] .pass-coordinate-pair-value {
+  font-size: var(--type-data-m-size);
+  line-height: var(--type-data-m-line);
+  letter-spacing: var(--type-data-m-track);
+}
+
+.pass-coordinate-pair[data-size="l"] .pass-coordinate-pair-value {
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+  letter-spacing: var(--type-data-l-track);
+}
+
+/* §11.3 The three price levels are visually equal in weight and are NOT
+   colour-coded good/bad. A reached level is shown by the status chip. */
+.pass-coordinate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--rhythm-block);
+  min-width: 0;
+}

@@ -9,6 +9,9 @@
  * utility classes. New components must use tokens, not utilities. Tracked in
  * design/phase-records/PHASE_00_tokens.md.
  */
+@import "../styles/tokens.css";
+@import "../styles/components.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
