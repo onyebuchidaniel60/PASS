@@ -50,7 +50,6 @@ import {
   PerformanceBlock,
   ReputationBlock,
   StatusChip,
-  StatBlock,
   Timestamp,
   type PassLifecycle,
 } from "@/components/wave3/data";

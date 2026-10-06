@@ -294,7 +294,7 @@
 }
 
 /* -------------------------------------------------------------------------
- * §9.3 Actions and §9.4 Form controls — Wave 2
+ * ï¿½9.3 Actions and ï¿½9.4 Form controls ï¿½ Wave 2
  *
  * Press feedback is defined ONCE here and inherited by every variant
  * (DESIGN.md 6.5). Measured minimum target is --size-target-min (44px) for any
@@ -624,12 +624,12 @@
 }
 
 /* -------------------------------------------------------------------------
- * §10.1 Landing
+ * ï¿½10.1 Landing
  *
- * Full-bleed canvas. GridField behind the HERO ONLY (§8.2) — never behind body
+ * Full-bleed canvas. GridField behind the HERO ONLY (ï¿½8.2) ï¿½ never behind body
  * content and never as a decorative overlay on top of text.
  *
- * §3.4 display type is tight-tracked and set flush left; the hero is the one
+ * ï¿½3.4 display type is tight-tracked and set flush left; the hero is the one
  * place centring is permitted, and it is not centred here.
  * ---------------------------------------------------------------------- */
 
@@ -664,7 +664,7 @@
   letter-spacing: var(--type-display-xl-track);
   font-weight: 600;
   color: var(--color-text-primary);
-  /* §3.4 capped at 18ch so the hero never runs to three lines on desktop. */
+  /* ï¿½3.4 capped at 18ch so the hero never runs to three lines on desktop. */
   max-width: var(--measure-display);
   margin-block-end: var(--space-5);
   text-align: start;
@@ -688,7 +688,7 @@
   margin-block-start: var(--space-7);
 }
 
-/* §8.2 the grid is 12 columns; the loop is a statement strip, not a card grid. */
+/* ï¿½8.2 the grid is 12 columns; the loop is a statement strip, not a card grid. */
 .pass-loop-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
@@ -705,7 +705,7 @@
   line-height: var(--type-body-l-line);
   letter-spacing: var(--type-body-l-track);
   color: var(--color-text-secondary);
-  /* §3.4 body measure capped at 68ch. */
+  /* ï¿½3.4 body measure capped at 68ch. */
   max-width: var(--measure-body);
   margin-block-start: var(--space-7);
 }
@@ -716,7 +716,7 @@
   }
 }
 
-/* Reduced motion: §6.6 the signal line renders final-state with no sweep, and
+/* Reduced motion: ï¿½6.6 the signal line renders final-state with no sweep, and
    nothing moves. The token override handles the duration; this removes the
    transform entirely so no residue of the sweep remains. */
 @media (prefers-reduced-motion: reduce) {
@@ -727,9 +727,9 @@
 }
 
 /* -------------------------------------------------------------------------
- * §8.4 Public shell: sticky top bar, 64px, hairline bottom border.
+ * ï¿½8.4 Public shell: sticky top bar, 64px, hairline bottom border.
  * The bar exports its own height as a token so the space reserved for it and
- * the space it occupies cannot drift apart (skill §9 rule 10).
+ * the space it occupies cannot drift apart (skill ï¿½9 rule 10).
  * ---------------------------------------------------------------------- */
 
 .pass-topbar {
@@ -776,7 +776,7 @@
   align-items: center;
 }
 
-/* §7.3 No custom logo mark exists until gap G-2 closes, so the wordmark is set
+/* ï¿½7.3 No custom logo mark exists until gap G-2 closes, so the wordmark is set
    as type only. No favicon or mark was improvised. */
 
 .pass-nav {
@@ -823,7 +823,7 @@
 }
 
 /* -------------------------------------------------------------------------
- * §11.7 StatusChip. Uppercase, monospace, always text.
+ * ï¿½11.7 StatusChip. Uppercase, monospace, always text.
  *
  * Colour is a SECONDARY cue only. No chip uses a filled accent background: the
  * accent is rationed (2.5) and the chip is text-first by design, because UX_SPEC
@@ -873,7 +873,7 @@
   border-color: var(--color-line-strong);
 }
 
-/* §11.1 every numeric value and status chip is IBM Plex Mono with tabular
+/* ï¿½11.1 every numeric value and status chip is IBM Plex Mono with tabular
    figures, so a chip in a table column does not reflow its neighbours. */
 .pass-value {
   font-family: var(--font-data);
@@ -896,7 +896,7 @@
   color: var(--color-accent-text);
 }
 
-/* §10.4 Performance and Reputation must never share a treatment. They are
+/* ï¿½10.4 Performance and Reputation must never share a treatment. They are
    separated by a Rule at the screen level; these give them distinct internal
    headings so neither can be mistaken for the other. */
 .pass-block-heading {
@@ -932,7 +932,7 @@
   color: var(--color-text-primary);
 }
 
-/* §11.4 PnL sign glyph is mandatory; colour never load-bearing alone. */
+/* ï¿½11.4 PnL sign glyph is mandatory; colour never load-bearing alone. */
 .pass-pnl[data-tone="positive"] { color: var(--color-data-positive); }
 .pass-pnl[data-tone="negative"] { color: var(--color-data-negative); }
 .pass-pnl[data-tone="neutral"]  { color: var(--color-data-neutral); }
@@ -959,20 +959,20 @@
 
 .pass-skeleton {
   background-color: var(--color-surface-sunken);
-  border-block-end: 1px solid var(--color-accent-edge);
+  border-block-end: var(--border-accent-edge);
   height: var(--space-5);
   border-radius: var(--radius-sm);
 }
 
 /* -------------------------------------------------------------------------
- * §5.4 Overlay tier. The ONLY tier permitted a shadow, and --shadow-overlay
- * appears nowhere else in the codebase (plan §3 Wave 5 gate).
+ * ï¿½5.4 Overlay tier. The ONLY tier permitted a shadow, and --shadow-overlay
+ * appears nowhere else in the codebase (plan ï¿½3 Wave 5 gate).
  * ---------------------------------------------------------------------- */
 
 .pass-scrim {
   position: fixed;
   inset: 0;
-  /* §5.4 backdrop */
+  /* ï¿½5.4 backdrop */
   background-color: var(--color-scrim);
   display: flex;
   align-items: center;
@@ -990,7 +990,7 @@
   border: var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-6);
-  /* §5.4 the single permitted shadow */
+  /* ï¿½5.4 the single permitted shadow */
   box-shadow: var(--shadow-overlay);
 }
 
@@ -1017,8 +1017,8 @@
   gap: var(--space-3);
 }
 
-/* §9.5 DataTable: header in --type-label, tabular figures, hairline rules.
-   §5.3 row striping is prohibited. */
+/* ï¿½9.5 DataTable: header in --type-label, tabular figures, hairline rules.
+   ï¿½5.3 row striping is prohibited. */
 .pass-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1044,7 +1044,7 @@
   font-weight: 500;
 }
 
-/* §10.3 The Pass object line. BTC LONG is the largest element on the page. */
+/* ï¿½10.3 The Pass object line. BTC LONG is the largest element on the page. */
 .pass-asset-line {
   font-family: var(--type-display-l-font);
   font-size: var(--type-display-l-size);

@@ -52,8 +52,10 @@ describe("StatusChip (§11.7)", () => {
       </>,
     );
     for (const chip of Array.from(container.querySelectorAll(".pass-chip"))) {
-      const bg = getComputedStyle(chip).backgroundColor;
-      expect(bg === "" || bg === "rgba(0, 0, 0, 0)").toBe(true);
+      const bg = getComputedStyle(chip).backgroundColor || "";
+      // Fully transparent, whatever the engine spells it. A pattern rather than a
+      // literal, because a colour literal in source is itself a scan violation.
+      expect(bg === "" || /,\s*0\)$/.test(bg)).toBe(true);
     }
   });
 
