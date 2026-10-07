@@ -1,4 +1,4 @@
-﻿# Stage K.2 — continuation
+# Stage K.2 — continuation
 
 **Written:** 2026-10-07 (fourteenth revision — the reference rebuild)
 
