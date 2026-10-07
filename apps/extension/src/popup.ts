@@ -106,10 +106,15 @@ function renderCard(p: Profile, queried: NormalisedHandle): void {
 
   const dl = el("dl", "stats");
 
-  const addStat = (label: string, value: string) => {
+  // `accent` is a styling hook only, not a behaviour change. Ethos is external
+  // reputation context (D-007, D-014) and is shown in ember mono so it reads as
+  // a distinct class of figure from the PASS counts; in a list of mono numbers
+  // with no hook the two are indistinguishable, which is precisely the merge
+  // D-014 forbids.
+  const addStat = (label: string, value: string, accent = false) => {
     const row = el("div", "stat");
     row.appendChild(el("dt", "muted", label));
-    row.appendChild(el("dd", undefined, value));
+    row.appendChild(el("dd", accent ? "dd-em" : undefined, value));
     dl.appendChild(row);
   };
 
@@ -120,7 +125,13 @@ function renderCard(p: Profile, queried: NormalisedHandle): void {
   // Ethos is external reputation context, shown separately from PASS
   // performance and never merged into one score (D-007, D-014).
   if (p.reputation) {
-    addStat("Ethos", p.reputation.credibilityScore === null ? "—" : String(p.reputation.credibilityScore));
+    addStat(
+      "Ethos",
+      p.reputation.credibilityScore === null
+        ? "—"
+        : String(p.reputation.credibilityScore),
+      true,
+    );
     addStat("Reviews", p.reputation.reviewsCount === null ? "—" : String(p.reputation.reviewsCount));
     addStat("Vouches", p.reputation.vouchesCount === null ? "—" : String(p.reputation.vouchesCount));
   }
@@ -342,13 +353,14 @@ async function renderTabContext(): Promise<void> {
 function renderHeader(): void {
   const head = el("div", "head");
   head.appendChild(el("span", "brand", "PASS"));
-  const api = el("span", "muted small", PASS_API_URL.replace(/^https?:\/\//, ""));
+  const api = el("span", "api", PASS_API_URL.replace(/^https?:\/\//, ""));
   head.appendChild(api);
   app.appendChild(head);
   // Which build is answering. A reload of an unpacked extension does not
   // re-inject the content script into an open tab, so this line is how the
-  // operator confirms the reload reached the running code.
-  app.appendChild(el("span", "muted small", `build ${BUILD_STAMP}`));
+  // operator confirms the reload reached the running code. Styled as a mono
+  // eyebrow in popup.css (§14.3).
+  app.appendChild(el("span", "stamp", `build ${BUILD_STAMP}`));
 }
 
 async function main(): Promise<void> {

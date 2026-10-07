@@ -5,7 +5,7 @@
  * the token it came from, so this file stays traceable to design/DESIGN.md S11
  * and apps/web/src/styles/tokens.css.
  *
- * THE CARD IS ALWAYS PASS-DARK, REGARDLESS OF X's THEME.
+ * THE CARD IS ALWAYS PASS-DARK, REGARDLESS OF X'S THEME.
  *
  * The previous version followed prefers-color-scheme and restyled itself for X
  * light and X dark. That made the card read as part of X rather than part of
@@ -18,7 +18,7 @@
  *
  * Scope and behaviour are UNCHANGED: still #pass-overlay-card, still created by
  * content.ts, still pointer-events limited to its own contents so it cannot
- * intercept X's scrolling or clicks. Only colour and typography changed.
+ * intercept X's scrolling or clicks. Only colour, typography and width changed.
  */
 
 #pass-overlay-card {
@@ -27,7 +27,13 @@
   position: static;
   pointer-events: none;
   margin: 0 0 12px 0; /* --space-3 */
-  max-width: 600px;
+  /* FULL PRIMARY-COLUMN WIDTH. This was `max-width: 600px`, which pinned the
+     overlay to a narrow panel on the left of X's primary column, so it read as a
+     sidebar rather than as something inserted into the timeline. The wrapper is a
+     block child of [data-testid="primaryColumn"], so 100% is that column's
+     content width and nothing can overflow it. */
+  inline-size: 100%;
+  max-inline-size: 100%;
   box-sizing: border-box;
   /* --font-body, with system fallbacks: the extension may not load webfonts. */
   font-family: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -48,6 +54,11 @@
   /* --color-scrim, so the card holds its own value over BOTH X themes instead
      of blending into whichever one is active. */
   background: rgba(5, 5, 5, 0.92);
+  /* Stretch to the wrapper. A flex-column child would already fill, but stating
+     it means a future `align-items` on the wrapper cannot silently narrow the
+     card again, which is what the 600px cap effectively did. */
+  inline-size: 100%;
+  box-sizing: border-box;
   /* Clicks reach the card's own contents (the link) but the surrounding
      padding does not swallow clicks meant for X beneath. */
   pointer-events: auto;

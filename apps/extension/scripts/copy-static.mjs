@@ -26,7 +26,12 @@ mkdirSync(dist, { recursive: true });
 
 const now = new Date();
 
-for (const file of ["manifest.json", "content.css", "popup.html"]) {
+// `popup.css` is in this list because Vite emits only the JavaScript entries:
+// neither rollupOptions.input names a stylesheet and nothing imports one, so the
+// `<link rel="stylesheet" href="popup.css">` in popup.html would 404 in dist
+// unless the file is copied. It was an inline <style> block until 2026-10-07,
+// which meant no popup styling could be diffed against the design language.
+for (const file of ["manifest.json", "content.css", "popup.css", "popup.html"]) {
   const to = join(dist, file);
   copyFileSync(join(src, file), to);
   // Overwrite the preserved source mtime with the build time.

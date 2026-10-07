@@ -1,0 +1,402 @@
+/* PASS extension popup — design/DESIGN.md §14.
+ *
+ * WHY THERE IS A TOKEN BLOCK HERE AND NOT AN IMPORT.
+ *
+ * The popup is an extension page. It does not load the web app's stylesheets,
+ * cannot read `apps/web/src/styles/tokens.css`, and must not: the extension is
+ * a separate trust boundary with its own bundle and its own release cycle
+ * (docs/SECURITY_SPEC.md §13). So the subset of the token layer this surface
+ * needs is DECLARED here, each value annotated with the token it came from.
+ *
+ * The risk of a hand-copied layer is drift: a colour could change in
+ * `tokens.css` and not here. That is why every line below names its source, so
+ * a reviewer can diff the two by eye. `scripts/check-design-tokens.mjs` cannot
+ * cover this file — it scans `apps/web/src` only — which makes the annotations
+ * the only defence.
+ *
+ * `content.css` is the same boundary and uses the same convention, one step
+ * simpler: it inlines each value at the point of use instead of declaring a
+ * block, because it has far fewer values.
+ *
+ * §14.5 card anatomy, §14.3 numbered eyebrow, §14.6 badge, §14.7 live dot,
+ * §14.9 chamfered chip and §6.5 press feedback are reproduced rather than
+ * approximated.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* §2.2 Base and surfaces */
+  --color-canvas: #0a0a0a;
+  --color-surface: #101013;
+  --color-surface-raised: #16161a;
+
+  /* §2.3 Lines */
+  --color-line-hairline: #1f1f25;
+  --color-line-strong: #656577;
+
+  /* §2.4 Text */
+  --color-text-primary: #f5f1ea;
+  --color-text-secondary: #b4aea4;
+  --color-text-tertiary: #8a857c;
+  --color-text-on-accent: #0a0a0a;
+
+  /* §2.5 Accent */
+  --color-accent: #f03a1c;
+  --color-accent-hover: #ff4a2c;
+  --color-accent-text: #ff5533;
+
+  /* §14.5 Card */
+  --card-bg: #0b0b0e;
+  --card-border: #23232c;
+  --card-edge-highlight: #33333f;
+  --card-pad-compact: 16px;
+  --card-radius: 12px;
+  --card-action-radius: 6px;
+
+  /* §4 Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-7: 28px;
+
+  /* §5.1/§5.2 Radii and chamfer */
+  --radius-sm: 2px;
+  --chamfer-size: 10px;
+
+  /* §5.3 Borders */
+  --border-width-hairline: 1px;
+  --border-width-selected: 2px;
+
+  /* §6.2/§6.3 Motion */
+  --duration-fast: 120ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* §3.1 Families */
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* §3.3 Type steps */
+  --type-body-m-size: 0.9375rem;
+  --type-body-m-line: 1.47;
+  --type-body-s-size: 0.8125rem;
+  --type-body-s-line: 1.38;
+  --type-title-s-size: 1rem;
+  --type-title-s-line: 1.25;
+  --type-data-s-size: 0.9375rem;
+  --type-data-s-line: 1.33;
+  --type-data-xs-size: 0.75rem;
+  --type-data-xs-line: 1.33;
+  --type-eyebrow-size: 0.6875rem;
+  --type-eyebrow-line: 1.27;
+  --type-eyebrow-track: 0.18em;
+
+  /* §11.1 Tabular figures */
+  --numeric-tabular: tabular-nums;
+
+  /* §7.1/§5.3 Interaction */
+  --size-target-min: 44px;
+  --focus-ring: 2px solid var(--color-accent);
+  --focus-ring-offset: 2px;
+
+  /* §14.9 Chip */
+  --chip-pad-block: 10px;
+  --chip-pad-inline: 16px;
+}
+
+/* --- Base ---------------------------------------------------------------- */
+
+body {
+  margin: 0;
+  /* A popup has no content-max: the container IS the surface. */
+  inline-size: 360px;
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--card-pad-compact);
+}
+
+/* --- Header (§14.3) ------------------------------------------------------ */
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.brand {
+  font-family: var(--font-data);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.api {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  color: var(--color-text-tertiary);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+/* The build stamp: a mono eyebrow in muted off-white. §14.3's dot variant,
+ * because a build stamp is a live value rather than a position, and it is the
+ * operator's only way to tell WHICH build is answering after a reload. */
+.stamp {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  line-height: var(--type-data-xs-line);
+  color: var(--color-text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+/* --- Text ---------------------------------------------------------------- */
+
+.muted {
+  margin: 0;
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-secondary);
+}
+
+.name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--type-title-s-size);
+  line-height: var(--type-title-s-line);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* --- Resolved card (§14.5) ----------------------------------------------- */
+
+/* Darker than the canvas around it, with a lit top edge and a bottom-corner
+ * chamfer. §14.5.1: the asymmetry is the reference's, not a rounding error. */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--card-pad-compact);
+  background: var(--card-bg);
+  border: var(--border-width-hairline) solid var(--card-border);
+  border-radius: var(--card-radius);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--chamfer-size)),
+    calc(100% - var(--chamfer-size)) 100%,
+    var(--chamfer-size) 100%,
+    0 calc(100% - var(--chamfer-size))
+  );
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: var(--border-width-hairline);
+  background: var(--card-edge-highlight);
+  opacity: 0.6;
+}
+
+/* §14.5.6 metric rows: label left, value right, hairline between. A definition
+ * list; the value is never centred. */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin: var(--space-1) 0 0;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  border-block-end: var(--border-width-hairline) solid var(--color-line-hairline);
+}
+
+.stat:last-child {
+  border-block-end: 0;
+}
+
+.stat dt {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.stat dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  line-height: var(--type-data-s-line);
+  font-variant-numeric: var(--numeric-tabular);
+  color: var(--color-text-primary);
+  text-align: end;
+}
+
+/* Ethos is external reputation context (D-007, D-014): a distinct class of
+ * figure from the PASS counts, in ember mono, never merged into one score. */
+.dd-em {
+  color: var(--color-accent);
+}
+
+/* --- Actions -------------------------------------------------------------
+ *
+ * Reproduces `.pass-card-action` and `.pass-btn[data-variant="primary"]` from
+ * the web app: ember fill, dark label, --card-action-radius, and the §6.5
+ * press feedback. */
+
+.cta,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-target-min);
+  padding: var(--chip-pad-block) var(--chip-pad-inline);
+  background: var(--color-accent);
+  border: var(--border-width-hairline) solid var(--color-accent);
+  border-radius: var(--card-action-radius);
+  color: var(--color-text-on-accent);
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.cta:hover,
+.btn:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.cta:active,
+.btn:active {
+  transform: scale(0.98);
+}
+
+.cta:focus-visible,
+.btn:focus-visible,
+.input:focus-visible,
+.linkbtn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* --- Form ---------------------------------------------------------------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-1);
+}
+
+/* Reproduces `.pass-control` and the global input rule: --color-surface fill,
+ * --border-strong border, --radius-sm radius, --space-2/--space-3 padding,
+ * --size-target-min height. */
+.input {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: var(--size-target-min);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: var(--border-width-hairline) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+}
+
+.linkbtn {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-block-size: var(--size-target-min);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-body);
+  font-size: var(--type-body-s-size);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.linkbtn:hover {
+  color: var(--color-accent-text);
+}
+
+/* --- Error notice
+ *
+ * A bordered notice in muted grey, not a red fill. Every message this popup
+ * shows is a recoverable operator action — retry, check the handle, reload the
+ * extension — so a filled red alarm would overstate it. The word is the
+ * meaning; the border just separates it from the surface. */
+
+.err {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--card-bg);
+  border: var(--border-width-hairline) solid var(--card-border);
+  border-inline-start: var(--border-width-selected) solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* §6.6 reduced motion: transform-based press feedback is removed rather than
+ * shortened, matching the web app's rule that the element does not move. */
+@media (prefers-reduced-motion: reduce) {
+  .cta:active,
+  .btn:active {
+    transform: none;
+  }
+
+  .cta,
+  .btn {
+    transition: none;
+  }
+}
