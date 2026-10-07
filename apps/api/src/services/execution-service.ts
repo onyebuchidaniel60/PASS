@@ -242,6 +242,28 @@ export async function relayExecution(
     throw new AppError("ORDER_REJECTED", "The order was rejected by the exchange.");
   }
 
+  /**
+   * A relay can come back REJECTED without throwing — `SplitHyperliquid` does
+   * exactly that when writes are gated off, and Hyperliquid itself answers 200
+   * with a rejection status for some order errors. Only the `catch` above was
+   * handled, so a rejected order would have been inserted as a real execution
+   * row with an empty provider_order_id. A Take must never be recorded as
+   * filled when the venue refused it.
+   */
+  if (!relayed.providerOrderId || /reject|error|fail/i.test(relayed.status)) {
+    ctx.log.warn("hyperliquid relay returned a rejection", {
+      passId,
+      takerId,
+      status: relayed.status,
+    });
+    throw new AppError(
+      "ORDER_REJECTED",
+      relayed.providerOrderId
+        ? `The order was rejected by the exchange (${relayed.status}).`
+        : "Order relay is disabled in this deployment.",
+    );
+  }
+
   // 7. record the provider_order_id and the execution row.
   const inserted = await ctx.db
     .insert(executions)
