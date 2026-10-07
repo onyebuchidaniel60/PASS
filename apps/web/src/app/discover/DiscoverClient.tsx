@@ -39,7 +39,6 @@ import {
   DataCard,
   DisplayHeadline,
   DotEyebrow,
-  HERO_LINES,
   LiveDot,
   NumberedEyebrow,
   Sparkline,
@@ -51,6 +50,11 @@ import {
 } from "@/components/reference";
 
 import { clientGet } from "@/lib/client";
+
+// §14.4 copy lives in a module with no "use client": a Server Component
+// importing a plain value from a client module gets a client-reference proxy,
+// and the value is undefined at prerender. See lib/hero-copy.ts.
+import { heroLines } from "@/lib/hero-copy";
 
 interface DiscoverPass {
   publicId: string;
@@ -202,7 +206,7 @@ export function DiscoverClient() {
             <DisplayHeadline
               section
               as="h1"
-              lines={HERO_LINES.discover.map((l) => l.map((w) => ({ ...w })))}
+              lines={heroLines("discover")}
             />
             <p className="pass-landing-lede">
               Published Hyperliquid plans you can read before you commit a dollar.

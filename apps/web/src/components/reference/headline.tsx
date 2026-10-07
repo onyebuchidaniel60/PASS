@@ -19,6 +19,8 @@
 
 import type { ReactNode } from "react";
 
+import type { HeadlineWord } from "@/lib/hero-copy";
+
 export interface NumberedEyebrowProps {
   /** The section name. Uppercased by CSS; write it as words. */
   label: string;
@@ -68,12 +70,6 @@ export function DotEyebrow({ label, children }: { label: string; children?: Reac
       {children}
     </p>
   );
-}
-
-export interface HeadlineWord {
-  text: string;
-  /** The one ember word on this line (§14.4). */
-  accent?: boolean;
 }
 
 export interface DisplayHeadlineProps {
@@ -139,27 +135,15 @@ export function DisplayHeadline({
   );
 }
 
-/** The §14.4 copy table, as data. Screens import these rather than retyping. */
-export const HERO_LINES = {
-  landing: [
-    [{ text: "See" }, { text: "a" }, { text: "trade.", accent: true }],
-    [{ text: "Know" }, { text: "the" }, { text: "trader." }],
-    [{ text: "Take" }, { text: "the" }, { text: "trade." }],
-  ],
-  discover: [
-    [{ text: "Live" }, { text: "plans,", accent: true }],
-    [{ text: "written" }, { text: "by" }, { text: "traders." }],
-  ],
-  take: [
-    [{ text: "You" }, { text: "author" }],
-    [{ text: "your" }, { text: "own", accent: true }, { text: "size." }],
-  ],
-  // The accent word is "promise", not "Pass". "Pass" is the product noun and it
-  // already appears verbatim in the §10.1 loop strip on this same page; two
-  // elements reading "Pass" on one screen is ambiguity the reader has to
-  // resolve, and it is avoidable for free.
-  howItWorks: [
-    [{ text: "A" }, { text: "plan" }, { text: "is" }],
-    [{ text: "not" }, { text: "a" }, { text: "promise.", accent: true }],
-  ],
-} as const;
+/**
+ * The §14.4 copy table lives in `@/lib/hero-copy`, NOT here, and the reason
+ * matters: this module is `"use client"`, and a Server Component importing a
+ * plain VALUE from a client module receives a client-reference proxy rather
+ * than the value. `HERO_LINES.landing` is then `undefined` at prerender and
+ * `next build` throws `Cannot read properties of undefined (reading 'map')` —
+ * a failure that appears ONLY in the build and never in a DOM test.
+ *
+ * Re-exported here for CLIENT consumers. Server Components must import from
+ * `@/lib/hero-copy` directly.
+ */
+export { HERO_LINES, heroLines, type HeadlineWord } from "@/lib/hero-copy";

@@ -5,7 +5,6 @@ import {
   CornerBracketFrame,
   DataCard,
   DisplayHeadline,
-  HERO_LINES,
   MetricCard,
   MetricCardRow,
   NumberedEyebrow,
@@ -13,6 +12,11 @@ import {
   Surface,
   type StepSpec,
 } from "@/components/reference";
+
+// §14.4 copy lives in a module with no "use client": a Server Component
+// importing a plain value from a client module gets a client-reference proxy,
+// and the value is undefined at prerender. See lib/hero-copy.ts.
+import { heroLines } from "@/lib/hero-copy";
 
 export const metadata: Metadata = {
   title: "PASS — How it works",
@@ -101,7 +105,7 @@ export default function HowItWorksPage() {
           <NumberedEyebrow label="How it works" number={1} />
           <DisplayHeadline
             section
-            lines={HERO_LINES.howItWorks.map((l) => l.map((w) => ({ ...w })))}
+            lines={heroLines("howItWorks")}
           />
           <p className="pass-landing-lede">
             A Pass is a trade plan with an author attached to it. Here is the whole

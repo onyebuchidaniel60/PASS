@@ -35,7 +35,6 @@ import {
   ChipButton,
   CornerBracketFrame,
   DisplayHeadline,
-  HERO_LINES,
   MetricCard,
   MetricCardRow,
   NumberedEyebrow,
@@ -44,6 +43,11 @@ import {
   type StepSpec,
 } from "@/components/reference";
 import { INFO } from "@/lib/nav";
+
+// §14.4 copy lives in a module with no "use client": a Server Component
+// importing a plain value from a client module gets a client-reference proxy,
+// and the value is undefined at prerender. See lib/hero-copy.ts.
+import { heroLines } from "@/lib/hero-copy";
 
 /**
  * §10.1 item 3 — the loop, as a five-step statement. No illustration (§12.2).
@@ -135,7 +139,7 @@ export default function LandingPage() {
             <div className="pass-landing-hero">
               {/* §14.4 the hero is three authored lines with ONE ember word,
                   on line one. Not a single wrapped sentence. */}
-              <DisplayHeadline lines={HERO_LINES.landing.map((l) => l.map((w) => ({ ...w })))} />
+              <DisplayHeadline lines={heroLines("landing")} />
               <p className="pass-landing-lede" id="landing-hero">
                 A trader publishes a Hyperliquid plan. You read it, size it yourself,
                 and authorize it with your own wallet. Nothing is copied and no key
@@ -185,7 +189,7 @@ export default function LandingPage() {
             <DisplayHeadline
               section
               as="h2"
-              lines={HERO_LINES.howItWorks.map((l) => l.map((w) => ({ ...w })))}
+              lines={heroLines("howItWorks")}
             />
             {/* §14.2 the second of four bracket frames: one around the set,
                 never one per card. */}
