@@ -741,28 +741,11 @@
   border-block-end: var(--border-hairline);
 }
 
-.pass-topbar-inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  height: 100%;
-  width: 100%;
-  max-width: var(--layout-content-max);
-  margin-inline: auto;
-  padding-inline: var(--layout-margin-mobile);
-}
-
-@media (min-width: 768px) {
-  .pass-topbar-inner {
-    padding-inline: var(--layout-margin-tablet);
-  }
-}
-
-@media (min-width: 1024px) {
-  .pass-topbar-inner {
-    padding-inline: var(--layout-margin-desktop);
-  }
-}
+/* §8.4 The topbar inner layout and both of its padding media queries live in
+   the three-region block further down this file. They were duplicated here —
+   a flex rule whose display, width and gap were all superseded by the grid rule
+   that follows it — and a duplicated declaration is a second mechanism for one
+   job, which is how the original drift happened. Removed, not overridden. */
 
 .pass-wordmark {
   font-family: var(--font-display);
@@ -2342,12 +2325,6 @@ li[data-ghost="true"] {
   .pass-topbar-inner {
     padding-inline: var(--layout-margin-tablet);
     gap: var(--space-5);
-  }
-}
-
-@media (min-width: 1024px) {
-  .pass-topbar-inner {
-    padding-inline: var(--layout-margin-desktop);
   }
 }
 
