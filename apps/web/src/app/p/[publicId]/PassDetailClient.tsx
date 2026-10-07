@@ -240,7 +240,9 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
             detail={
               missing
                 ? "The link may be wrong, or the Pass may have been removed."
-                : "The Pass could not be loaded. This is not the same as the Pass being missing — try again in a moment."
+                : // The API's own message, so an operator can tell a timeout
+                  // from a rejected request without opening devtools.
+                  `The Pass could not be loaded${error ? `: ${error}` : ""}. This is not the same as the Pass being missing — try again in a moment.`
             }
             onRetry={load}
           />
