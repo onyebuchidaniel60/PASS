@@ -328,7 +328,7 @@ export function CreatePassClient() {
             </Field>
 
             <Field label="Direction" required>
-              {({ controlId }) => (
+              {({ controlId: _c }) => (
                 <SegmentedControl
                   options={DIRECTIONS}
                   value={direction}
@@ -339,7 +339,7 @@ export function CreatePassClient() {
             </Field>
 
             <Field label="Entry type" required>
-              {({ controlId }) => (
+              {({ controlId: _c }) => (
                 <SegmentedControl
                   options={ENTRY_TYPES}
                   value={entryType}
