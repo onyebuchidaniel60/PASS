@@ -35,5 +35,12 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     css: false,
     restoreMocks: true,
+    // Matches the root config (30s/60s) rather than vitest's 5s default. These
+    // are DOM tests that drive the real controls through userEvent, so a single
+    // interaction sequence legitimately runs for seconds; the default 5s made
+    // the suite fail on machine speed rather than on behaviour. This widens the
+    // clock only — no assertion is relaxed.
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
   },
 });
