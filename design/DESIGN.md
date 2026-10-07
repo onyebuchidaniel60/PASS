@@ -948,7 +948,7 @@ Per `SKILL_FRONTEND_DESIGN.md` §4, when a screen needs a visual decision this d
 | ID | Gap | Why it is open | Must not be improvised |
 |---|---|---|---|
 | G-1 | Light-mode token values | Dark-only is decided (§2.7); values are not designed | Do not invert or auto-derive a light palette |
-| G-2 | PASS wordmark / logo mark treatment | No mark has been designed or cleared | Do not draw a logo, reuse the reference's, or improvise a favicon |
+| G-2 | PASS wordmark / logo mark treatment | **Closed 2026-10-07** by §14.14, which designs the mark from PASS's own §9.2 signature devices. The reference's mark must still not be copied. | Resolved — the mark is specified here, not improvised in code |
 | G-3 | Chart and PnL-curve visualisation styling | Advanced charting is a PRD §5 non-goal. A minimal sparkline is specified in §10.2/§10.3 as context only | Do not add candlesticks, indicators, drawing tools, or a chart terminal |
 | G-4 | Whether `ReputationBlock` collapses on mobile, and to what | Depends on real mobile density, which Stage K will measure | Do not hide reputation behind a toggle without a decision |
 | G-5 | Empty-state illustration language | §12.2 forbids decorative illustration; a typographic empty state is specified but a second form is not | Do not introduce illustration |
@@ -970,3 +970,460 @@ Per `SKILL_FRONTEND_DESIGN.md` §4, when a screen needs a visual decision this d
 3. If the gap is a real hole in this document, amending this document is a legitimate, separately recorded deliverable of that phase — with a stated reason. It is not a side effect of coding.
 4. If this document does in fact cover it, the implementation is wrong. Fix the implementation.
 5. Never edit this document to match a buggy implementation.
+
+---
+
+## 14. Visual language extracted from the reference set
+
+**Added 2026-10-07. Reason.** The operator opened the thirteen Stage K screens
+against `design/references/` and reported them "too generic", "dull", and
+"not alive", with "missed details and cards from the reference". The cause was
+not compliance failure: §§1–13 specify palette, type scale, spacing, motion and
+principles, and the build satisfies all of them. The cause is that **§§1–13 never
+described the actual visual language of the reference set** — no gradient, no
+grain, no corner brackets on cards, no numbered eyebrows, no oversized display
+type with ember accent words, no dense data cards, no live indicators, no status
+badges with icons, no ticker. A document that does not describe a thing cannot be
+complied with, and "generic dark theme" is what you get when the specification
+is silent.
+
+This section is that specification. Every value below was read off the reference
+images and is stated as a mechanic with concrete numbers, not as mood. Where an
+earlier section conflicts, **this section wins for the surface it names**, and
+the conflict is called out inline.
+
+**Discipline (`SKILL_FRONTEND_DESIGN.md` §4).** The references are *feel and
+direction, never literal layout*. PASS does not reproduce TONNE's carbon market,
+its orbital imagery, its planet renders, or its page composition. What is
+extracted is the **machinery** — how a background is built, how a card is
+anatomied, how type is scaled and coloured. Imagery is out of reach and out of
+scope: PASS has no asset pipeline, and §12.2 forbids substituting decoration for
+the data.
+
+### 14.0 Typeface substitution (logged decision)
+
+The reference uses **Clash Display** (heading), **Space Grotesk** (body) and
+**JetBrains Mono** (all data). PASS ships **Archivo** (display), **Inter Tight**
+(body) and **IBM Plex Mono** (data), committed to
+`apps/web/public/fonts/` and proven byte-identical to upstream by
+`scripts/check-fonts.mjs`.
+
+The substitution is deliberate and is **not** an open gap. The gap that produced
+the operator's complaint is size, weight, tracking and colour treatment — not
+typeface identity. Archivo at weight 700 with negative tracking at 90px occupies
+the same optical role as Clash Display; IBM Plex Mono at tabular figures carries
+every numeric surface in the reference unchanged. Swapping three verified,
+committed, provenance-checked faces would add risk and no mechanic the current
+stack cannot express. §3.1 stands unamended.
+
+---
+
+### 14.1 Backgrounds
+
+The reference is **never flat black**. This is the single largest reason the
+Stage K screens read as generic: `--color-canvas: #0a0a0a` is a flat fill, and
+every screen inherited it.
+
+**Gradient wash.** A broad radial, ember at the core, falling through rust to
+black at the edges. Three observed strengths:
+
+| Treatment | Core | Mid | Falloff | Used on |
+|---|---|---|---|---|
+| `wash-hero` | `#F4552E` at 38% | `#7A2410` at 22% | `#0A0A0A` at 0% | Landing hero, trader profile header |
+| `wash-section` | `#B0300F` at 22% | `#4A1408` at 14% | `#0A0A0A` at 0% | Pass detail hero, Discover header |
+| `wash-tight` | `#FF6B33` at 55% | `#8A2A12` at 30% | `#0A0A0A` at 0% | Wordmark / device mockup hero only |
+
+Geometry: `radial-gradient(ellipse 90% 70% at 50% 38%, …)`. The ellipse is wider
+than tall and sits **above** centre, so the brightest point is behind the
+headline's first line and decays down the page. `--color-canvas-gradient-core`,
+`--color-canvas-gradient-mid` and `--color-canvas-gradient-edge` are the three
+stops; the alpha ramp above is expressed as `--wash-core-alpha`,
+`--wash-mid-alpha`.
+
+**Flat rule.** Data-heavy surfaces get **no gradient**: Executions, My Passes,
+the Take flow preview and Settings are flat `--color-canvas` with grain only.
+A gradient behind a dense table reduces the contrast of the digits it sits
+under, which is the one thing §11.1 refuses to compromise. This matches
+reference image 5, which is the only data screen and the only one without a wash.
+
+**Grain.** A fine monochrome noise layer over everything, at **4% opacity**,
+`mix-blend-mode: overlay`, `pointer-events: none`, `aria-hidden`. Implemented as
+a base64 SVG `feTurbulence` tile (no binary asset, no network request), sized
+128×128 and repeated. At 4% it must be invisible on a photograph of the screen
+and visible only as the absence of banding in the gradient. `--noise-opacity: 0.04`.
+
+**Ghost watermark.** Oversized brand type at **5% opacity**, bleeding off both
+edges, behind hero content only (reference images 8, 9). Never behind body copy,
+never on a data surface.
+
+### 14.2 Corner brackets
+
+The reference frames its key objects with four thin L-shaped corner brackets
+(reference images 3, 9, 11) — a device, not a border.
+
+- Leg length `--bracket-length: 28px` (16px below the tablet breakpoint).
+- Stroke 1px (`--stroke-bracket`), colour `--bracket-color: #3A3A46`, which is
+  `--color-line-strong` at 60% — visible as a frame, never as a box.
+- Inset from the element edge by `--bracket-offset: 8px`, so the brackets sit
+  *inside* the padding, not on the boundary.
+- Four corners. All four are drawn; the bottom pair is the more visible of the
+  two because the top pair sits against a brighter gradient.
+
+**Used on exactly four things, and no more** (§2.5 rations the accent for the
+same reason):
+
+1. Landing hero frame.
+2. Pass detail top card.
+3. Trader profile header.
+4. The Landing "How it works" 2×2 grid as a group, one frame around the set.
+
+Where a key panel already carries the §5.2 chamfer, the brackets are drawn
+*around* the chamfer and do not replace it.
+
+### 14.3 Numbered eyebrows
+
+Every section opens with a numbered eyebrow (reference images 2, 3, 6, 11, 13).
+This is the reference's most consistent device and it is absent from the whole
+Stage K build.
+
+**Exact format**, left and right of the section, on one line:
+
+```
+\\  SECTION NAME  \\                    \\  07  \\
+```
+
+- Monospace, uppercase, `11px` (`--type-eyebrow-size`), tracking `0.18em`
+  (already `--type-eyebrow-track`).
+- The `\\` delimiters and the two-digit number are `--color-accent`.
+- The label is `--color-text-tertiary`.
+- Left-aligned to the content edge; the number hard-right to the content edge.
+- Never centred, never omitted on desktop, never bold.
+- Colour is the only accent on the line, so it must survive greyscale (§9.4) —
+  which it does, because the word is written out and the number is a number.
+
+Per-screen numbering is fixed and sequential; restarting a screen's numbering
+breaks the reader's sense of position:
+
+| Screen | Sections and numbers |
+|---|---|
+| Landing | `01 THE LOOP`, `02 HOW IT WORKS`, `03 THE NETWORK` |
+| Discover | `01 LIVE PASSES`, `02 TRADERS`, `03 ARCHIVED` |
+| Pass detail | `01 THE PLAN`, `02 PERFORMANCE`, `03 THE TRADER` |
+| Trader profile | `01 REPUTATION`, `02 PERFORMANCE`, `03 ACTIVE PASSES` |
+| Take flow | `01 SIZE`, `02 CONSENT`, `03 REVIEW`, `04 CONFIRM` |
+| How it works | `01 AUTHOR`, `02 PUBLISH`, `03 TAKE`, `04 SETTLE` |
+| My Passes / Executions / Profile | `01`–`03`, matching their sections |
+
+A **dot** variant replaces the number where the section is live rather than
+positioned: `● MARKET SNAPSHOT`. Ember dot, 6px, then the label. Used only on
+data surfaces whose content changes (§14.7).
+
+### 14.4 Display headlines
+
+**This is the second-largest gap.** The Stage K hero renders at
+`clamp(2.5rem, …, 4.5rem)` in a normal weight. The reference headlines are
+roughly **twice** that, at display weight, tracking negative, split across two or
+three deliberate lines, with **one ember word per line**.
+
+**Mechanic.** A headline is an explicit list of lines. Each line is a list of
+words. Exactly **one word per line** carries `--color-accent`; every other word
+is `--color-text-primary`. The ember word is the claim, not decoration, so it is
+the word a reader would keep if they remembered one.
+
+**Sizes** (`--type-display-hero-size`, one `clamp` token):
+
+| Breakpoint | Hero | Section headline | Tracking | Weight |
+|---|---|---|---|---|
+| 375 | 34px / 1.04 | 26px / 1.1 | −0.02em | 700 |
+| 768 | 48px / 1.02 | 34px / 1.08 | −0.025em | 700 |
+| 1280 | 72px / 1.0 | 48px / 1.05 | −0.03em | 700 |
+| 1440 | 92px / 0.98 | 56px / 1.05 | −0.03em | 700 |
+
+Never larger than 92px. Never below 34px — a hero that wraps to five lines at
+375px is a layout failure, so line breaks are authored, not left to the browser.
+
+**Exact copy and accent word per screen:**
+
+| Screen | Lines | Ember word |
+|---|---|---|
+| Landing | `See a **trade**.` / `Know the trader.` / `Take the trade.` | `trade` (line 1) |
+| Discover | `Live **plans**,` / `written by traders.` | `plans` (line 1) |
+| Pass detail | `BTC **LONG**` | `LONG` |
+| Trader profile | `@handle is` / `**verified** on PASS.` | `verified` (line 2) |
+| Take flow | `You author` / `your own **size**.` | `size` (line 2) |
+| How it works | `A **Pass** is` / `a plan, not a promise.` | `Pass` (line 1) |
+
+Where a headline carries a live value (`BTC LONG`, `@handle`), the value is
+`--type-data-*` **not** the display face — §3.2 forbids setting data in a body
+face and the same rule binds in reverse.
+
+**Gradient variant.** The reference also runs a horizontal
+`linear-gradient(90deg, primary, accent, primary)` across a headline
+(reference image 6). Permitted **only** on the Landing hero, never on a section
+headline, and never on a headline containing a live value — a gradient behind
+changing digits makes the digits harder to read.
+
+### 14.5 Data cards
+
+**The defining pattern of the reference, and the one the operator named
+("missed details and cards from the reference").** Anatomy, top to bottom,
+exactly as reference images 7, 10 and 12:
+
+1. **Container.** `--card-bg: #0B0B0E`, border `1px solid --card-border`
+   (`#23232C`), radius `--card-radius: 12px`. A **1px lighter top edge**
+   (`#33333F`) at 60% — a light source above the card. Bottom corners carry a
+   `--chamfer-size` cut (§5.2); top corners are square. This asymmetry is the
+   reference's, not a rounding error.
+2. **Header row.** Left: identifier in `--color-accent`, mono, uppercase, 12px,
+   tracking `0.08em` — `BTC LONG`, `PASS 7721`. Right: optional `● LIVE`
+   (§14.7) or a state word. Hairline separator below.
+3. **Sub-line.** One muted line under the identifier: the asset name, the
+   direction, or the project subtitle. Off-white at 60%.
+4. **Primary value.** `--type-data-xl-size` (40px at 1280+), mono, tabular,
+   `--color-text-primary`, with a **unit suffix** at `--type-data-s-size` in
+   `--color-text-tertiary` set on the same baseline — `$113.4K` / `per ETH`.
+   Never separated onto its own line.
+5. **Hairline separator.**
+6. **Metric rows.** `LABEL` left, `VALUE` right, one per line, separated by
+   hairlines. Label: mono, uppercase, 11px, `0.08em`, tertiary. Value: mono,
+   tabular, `--type-data-m-size`, primary. Row height 28px. This is a
+   definition list; the value is never centred.
+7. **Sparkline** (optional). Full-bleed inside the card, 64px tall, 1px line in
+   `--color-data-positive` or `--color-data-negative` with a 24% gradient fill
+   beneath, in a `--color-surface-sunken` inset box with a hairline border. No
+   axes, no labels, no gridlines. §11.2 governs what a price may show; this is
+   the only chart PASS has, and G-3 forbids more.
+8. **Status row** (optional). Label left, status word + 14px icon right, in the
+   status tone (§14.6).
+9. **Action** (optional). Full-width, `--card-pad` inset, ember-filled with
+   `--color-text-on-accent`, 6px radius, label left and a `↗` at the right.
+   Outlined in the state tone when the action is not the card's primary act.
+
+Padding `--card-pad: 20px` (16px at 375). **Hover**: border brightens from
+`--card-border` to `--color-accent-edge`, 180ms, and the top edge brightens with
+it. No lift, no scale, no shadow (§5.4 forbids shadow on a non-overlay surface).
+
+**Card types required by PASS:**
+
+| Type | Where | Contents |
+|---|---|---|
+| Pass card | Discover grid, trader profile Active Passes | Identifier `BTC LONG`, sub-line direction, entry value + `per ETH`, sparkline 24h, rows: Take profit / Stop loss / R:R / Takers / Expiry, status row, `Open Pass ↗` |
+| Trader card | Discover grid | Avatar (§14 identity), `@handle`, display name, Ethos score as the primary value, rows: Active Passes / Completed / Vouches, `View profile ↗` |
+| Market snapshot | Pass detail, Discover header | `● MARKET SNAPSHOT` + `● LIVE`, price as primary value, sparkline, rows: 24h change / 24h volume / Funding, `View on Hyperliquid ↗` |
+| Metric card | Pass detail metric row | Single label + single value. Five across at 1440, three at 1280, two at 768, one at 375. Values are `ENTRY`, `TAKE PROFIT`, `STOP LOSS`, `LEVERAGE`, `R:R` — §11.3's set, no additions |
+| Stat card | Trader profile, My Passes | Label, value, sub-line. Counts are mono and **never** colour-coded (§10.8.1) |
+| Order preview | Take flow steps 3–4 | Side, size, entry, TP, SL, estimated fee, `You authorize this exact order` as the sub-line |
+
+### 14.6 Status badges
+
+An icon plus a word, never a word alone and never colour alone (reference images
+3, 7, 10, 12).
+
+- Mono, uppercase, `10px`, tracking `0.1em`.
+- 14px line icon at the left, 6px gap, 1.5px stroke, currentColor.
+- Padding `4px 8px`, radius 4px, background = the tone at 12%, border = the tone
+  at 35%.
+- On a card's status row the badge is **borderless** and the word alone is
+  coloured; the pill form is for standalone badges in a filter bar or a rail.
+
+| PASS state | Icon | Tone | Token |
+|---|---|---|---|
+| `draft` | pencil | muted grey | `--badge-draft` |
+| `active` | filled ember dot | ember | `--badge-active` |
+| `entry_pending` | clock | ember | `--badge-entry-pending` |
+| `open` | pulse dot | ember | `--badge-open` |
+| `tp_hit` | arrow up-right | positive | `--badge-tp-hit` |
+| `sl_hit` | arrow down-right | negative | `--badge-sl-hit` |
+| `cancelled` | circle-slash | neutral | `--badge-cancelled` |
+| `expired` | hourglass | neutral | `--badge-expired` |
+| `invalidated` | exclamation in circle | negative | `--badge-invalidated` |
+
+The **word is the state**. `data-tone` and the icon reinforce it (§9.4), and the
+full set reads correctly in greyscale.
+
+### 14.7 Live indicators
+
+- Dot: `--live-dot-size: 6px`, `--color-accent`.
+- Pulse: `--live-pulse-duration: 2000ms`, opacity `1 → 0.35 → 1`, `--ease-standard`,
+  **two iterations then rest** — it establishes liveness and then stops, because
+  a permanently looping dot is a distraction the reference never has.
+- Reduced motion: `--duration-instant` (no pulse), dot at full opacity, `LIVE`
+  word retained. The information is the word, never the animation (§6.6).
+- Label form is `● LIVE` for a market snapshot and `● 4 ACTIVE` for a count.
+
+Used on: the market snapshot header, the Discover ticker, the trader's active
+Pass count, and the Take flow's price while it is being fetched.
+
+### 14.8 Ticker / data bar
+
+A thin full-bleed bar directly under the topbar on Discover and Pass detail
+(reference image 5). Height 28px, `--color-surface-sunken`, hairline bottom
+border.
+
+Content: 4–6 entries, each `SYMBOL  PRICE  ▲2.41%` in one mono run at
+`--type-data-xs-size`, symbol tertiary, price primary, delta in the data tone.
+Entries separated by `--space-4`; **no scrolling animation** — it re-renders on
+each poll, which is honest and costs nothing (a marquee that never matches the
+data is a lie the reference does not tell).
+
+A bar that cannot be populated (no market data, or fetch failure) renders as a
+single muted row reading `MARKET DATA UNAVAILABLE` and nothing else. It never
+renders empty.
+
+### 14.9 Chip buttons
+
+**Chamfered, not rounded.** The reference chips (image 6) have 45° cut corners,
+consistent with §5.1 and §5.2. This section overrides any reading of the chips
+as rounded.
+
+- `clip-path` chamfer of `--chamfer-size` on all four corners.
+- Background `--color-surface-raised`, border `1px solid --color-line-strong`,
+  text `--color-text-primary`.
+- Label mono uppercase, 12px, tracking `0.08em`.
+- Padding `10px 16px`, minimum hit area `--size-target-min`.
+- Hover: border → `--color-accent`, text → `--color-accent-text`, 180ms.
+- `aria-pressed="true"`: background `--color-accent`, text
+  `--color-text-on-accent`, border `--color-accent`. This is the reference's
+  selected timeframe chip (image 5) and it is an accent fill — so **one** accent
+  fill per region (§2.5), which is why a filter bar of chips shows one selected.
+
+Used for: Discover filters, Take-flow step navigation, the Executions period
+control, and the informational pages' category chips.
+
+### 14.10 Numbered step grid
+
+The 2×2 grid (reference image 4). Structure per card:
+
+1. **Number badge** — a 28px circle, 1px `--color-accent` border, transparent
+   fill, the step digit centred in mono 13px `--color-accent`. Not filled: a
+   filled circle would spend the accent twice per section.
+2. **Title** — 15px, weight 600, `--color-text-primary`.
+3. **Description** — 13px, `--color-text-secondary`, max `--measure-body`.
+4. **Visual slot** — full-bleed inside the card, `--radius-md`, hairline
+   border. PASS fills this with a **data card or a stat row**, never an image:
+   §12.2 forbids illustrative imagery and PASS has no asset pipeline.
+5. **Footer row** — label left, 14px ember icon right.
+
+Grid: 2 columns at 768 and above, 1 column at 375. Gap `--space-5`. Cards are
+equal height (`align-items: stretch`); their footers align on a shared baseline
+via a grid row, never by padding hacks.
+
+Used on: Landing "How it works" (four steps, shortened copy) and the full
+`/how-it-works` page (four steps, full copy).
+
+### 14.11 Terminal-grade density
+
+For any surface showing rows of figures — Executions, My Passes, the order book
+on Pass detail (reference image 5):
+
+- Row height `--row-height-dense: 34px`, vertically centred.
+- All figures mono, tabular, right-aligned; labels left-aligned mono uppercase
+  11px tertiary.
+- Separator `1px solid --color-line-hairline`. **No zebra striping** (reference
+  uses none; §12.1 already forbids it).
+- Column headers: mono uppercase 10px, `0.1em`, tertiary, sticky within a
+  scrolling region.
+- A selected row carries a 2px `--color-accent` **left** border and
+  `--color-surface-raised`; it is never a filled row.
+- **No horizontal scroller, at any width** (§8.5). Below 720px the rows become
+  stacked cards (§14.5 Pass card anatomy, collapsed to label/value pairs).
+- The density must not cost legibility: 34px is a floor for a *row*, not a
+  target for a touch target. Any row containing an interactive control keeps
+  `--size-target-min` on the control itself.
+
+### 14.12 Iconography
+
+Thin line icons, `1.5px` stroke (`--stroke-icon`, already a token), 14px default
+optical size inside a 20px grid, round caps and joins, `currentColor`, no fills
+except the `●` live dot and the badge glyphs in §14.6.
+
+Every icon sits in a 20px box so an icon and a mono glyph align on the same
+optical baseline. No icon is ever the only carrier of meaning (§9.4).
+
+### 14.13 What "alive" means
+
+The operator's word, translated into exactly six permitted behaviours. This is a
+closed list; a seventh is a gap, not an improvisation.
+
+1. **Backgrounds are never flat.** Gradient wash + grain (§14.1). This is the
+   single largest contributor and it costs no motion.
+2. **Live dots pulse twice, then rest** (§14.7).
+3. **Figures count up once on first render.** `--duration-deliberate` (420ms),
+   `--ease-standard`, integer-quantised, from a value already on screen so it
+   never shows `0`. Reduced motion: instant.
+4. **Cards brighten their border and top edge on hover** (§14.5). No lift, no
+   scale.
+5. **Sparklines draw their line on first render** — a 420ms
+   `stroke-dashoffset` sweep left to right, then nothing. Reduced motion: the
+   line is simply present.
+6. **Status changes cross-fade over 180ms** — the outgoing word fades out and
+   the incoming word fades in on the same baseline. No slide, no flip, no count.
+
+**Forbidden, explicitly:** looping animation of any kind, bounce, overshoot,
+elastic easing, parallax, auto-playing video, animated background gradients, and
+any motion on anything the operator did not cause. `--ease-linear` is for the
+live dot only. §6.4's inventory is unchanged; this section adds entrances, not a
+motion system.
+
+### 14.14 Identity — the PASS mark (closes G-2)
+
+**G-2 is closed by this section.** A mark is now designed, so §12.2's prohibition
+on improvising a logo and §7.3's "no custom logo until G-2 closes" no longer
+bind. G-2's other half — *reuse the reference's mark* — remains forbidden: the
+mark below is derived from PASS's own §9.2 signature devices, not from the
+reference's orbit ring.
+
+**The mark.** `PASS` set in Archivo 700, all caps, `--color-text-primary`, with
+two ember elements:
+
+1. A **signal line** — `--stroke-icon` ember, horizontal, at the wordmark's
+   optical mid-height, running the full width of the word and extending `6px`
+   past the final `S` on each side. This is §9.2's `SignalLine`, the product's
+   own signature device.
+2. A **reticle in the P's counter** — a `1px` ember ring sized to sit inside the
+   counter with `2px` clearance, crossed by the signal line, with a filled
+   `3px` ember dot on the ring's upper-right at 45°.
+
+**Why the P.** The reference puts its ring-and-dot in a letter with a **round
+counter** — its `O`. Of PASS's four letters, only the `P` has one. The `A`'s
+counter is triangular and a circle does not sit in it; the `S` has no counter at
+all and a reticle collides with both terminals. The `P` is therefore the only
+letter that can carry a ring, and it is the direct structural analogue of the
+device being borrowed.
+
+**Why a reticle and not an orbit.** A ring-plus-dot is generic; a ring-plus-dot
+that is *also* PASS's own reticle and *also* sits on the signal line is the
+product's language. The mark is legible with the ring removed (it degrades to
+`PASS` with a strike-through), which matters at 24px.
+
+**Sizes.** One SVG, one geometry, scaled:
+`24px` favicon (ring stroke drops to `1px`, dot to `2.5px`, the reticle
+crosshair is dropped because it does not survive 24px) · `40px` topbar (full
+geometry) · `120px` Landing hero (full geometry, signal line extended `24px`).
+Minimum size `16px`; below that the wordmark is not used, only `LogoMark`.
+
+**Placement.** Topbar left, Landing hero at `--type-display-hero-size`, `icon.svg`
+for the browser tab, `apple-icon.png` at 180px, OG image. Never rotated, never
+outlined, never in a container chip.
+
+### 14.15 Overflow discipline (reinforces §8.5)
+
+The operator reported overflows and elements overlapping. The causes were
+mechanical and are closed here as rules, not as fixes to particular screens:
+
+1. **Every grid child gets `min-width: 0`.** Without it a long unbroken token
+   (a price, a handle, a URL) sets the child's min-content width and pushes the
+   whole grid past the viewport. This is the single most common cause.
+2. **Every data figure is `white-space: nowrap`** (§11.1) **and** its container
+   is `overflow: hidden; text-overflow: ellipsis`. A figure that wraps reads as
+   two numbers; a figure that overflows reads as a broken layout.
+3. **A handle or ticker truncates, never wraps**: `max-inline-size` on the
+   element plus the ellipsis pair above.
+4. **The hero wash, the grain layer and the ghost watermark are `position:
+   absolute` inside a `position: relative` shell with `overflow: clip`.** An
+   absolutely positioned wash that escapes its shell is exactly the "overlay on
+   other elements" report.
+5. **Nothing is `position: fixed` except the topbar and the bottom nav**, and
+   neither has a z-index above the overlay tier (§5.4).
+6. **No element may exceed `100%` of its parent's content box.** The grid, the
+   card and the table cell are the three places to check.
