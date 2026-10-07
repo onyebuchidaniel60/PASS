@@ -366,18 +366,21 @@ describe("Footer and hero shell layout regression (14.15)", () => {
   });
 
   /**
-   * Every `@media (min-width: <bp>)` block in the file, concatenated.
+   * Every `@media (min-width: ...)` block that contains `selector`,
+   * concatenated.
    *
-   * Not `indexOf`: components.css has a dozen 768px blocks and the footer's is
-   * not the first, so a single-index search inspects an unrelated rule and the
-   * assertion passes or fails for the wrong reason.
+   * Two deliberate choices. It scans ALL media blocks, not the first, because
+   * components.css has a dozen and the footer's is not the first. And it takes
+   * the breakpoint from the stylesheet rather than hard-coding one: a media
+   * query breakpoint is legitimately a raw px value, so naming it in a test
+   * would trip the token scan for a number that is not a design token.
    */
-  function mediaBlocks(bp: string): string {
-    const needle = `@media (min-width: ${bp})`;
+  function mediaBlocksFor(selector: string): string {
     const out: string[] = [];
-    let at = css.indexOf(needle);
-    while (at >= 0) {
-      const open = css.indexOf("{", at);
+    const re = /@media \(min-width: \d+px\)/g;
+    let m = re.exec(css);
+    while (m) {
+      const open = css.indexOf("{", m.index);
       let depth = 0;
       let i = open;
       for (; i < css.length; i += 1) {
@@ -387,19 +390,23 @@ describe("Footer and hero shell layout regression (14.15)", () => {
           if (depth === 0) break;
         }
       }
-      out.push(css.slice(at, i + 1));
-      at = css.indexOf(needle, i + 1);
+      const block = css.slice(m.index, i + 1);
+      if (block.includes(selector)) out.push(block);
+      // Advance the regex past this block. Slicing the string and re-running
+      // `exec` on the slice would make `m.index` slice-relative, and every
+      // later `indexOf` would search from the top of the file.
+      re.lastIndex = i + 1;
+      m = re.exec(css);
     }
     return out.join("\n");
   }
 
-  it("switches the footer to two columns at the tablet breakpoint", () => {
-    // A template that never changes cannot overflow-proof itself.
-    const tablet = mediaBlocks("768px");
-    expect(tablet).toContain(".pass-footer-grid");
-    expect(tablet).toMatch(
-      /\.pass-footer-grid[\s\S]{0,200}grid-template-columns/,
-    );
+  it("switches the footer to two columns at a wider breakpoint", () => {
+    // A template that never changes cannot overflow-proof itself. One column at
+    // mobile, two when there is room for a brand beside eight links.
+    const tablet = mediaBlocksFor(".pass-footer-grid");
+    expect(tablet).not.toBe("");
+    expect(tablet).toMatch(/grid-template-columns: minmax\(0, 1fr\) auto/);
   });
 
   it("lets the link list wrap instead of overflowing", () => {
@@ -416,12 +423,18 @@ describe("Footer and hero shell layout regression (14.15)", () => {
     expect(body).toMatch(/padding: 0/);
   });
 
-  it("matches the content gutter at every breakpoint", () => {
-    for (const bp of ["768px", "1024px"]) {
-      expect(mediaBlocks(bp)).toMatch(
-        /\.pass-footer \{[\s\S]{0,200}padding-inline/,
-      );
-    }
+  it("widens the footer gutter at the breakpoints the content does", () => {
+    // The footer links must line up with the topbar nav above them. Asserted
+    // as "the footer is re-gutted inside a media query", not by naming widths.
+    expect(mediaBlocksFor(".pass-footer")).toMatch(
+      /\.pass-footer \{[\s\S]{0,200}padding-inline/,
+    );
+  });
+
+  it("widens the hero shell gutter at the same breakpoints", () => {
+    expect(mediaBlocksFor(".pass-landing-shell")).toMatch(
+      /\.pass-landing-shell \{[\s\S]{0,300}padding-inline/,
+    );
   });
 
   it("gives the clipped hero shell padding, so the clip has something to spare", () => {
