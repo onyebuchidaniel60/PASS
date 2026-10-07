@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { clientGet } from "@/lib/client";
+import { apiGet } from "@/lib/api";
 
 import { PassDetailClient } from "./PassDetailClient";
 
@@ -31,7 +31,12 @@ export async function generateMetadata({
   let ogDescription = description;
 
   try {
-    const p = (await clientGet<{
+    /**
+ * Uses the SERVER client. `clientGet` lives in a "use client" module, so
+ * calling it from generateMetadata does not perform a server fetch — it
+ * silently failed and every shared card served the generic fallback text.
+ */
+const p = (await apiGet<{
       asset: string;
       direction: string;
       entryPrice?: string;

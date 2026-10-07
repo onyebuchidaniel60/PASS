@@ -7,7 +7,9 @@ import { generateMetadata } from "../app/p/[publicId]/page";
  * link is public, so no private account data may reach it (§10.14, UX_SPEC §14).
  */
 const { mockGet } = vi.hoisted(() => ({ mockGet: vi.fn() }));
-vi.mock("@/lib/client", () => ({ clientGet: (...a: unknown[]) => mockGet(...a) }));
+// generateMetadata runs on the SERVER, so it uses the server client. Mocking
+// "@/lib/client" here would have tested nothing: that helper is never called.
+vi.mock("@/lib/api", () => ({ apiGet: (...a: unknown[]) => mockGet(...a) }));
 
 const PASS = {
   asset: "BTC",
