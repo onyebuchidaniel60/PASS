@@ -1,81 +1,100 @@
-/* PASS extension injected card.
+﻿/* PASS extension injected card.
  *
- * Runs inside X's page, so none of PASS's app-level design tokens are
- * available here: every colour is a literal. Neutral values are chosen to
- * read on both X light and X dark mode rather than matching X's palette
- * (docs/DECISIONS.md D-009).
+ * Runs inside X's page, so none of PASS's app-level design tokens are actually
+ * available here: every value below is a literal. Each literal is annotated with
+ * the token it came from, so this file stays traceable to design/DESIGN.md S11
+ * and apps/web/src/styles/tokens.css.
  *
- * Selectors are scoped to #pass-overlay-card, which is the id the content
- * script actually creates in content.ts. */
+ * THE CARD IS ALWAYS PASS-DARK, REGARDLESS OF X's THEME.
+ *
+ * The previous version followed prefers-color-scheme and restyled itself for X
+ * light and X dark. That made the card read as part of X rather than part of
+ * PASS, and meant the same Pass looked different on the same screen. PASS is a
+ * single dark theme (tokens.css defines one palette and no light variant), so
+ * the overlay now uses that palette unconditionally and the colour-scheme block
+ * is gone. The trade is deliberate: the card is conspicuous on X light.
+ * Conspicuous is correct, because it is a foreign object from another product
+ * and disguising it as X chrome would misrepresent where it came from.
+ *
+ * Scope and behaviour are UNCHANGED: still #pass-overlay-card, still created by
+ * content.ts, still pointer-events limited to its own contents so it cannot
+ * intercept X's scrolling or clicks. Only colour and typography changed.
+ */
 
 #pass-overlay-card {
   /* Sit in the normal flow so the card cannot intercept scrolling or
      keyboard events meant for X. */
   position: static;
   pointer-events: none;
-  margin: 0 0 12px 0;
+  margin: 0 0 12px 0; /* --space-3 */
   max-width: 600px;
   box-sizing: border-box;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.45;
-  color: #171717;
+  /* --font-body, with system fallbacks: the extension may not load webfonts. */
+  font-family: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  font-size: 0.9375rem; /* --type-body-m-size */
+  line-height: 1.47; /* --type-body-m-line */
+  color: #f5f1ea; /* --color-text-primary */
   -webkit-font-smoothing: antialiased;
 }
 
 #pass-overlay-card .pass-card {
-  /* Neutral translucent surface: legible on light and dark X without
-     matching either theme exactly. */
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid #d4d4d4;
-  border-radius: 10px;
-  background: rgba(128, 128, 128, 0.08);
+  gap: 8px; /* --space-2 */
+  padding: 12px 14px; /* --space-3 / --space-4 */
+  border: 1px solid #1f1f25; /* --color-line-hairline */
+  border-radius: 6px;
+  /* --color-scrim, so the card holds its own value over BOTH X themes instead
+     of blending into whichever one is active. */
+  background: rgba(5, 5, 5, 0.92);
   /* Clicks reach the card's own contents (the link) but the surrounding
      padding does not swallow clicks meant for X beneath. */
   pointer-events: auto;
 }
 
+/* --font-data. Every handle, label and figure here is data, so it is mono. */
 #pass-overlay-card .pass-handle {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 15px;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.1875rem; /* --type-data-m-size */
+  line-height: 1.26; /* --type-data-m-line */
   font-weight: 600;
-  color: #171717;
+  color: #f5f1ea; /* --color-text-primary */
   word-break: break-all;
 }
 
 #pass-overlay-card .pass-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 8px; /* --space-2 */
   flex-wrap: wrap;
 }
 
 #pass-overlay-card .pass-label {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9375rem; /* --type-data-s-size */
   font-weight: 600;
-  letter-spacing: 0.1em;
+  /* Uppercase mono chip per DESIGN.md S11.7: the label carries the meaning and
+     colour only reinforces it. */
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #525252;
-  border: 1px solid #a3a3a3;
+  color: #b4aea4; /* --color-text-secondary */
+  border: 1px solid #656577; /* --color-line-strong */
   border-radius: 4px;
   padding: 2px 6px;
   white-space: nowrap;
 }
 
 #pass-overlay-card .pass-ethos {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  color: #404040;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  color: #b4aea4; /* --color-text-secondary */
   white-space: nowrap;
 }
 
 #pass-overlay-card .pass-passes {
-  font-size: 14px;
-  color: #262626;
+  font-size: 0.9375rem; /* --type-body-m-size */
+  color: #b4aea4; /* --color-text-secondary */
 }
 
 #pass-overlay-card .pass-action {
@@ -84,12 +103,12 @@
   min-height: 32px;
   display: inline-flex;
   align-items: center;
-  padding: 0 12px;
-  border: 1px solid #171717;
+  padding: 0 12px; /* --space-3 */
+  background: #f03a1c; /* --color-accent */
+  border: 1px solid #f03a1c;
   border-radius: 6px;
-  background: #171717;
-  color: #ffffff;
-  font-size: 14px;
+  color: #0a0a0a; /* --color-text-on-accent */
+  font-size: 0.9375rem;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -97,55 +116,14 @@
 }
 
 #pass-overlay-card .pass-action:hover {
-  background: #404040;
-  border-color: #404040;
+  background: #ff4a2c; /* --color-accent-hover */
+  border-color: #ff4a2c;
   text-decoration: underline;
 }
 
+/* A visible accent focus ring, so keyboard users can see where they are even
+   inside someone else's page. */
 #pass-overlay-card .pass-action:focus-visible {
-  outline: 2px solid #171717;
+  outline: 2px solid #f03a1c; /* --color-accent */
   outline-offset: 2px;
-}
-
-@media (prefers-color-scheme: dark) {
-  #pass-overlay-card {
-    color: #e7e9ea;
-  }
-
-  #pass-overlay-card .pass-card {
-    border-color: #2f3336;
-    background: rgba(128, 128, 128, 0.16);
-  }
-
-  #pass-overlay-card .pass-handle {
-    color: #e7e9ea;
-  }
-
-  #pass-overlay-card .pass-label {
-    color: #a3a3a3;
-    border-color: #536471;
-  }
-
-  #pass-overlay-card .pass-ethos {
-    color: #b0b3b4;
-  }
-
-  #pass-overlay-card .pass-passes {
-    color: #d7d9da;
-  }
-
-  #pass-overlay-card .pass-action {
-    background: #e7e9ea;
-    border-color: #e7e9ea;
-    color: #0f1419;
-  }
-
-  #pass-overlay-card .pass-action:hover {
-    background: #ffffff;
-    border-color: #ffffff;
-  }
-
-  #pass-overlay-card .pass-action:focus-visible {
-    outline-color: #e7e9ea;
-  }
 }
