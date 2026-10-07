@@ -1091,6 +1091,9 @@
 
 [data-testid="data-table"] {
   display: block;
+  inline-size: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
 [data-testid="data-table-stacked"] {
@@ -1110,6 +1113,73 @@
   }
 }
 
+/* Cell geometry. Every figure in these tables sits on the same padding and the
+ * same rule, so the columns read as one object instead of as adjacent cells. */
+.pass-table-head {
+  padding: 0 var(--space-3) var(--space-2);
+  border-block-end: var(--border-hairline);
+  text-align: start;
+  white-space: nowrap;
+}
+
+.pass-table-cell {
+  padding: var(--space-3);
+  border-block-end: var(--border-hairline);
+  text-align: start;
+  vertical-align: top;
+}
+
+.pass-table-cell[data-align="right"],
+.pass-table-head[data-align="right"] {
+  text-align: right;
+}
+
+/* The reconstructed-detail row sits under its row, not beside it. */
+.pass-table-detail {
+  padding: 0 var(--space-3) var(--space-4);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-table-stack {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.pass-table-stack-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pass-table-stack-label {
+  color: var(--color-text-tertiary);
+}
+
+.pass-table-stack-value {
+  margin: 0;
+  text-align: right;
+}
+
+[data-testid="data-table-stacked"] > li {
+  padding-block: var(--space-3);
+  border-block-end: var(--border-hairline);
+}
+
+/* A horizontal strip of figures. Separation comes from a hairline on each cell
+ * rather than a 1px grid gap over a rule-coloured background: same result, and
+ * the divider is a declared border instead of an accident of layout. */
+.pass-stat-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  border: var(--border-hairline);
+}
+
+.pass-stat-row > * + * {
+  border-inline-start: var(--border-hairline);
+}
+
 /* Draft and cancelled rows: the row recedes, the text never does.
  * Dimming text opacity would fail the contrast budget (ï¿½9), and a row you are
  * cancelling still has to be readable in order to be cancelled. */
@@ -1118,12 +1188,12 @@ li[data-ghost="true"] {
   background-color: var(--color-surface-sunken);
 }
 
-/* Inventory cells (DESIGN.md §10.8, §10.9, §11).
+/* Inventory cells (DESIGN.md ï¿½10.8, ï¿½10.9, ï¿½11).
  *
  * Figures never wrap mid-number: a price broken across two lines reads as two
  * numbers, which is a different and wrong number.
  *
- * `data-tone` only ever REINFORCES meaning the text already carries (§9.4:
+ * `data-tone` only ever REINFORCES meaning the text already carries (ï¿½9.4:
  * colour is secondary). Strip colour entirely and every value here still reads
  * correctly, because PnlCell puts the sign in the text and StateChip puts the
  * state in a label. */
@@ -1158,16 +1228,81 @@ li[data-ghost="true"] {
   font-family: var(--font-data);
   font-size: var(--type-data-s-size);
   letter-spacing: var(--type-data-s-track);
-  padding: 2px 6px;
-  border: 1px solid var(--color-line-hairline);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hairline);
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
-/* Connection chips (§10.10.1).
+/* Connection chips (ï¿½10.10.1).
  *
  * The state WORD is the meaning. `data-tone` reinforces it and is the only thing
  * that changes colour, so the chip survives greyscale and colour blindness. */
+.pass-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-family: var(--font-data);
+  letter-spacing: var(--type-data-xs-track);
+}
+
+.pass-avatar[data-size="sm"] {
+  inline-size: var(--size-avatar-sm);
+  block-size: var(--size-avatar-sm);
+  font-size: var(--type-eyebrow-size);
+}
+
+.pass-avatar[data-size="md"] {
+  inline-size: var(--size-avatar-md);
+  block-size: var(--size-avatar-md);
+  font-size: var(--type-data-s-size);
+}
+
+.pass-avatar[data-size="lg"] {
+  inline-size: var(--size-avatar-lg);
+  block-size: var(--size-avatar-lg);
+  font-size: var(--type-data-l-size);
+}
+
+.pass-avatar > svg {
+  inline-size: 50%;
+  block-size: auto;
+}
+
+.pass-connection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+}
+
+.pass-connection-body {
+  display: grid;
+  gap: var(--space-1);
+  flex: 1 1 var(--size-connection-min);
+  min-width: 0;
+}
+
+.pass-connection-label {
+  font-weight: 600;
+}
+
+.pass-connection-detail {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-secondary);
+}
+
 .pass-connection-state {
   font-family: var(--font-data);
   font-size: var(--type-data-s-size);

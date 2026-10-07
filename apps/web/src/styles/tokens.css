@@ -316,6 +316,18 @@
   --size-target-min: 44px;
   --stroke-icon: 1.5px;
 
+  /* §10.10.1 Identity. An avatar is the one dimension in the inventory surfaces
+     that has no relation to the icon grid: it carries a human face at a size a
+     list row can hold, so its three steps are declared rather than computed from
+     --size-icon. */
+  --size-avatar-sm: 24px;
+  --size-avatar-md: 40px;
+  --size-avatar-lg: 72px;
+  /* §10.10.1 The minimum inline size of a connection chip's label block. A
+     connection's name and state stay on one line until the chip is narrower than
+     this, then the detail wraps beneath. */
+  --size-connection-min: 180px;
+
   /* §8.2/§8.3 Grid. Breakpoints are media queries and cannot be custom
      properties; they are recorded here as the single source of the numbers:
        mobile  0-767px     single column, bottom nav,  16px gutter

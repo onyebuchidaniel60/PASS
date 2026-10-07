@@ -66,24 +66,16 @@ export function DataTable<T>({
   return (
     <>
       {/* Wide: a real table. Numeric columns align on the decimal. */}
-      <table
-        style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}
-        data-testid="data-table"
-      >
-        <caption className="sr-only">{caption}</caption>
+      <table data-testid="data-table">
+        <caption className="visually-hidden">{caption}</caption>
         <thead>
           <tr>
             {columns.map((c) => (
               <th
                 key={c.key}
                 scope="col"
-                className="stat"
-                style={{
-                  textAlign: c.numeric ? "right" : "left",
-                  padding: "0 12px 8px",
-                  borderBottom: "1px solid var(--rule)",
-                  whiteSpace: "nowrap",
-                }}
+                className="pass-table-head"
+                data-align={c.numeric ? "right" : "left"}
               >
                 {c.label}
               </th>
@@ -95,17 +87,12 @@ export function DataTable<T>({
             const key = rowKey(row);
             const ghost = isGhost?.(row) ?? false;
             const cells = columns.map((c) => (
+              // Ghost dims the row's surface, never its text colour; components.css
+              // keys that off the row's own data-ghost, so the cell needs none.
               <td
                 key={c.key}
-                className={c.numeric ? "num" : undefined}
-                style={{
-                  padding: "14px 12px",
-                  borderBottom: "1px solid var(--rule)",
-                  textAlign: c.numeric ? "right" : "left",
-                  verticalAlign: "top",
-                  // Ghost dims the row's surface, never its text colour.
-                  background: ghost ? "var(--surface-sunken)" : undefined,
-                }}
+                className="pass-table-cell"
+                data-align={c.numeric ? "right" : "left"}
               >
                 {c.render(row)}
               </td>
@@ -113,10 +100,7 @@ export function DataTable<T>({
             const detail =
               isExpanded?.(row) && renderDetail ? (
                 <tr key={`${key}-detail`} data-detail="true">
-                  <td
-                    colSpan={columns.length}
-                    style={{ padding: "0 12px 16px", borderBottom: "1px solid var(--rule)" }}
-                  >
+                  <td className="pass-table-detail" colSpan={columns.length}>
                     {renderDetail(row)}
                   </td>
                 </tr>
@@ -141,32 +125,22 @@ export function DataTable<T>({
       </table>
 
       {/* Narrow: no sideways scrolling, so the columns become a stacked list. */}
-      <ul className="stack-list" data-testid="data-table-stacked">
+      <ul data-testid="data-table-stacked">
         {rows.map((row) => {
           const key = rowKey(row);
           const ghost = isGhost?.(row) ?? false;
           return (
-            <li
-              key={key}
-              data-ghost={ghost || undefined}
-              style={{
-                padding: "14px 0",
-                borderBottom: "1px solid var(--rule)",
-                background: ghost ? "var(--surface-sunken)" : undefined,
-              }}
-            >
+            <li key={key} data-ghost={ghost || undefined}>
               {isExpanded?.(row) && renderDetail ? (
                 renderDetail(row)
               ) : renderRow ? (
                 renderRow(row, key)
               ) : (
-                <dl style={{ display: "grid", gap: "6px", margin: 0 }}>
+                <dl className="pass-table-stack">
                   {stack.map((c) => (
-                    <div key={c.key} style={{ display: "flex", justifyContent: "space-between" }}>
-                      <dt className="stat" style={{ color: "var(--ink-faint)" }}>
-                        {c.label}
-                      </dt>
-                      <dd style={{ margin: 0, textAlign: "right" }}>{c.render(row)}</dd>
+                    <div key={c.key} className="pass-table-stack-row">
+                      <dt className="pass-table-stack-label">{c.label}</dt>
+                      <dd className="pass-table-stack-value">{c.render(row)}</dd>
                     </div>
                   ))}
                 </dl>
@@ -182,27 +156,6 @@ export function DataTable<T>({
 /** StatRow — a horizontal strip of figures with mono labels and no colour coding. */
 export function StatRow({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="stat-row"
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${countChildren(children)}, minmax(0, 1fr))`,
-        gap: "1px",
-        background: "var(--rule)",
-        border: "1px solid var(--rule)",
-      }}
-    >
-      {children}
-    </div>
+    <div className="pass-stat-row">{children}</div>
   );
-}
-
-function countChildren(children: ReactNode): number {
-  let n = 0;
-  const walk = (c: ReactNode) => {
-    if (Array.isArray(c)) c.forEach(walk);
-    else if (c !== null && c !== undefined && c !== false) n += 1;
-  };
-  walk(children);
-  return Math.max(n, 1);
 }

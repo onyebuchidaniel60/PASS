@@ -152,25 +152,14 @@ const RULES = [
  * and removing the last one fails too — so the entry cannot rot.
  *
  * Removing an entry is part of rebuilding the screen it names.
+ *
+ * EMPTY as of 2026-10-07 (Stage K): all four Wave 7 screen rebuilds landed and
+ * each of these files is back to zero violations, so every entry has been
+ * deleted. The map stays in the file because a later screen may need a
+ * provisional allowance, and an entry added for a file that is already clean
+ * is a silent hole — check the printed allowance against the printed findings.
  */
-const PENDING_MIGRATION = {
-  "apps/web/src/app/me/executions/page.tsx": {
-    expected: 1,
-    why: "min-w-[720px] on a table inside overflow-x-auto. This is also a DESIGN.md §8.5 anti-pattern: wide tables become a stacked-card list, never a horizontal scroller. Fixed by the Wave 7 rebuild of Executions, not by a token.",
-  },
-  "apps/web/src/app/p/[publicId]/page.tsx": {
-    expected: 1,
-    why: "Raw 48px spacing that maps to --space-7. Fixed by the Wave 7 rebuild of Pass detail.",
-  },
-  "apps/web/src/app/passes/new/page.tsx": {
-    expected: 2,
-    why: "Raw 44px target sizes that map to --size-target-min. Fixed by the Wave 7 rebuild of Create Pass.",
-  },
-  "apps/web/src/app/passes/[publicId]/take/page.tsx": {
-    expected: 3,
-    why: "Raw 44px target sizes that map to --size-target-min. Fixed by the Wave 7 rebuild of the Take flow.",
-  },
-};
+const PENDING_MIGRATION = {};
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {

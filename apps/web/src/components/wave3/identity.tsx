@@ -25,45 +25,29 @@ export interface AvatarProps {
 }
 
 export function Avatar({ src, handle, size = "md", className }: AvatarProps) {
-  const dims = { sm: 24, md: 40, lg: 72 }[size];
   const initials = (handle ?? "")
     .replace(/^@/, "")
     .replace(/[^a-zA-Z0-9]/g, "")
     .slice(0, 2)
     .toUpperCase();
 
-  const style = {
-    width: dims,
-    height: dims,
-    borderRadius: size === "sm" ? 4 : 6,
-    overflow: "hidden",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flex: "0 0 auto",
-    border: "1px solid var(--color-line-hairline)",
-    background: "var(--color-surface-raised)",
-    color: "var(--color-text-secondary)",
-    fontFamily: "var(--font-data)",
-    fontSize: `${Math.max(9, Math.round(dims / 2.6))}px`,
-    letterSpacing: "0.02em",
-  };
+  const cls = ["pass-avatar", className].filter(Boolean).join(" ");
 
   if (src) {
     // A plain <img>: the avatar source is an arbitrary remote URL from the
     // provider profile, so next/image would need every host allow-listed.
-    return <img src={src} alt="" className={className} style={style} />;
+    return <img src={src} alt="" className={cls} data-size={size} />;
   }
   if (initials) {
     return (
-      <span className={className} style={style} aria-hidden="true">
+      <span className={cls} data-size={size} aria-hidden="true">
         {initials}
       </span>
     );
   }
   return (
-    <span className={className} style={style} aria-hidden="true">
-      <svg width={Math.round(dims * 0.5)} height={Math.round(dims * 0.5)} viewBox="0 0 24 24" fill="none">
+    <span className={cls} data-size={size} aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
         <path d="M12 3v18M3 12h18" stroke="currentColor" strokeWidth="0.75" opacity="0.25" />
       </svg>
@@ -104,29 +88,13 @@ export function ConnectionChip({
   action,
 }: ConnectionChipProps) {
   return (
-    <div
-      className="pass-connection"
-      data-tone={tone}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "var(--space-3)",
-        padding: "var(--space-3)",
-        border: "1px solid var(--color-line-hairline)",
-        borderRadius: 6,
-        flexWrap: "wrap",
-      }}
-    >
-      <div style={{ display: "grid", gap: 2, flex: "1 1 180px" }}>
-        <span style={{ fontWeight: 600 }}>{label ?? provider}</span>
+    <div className="pass-connection" data-tone={tone}>
+      <div className="pass-connection-body">
+        <span className="pass-connection-label">{label ?? provider}</span>
         <span className="pass-connection-state" data-tone={tone}>
           {TONE_TEXT[tone]}
         </span>
-        {detail ? (
-          <span className="pass-stale" style={{ fontSize: "var(--type-body-s-size)" }}>
-            {detail}
-          </span>
-        ) : null}
+        {detail ? <span className="pass-connection-detail">{detail}</span> : null}
       </div>
 
       {action ? (

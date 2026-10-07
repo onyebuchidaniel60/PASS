@@ -170,7 +170,7 @@ export function ExecutionsClient({
                     isExpanded={(e) => expanded === e.id}
                     renderRow={(e) => (
                       <>
-                        <td style={{ padding: "14px 12px" }}>
+                        <td className="pass-table-cell">
                           <button
                             type="button"
                             className="pass-btn"
@@ -184,8 +184,8 @@ export function ExecutionsClient({
                         {COLUMNS.map((c) => (
                           <td
                             key={c.key}
-                            className={c.numeric ? "pass-num" : undefined}
-                            style={{ padding: "14px 12px", textAlign: c.numeric ? "right" : "left" }}
+                            className={c.numeric ? "pass-num pass-table-cell" : "pass-table-cell"}
+                            data-align={c.numeric ? "right" : "left"}
                           >
                             {c.render(e)}
                           </td>
