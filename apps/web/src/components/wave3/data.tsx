@@ -383,6 +383,28 @@ export function RejectedBlock({ reason }: { reason: string }) {
   );
 }
 
+export interface PermissionBlockProps {
+  /** The specific reason, never a generic "please sign in". §9.7 */
+  reason: string;
+  action?: React.ReactNode;
+}
+
+/**
+ * §9.7 Sign-in or connect-wallet required, WITH THE SPECIFIC REASON.
+ *
+ * A generic "please sign in" tells the user nothing about which step failed,
+ * so the reason is a required prop rather than something the caller may omit.
+ */
+export function PermissionBlock({ reason, action }: PermissionBlockProps) {
+  return (
+    <div className="pass-empty" data-pass-state="permission" role="status">
+      <span className="pass-block-heading">// Authorization required \\</span>
+      <p className="pass-stale">{reason}</p>
+      {action}
+    </div>
+  );
+}
+
 export interface HandleBlockProps {
   handle: string;
   xUrl?: string | null;
