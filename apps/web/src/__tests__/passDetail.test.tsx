@@ -274,3 +274,210 @@ describe("Dialog and stale interstitial (§9.8, §10.7)", () => {
     expect(screen.getByText("114,000")).toBeInTheDocument();
   });
 });
+
+/**
+ * §14 assertions for Pass detail. Added 2026-10-07 when the screen was rebuilt.
+ *
+ * Every clause here was silently failing before: the screen satisfied §§1-13 and
+ * was still visibly not the reference, which is precisely the failure §14 was
+ * written to prevent. These are the assertions that would have caught it.
+ */
+describe("Pass detail reference language (14)", () => {
+  it("frames the object with a corner bracket frame, the fourth of four (14.2)", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    expect(container.querySelectorAll(".pass-brackets")).toHaveLength(1);
+    expect(container.querySelector(".pass-brackets-foot")).toBeTruthy();
+  });
+
+  it("spends the LAST bracket frame here, so none is left for another screen", async () => {
+    // 14.2 rations corner brackets to four uses in the whole product. Landing
+    // spends two and /how-it-works one; this is the fourth. If a fifth appears
+    // anywhere, the ration is not being enforced.
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    expect(container.querySelectorAll(".pass-brackets").length).toBeLessThanOrEqual(1);
+  });
+
+  it("puts the object on a section wash, not the hero strength (14.1)", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    const shell = container.querySelector(".pass-detail-shell") as HTMLElement;
+    expect(shell.getAttribute("data-strength")).toBe("section");
+    // A hero-strength wash behind dense digits costs the contrast 11.1 refuses
+    // to compromise, so it must be absent here, not merely overridden.
+    expect(shell.getAttribute("data-strength")).not.toBe("hero");
+    expect(shell.querySelector(".pass-grain")).toBeTruthy();
+  });
+
+  it("renders the asset and the direction as two authored lines, one accent word", async () => {
+    const { container } = renderPass({ asset: "btc", direction: "long" });
+    await screen.findByRole("heading", { level: 1 });
+    const h1 = container.querySelector("h1") as HTMLElement;
+    const lines = h1.querySelectorAll(".pass-display-line");
+    expect(lines).toHaveLength(2);
+    expect(lines[0].textContent).toBe("BTC");
+    expect(lines[1].querySelectorAll(".pass-display-accent")).toHaveLength(1);
+    expect(lines[1].querySelector(".pass-display-accent")?.textContent).toBe("LONG");
+  });
+
+  it("forbids the gradient variant, because the headline carries a live value", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    // A gradient behind changing digits makes the digits harder to read.
+    expect(container.querySelector("h1")?.getAttribute("data-gradient")).toBeNull();
+  });
+
+  it("shows exactly the five 11.3 figures and nothing more", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    // Scoped to the FIRST metric row: the PASS-metrics row further down the
+    // page uses the same component, so an unscoped query would see nine labels
+    // and prove nothing about the plan block.
+    const planRow = container.querySelector(".pass-metric-cards") as HTMLElement;
+    const labels = Array.from(planRow.querySelectorAll(".pass-metric-card-label")).map(
+      (l) => l.textContent,
+    );
+    // Entry, Take profit, Stop loss, Leverage, R:R. A sixth would be an
+    // invented metric.
+    expect(labels).toEqual(["Entry", "Take profit", "Stop loss", "Leverage", "R:R"]);
+  });
+
+  it("derives R:R from the plan and renders a dash, never a fabricated ratio", async () => {
+    const { container } = renderPass({
+      entryPrice: "113400",
+      takeProfit: "116000",
+      stopLoss: "111900",
+    });
+    await screen.findByRole("heading", { level: 1 });
+    const rr = Array.from(container.querySelectorAll(".pass-metric-card")).find((c) =>
+      c.querySelector(".pass-metric-card-label")?.textContent?.includes("R:R"),
+    );
+    // (116000-113400) / (113400-111900) = 1.733...
+    expect(rr?.querySelector(".pass-metric-card-value")?.textContent).toBe("1.73:1");
+  });
+
+  it("renders a dash for R:R when the risk is zero, not an infinity", async () => {
+    const { container } = renderPass({
+      entryPrice: "113400",
+      takeProfit: "116000",
+      stopLoss: "113400",
+    });
+    await screen.findByRole("heading", { level: 1 });
+    const rr = Array.from(container.querySelectorAll(".pass-metric-card")).find((c) =>
+      c.querySelector(".pass-metric-card-label")?.textContent?.includes("R:R"),
+    );
+    expect(rr?.querySelector(".pass-metric-card-value")?.textContent).toBe("—");
+  });
+
+  it("puts each unit on the same baseline as its figure (14.5.4)", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    // A unit on its own line reads as a second value, so it must be a CHILD of
+    // the value element rather than a sibling of it.
+    const entry = Array.from(container.querySelectorAll(".pass-metric-card")).find((c) =>
+      c.querySelector(".pass-metric-card-label")?.textContent === "Entry",
+    );
+    const value = entry?.querySelector(".pass-metric-card-value");
+    expect(value?.querySelector(".pass-metric-card-unit")?.textContent).toBe("per ETH");
+  });
+
+  it("renders the market snapshot with a dot eyebrow and a LiveDot", async () => {
+    const { container } = renderPass({
+      market: { markPrice: "113412.5", observedAt: new Date().toISOString() },
+    });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByText("MARKET SNAPSHOT")).toBeInTheDocument();
+    expect(container.querySelector(".pass-dot-eyebrow")).toBeTruthy();
+    expect(container.querySelector(".pass-live-dot")).toBeTruthy();
+    expect(screen.getByText("Live")).toBeInTheDocument();
+  });
+
+  it("renders a sparkline only when a real series arrives", async () => {
+    const { container } = renderPass({
+      market: { markPrice: "113412.5", observedAt: new Date().toISOString() },
+    });
+    await screen.findByRole("heading", { level: 1 });
+    // A flat line would be an invented observation.
+    expect(container.querySelector(".pass-sparkline")).toBeNull();
+
+    const { container: withSeries } = renderPass({
+      market: {
+        markPrice: "113412.5",
+        observedAt: new Date().toISOString(),
+        series: [113000, 113200, 113100, 113412.5],
+      },
+    });
+    await screen.findByRole("heading", { level: 1 });
+    expect(withSeries.querySelector(".pass-sparkline")).toBeTruthy();
+    expect(screen.getByRole("img", { name: /recent trades/i })).toBeInTheDocument();
+  });
+
+  it("states an absent market reading rather than rendering an empty card", async () => {
+    renderPass({ market: null });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByText("No market reading")).toBeInTheDocument();
+  });
+
+  it("marks the state with a 14.6 badge carrying icon and word", async () => {
+    const { container } = renderPass({ status: "tp_hit" });
+    await screen.findByRole("heading", { level: 1 });
+    const badge = container.querySelector(".pass-badge") as HTMLElement;
+    expect(badge).toBeTruthy();
+    expect(badge.querySelector(".pass-badge-icon")).toBeTruthy();
+    expect(badge.getAttribute("data-tone")).toBe("tp_hit");
+  });
+
+  it("renders the trader mini-card linking to the profile route", async () => {
+    renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    // §2.5: the profile affordance is a 14.9 outlined chip, NOT an accent card
+    // action, because the Take Pass CTA is this page's one accent fill.
+    const chip = screen.getByRole("link", { name: "Profile" });
+    expect(chip).toHaveAttribute("href", "/u/turnttfup99");
+    expect(chip.className).toContain("pass-chip");
+  });
+
+  it("states the Ethos score exactly once, in the reputation block", async () => {
+    renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    // 11.4: one figure, one place. The mini-card deliberately does NOT restate
+    // it, so the number never has to change in two places and two adjacent
+    // renderings cannot be read as a merge.
+    expect(screen.getAllByText("1,392").length).toBe(1);
+  });
+
+  it("distinguishes a 404 from an unreachable API", async () => {
+    // Telling a reader their link is broken when the network is down is a lie
+    // about the state of the product.
+    mockGet.mockRejectedValueOnce(Object.assign(new Error("Not found"), { status: 404 }));
+    render(<PassDetailClient publicId="nope" />);
+    expect(await screen.findByText("This Pass does not exist.")).toBeInTheDocument();
+
+    mockGet.mockRejectedValueOnce(Object.assign(new Error("failed"), { status: 502 }));
+    render(<PassDetailClient publicId="nope2" />);
+    expect(await screen.findByText("Could not reach PASS.")).toBeInTheDocument();
+  });
+
+  it("numbers its sections 01 to 06 with the numbered eyebrow", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    const numbers = Array.from(
+      container.querySelectorAll(".pass-numbered-eyebrow-number"),
+    ).map((n) => n.textContent?.replace(/\\/g, "").trim());
+    expect(numbers).toEqual(["01", "02", "03", "04", "05", "06"]);
+  });
+
+  it("keeps exactly one accent fill: the Take Pass CTA", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    expect(container.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    // No accent-filled card action either: the only accent on this page is the
+    // Take Pass CTA.
+    expect(container.querySelectorAll(".pass-card-action")).toHaveLength(0);
+    // And the chip that replaced it is unselected, so it carries no accent.
+    const chip = screen.getByRole("link", { name: "Profile" });
+    expect(chip.getAttribute("aria-pressed")).toBeNull();
+    expect(chip.getAttribute("data-selected")).toBeNull();
+  });
+});

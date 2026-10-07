@@ -30,8 +30,14 @@ export async function clientApi<T>(
     const e = body as { error?: { code?: string; message?: string } } | null;
     const err = new Error(e?.error?.message ?? "Request failed") as Error & {
       code?: string;
+      /** The HTTP status. Exposed so a caller can tell "this does not exist"
+       *  (404) from "the API could not be reached" (0 / 502 / 504). Those are
+       *  different situations and the old code collapsed them into one message,
+       *  which told a user a Pass was missing when the network was down. */
+      status?: number;
     };
     err.code = e?.error?.code;
+    err.status = res.status;
     throw err;
   }
   return body as T;

@@ -141,6 +141,15 @@ export function DataCard({
 export interface MetricCardProps {
   label: string;
   value: ReactNode;
+  /**
+   * Unit suffix, set on the SAME baseline as the value (§14.5.4) — never on its
+   * own line, where it reads as a second value.
+   *
+   * Added on demand for §10.3's plan block: a metric card showing `$113.4K`
+   * without `per ETH` is ambiguous about what is being priced, and the five
+   * §11.3 figures are exactly the case where ambiguity matters.
+   */
+  unit?: string;
   /** Optional second line, muted. §14.5 stat card. */
   sub?: string;
   className?: string;
@@ -151,11 +160,14 @@ export interface MetricCardProps {
  * carries a live figure on its own — which is why it is laid out to five across
  * at 1440 by `auto-fit`, never by a hand-set column count.
  */
-export function MetricCard({ label, value, sub, className }: MetricCardProps) {
+export function MetricCard({ label, value, unit, sub, className }: MetricCardProps) {
   return (
     <div className={["pass-metric-card", className].filter(Boolean).join(" ")}>
       <span className="pass-metric-card-label">{label}</span>
-      <span className="pass-metric-card-value">{value}</span>
+      <span className="pass-metric-card-value">
+        <span>{value}</span>
+        {unit ? <span className="pass-metric-card-unit">{unit}</span> : null}
+      </span>
       {sub ? <span className="pass-card-sub">{sub}</span> : null}
     </div>
   );

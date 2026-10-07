@@ -1926,6 +1926,18 @@ li[data-ghost="true"] {
   text-overflow: ellipsis;
 }
 
+/* §14.5.4 the unit suffix, on the SAME baseline as the value. A unit on its
+   own line reads as a second value, which is why it is a child of the value
+   element and not a sibling of it. */
+.pass-metric-card-unit {
+  font-family: var(--type-data-s-font);
+  font-size: var(--type-data-s-size);
+  letter-spacing: var(--type-data-s-track);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  margin-inline-start: var(--space-1);
+}
+
 /* --- §14.6 Status badges ------------------------------------------------ */
 
 .pass-badge {
@@ -2596,4 +2608,49 @@ li[data-ghost="true"] {
 .pass-wallet-item-danger:hover {
   background: var(--color-surface-sunken);
   color: var(--color-data-negative);
+}
+
+/* ===========================================================================
+ * §10.3 Pass detail.
+ * ======================================================================== */
+
+.pass-detail-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-block: var(--space-6) var(--space-5);
+  min-inline-size: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-detail-shell {
+    padding-block: var(--space-8) var(--space-7);
+  }
+}
+
+/* §14.4 the asset and the direction are set in the DATA face, not the display
+ * face: §3.2 forbids setting data in a body face and the same rule binds in
+ * reverse. The hero step is kept, and the tracking is relaxed because mono needs
+ * the room. */
+.pass-detail-object .pass-display {
+  font-family: var(--font-data);
+  font-size: var(--type-display-hero-size);
+  letter-spacing: -0.02em;
+  font-variant-numeric: var(--numeric-tabular);
+  line-height: 0.94;
+}
+
+.pass-detail-object .pass-display-accent {
+  font-family: var(--font-display);
+  letter-spacing: var(--type-display-hero-track);
+}
+
+/* The avatar in the trader card's value slot: it is a picture, not a figure, so
+ * it must not inherit the oversized mono step. §7.1 puts it on the 20px grid. */
+.pass-detail-avatar {
+  vertical-align: middle;
+}
+
+.pass-info-lead {
+  margin-block-start: var(--space-5);
 }
