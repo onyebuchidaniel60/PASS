@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { useAuthenticatedResource, type Resource } from "@/lib/useAuthenticatedResource";
@@ -14,18 +14,6 @@ import { useAuthenticatedResource, type Resource } from "@/lib/useAuthenticatedR
  * that failure mode is what blocked four screens. If a future change reintroduces
  * a rejection here, these tests stop passing — which is the point.
  */
-
-function Probe({ value }: { value: unknown }) {
-  const { state } = useAuthenticatedResource<{ n: number }>({
-    probe: async () => value === "authorized",
-    load: async () => ({ n: 1 }),
-  });
-  return (
-    <AuthenticatedView state={state} empty={<p>empty branch</p>}>
-      {(d) => <p>{`ready branch ${d.n}`}</p>}
-    </AuthenticatedView>
-  );
-}
 
 describe("useAuthenticatedResource — state mapping", () => {
   it("reaches unauthorized by RESOLVING false, not by rejecting", async () => {

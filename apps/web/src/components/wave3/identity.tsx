@@ -50,7 +50,8 @@ export function Avatar({ src, handle, size = "md", className }: AvatarProps) {
   };
 
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
+    // A plain <img>: the avatar source is an arbitrary remote URL from the
+    // provider profile, so next/image would need every host allow-listed.
     return <img src={src} alt="" className={className} style={style} />;
   }
   if (initials) {

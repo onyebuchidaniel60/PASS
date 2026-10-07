@@ -22,10 +22,6 @@ export interface CellProps {
   className?: string;
 }
 
-function cell(tone?: string, extra?: string) {
-  return tone ? `${extra ?? ""} pass-cell" data-tone="${tone}` : `${extra ?? ""} pass-cell`;
-}
-
 /** A figure: mono, right-aligned, never wrapped mid-number. */
 export function PriceCell({
   value,
