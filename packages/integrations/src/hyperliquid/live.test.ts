@@ -89,7 +89,9 @@ describe("SplitHyperliquid keeps execution unreachable in the split state", () =
     } as never);
 
     expect(result.status).toBe("rejected");
-    expect(String(result.rawStatus?.reason ?? "")).toMatch(/HYPERLIQUID_MODE=mock/);
+    expect(
+      String((result.rawStatus as Record<string, unknown> | undefined)?.reason ?? ""),
+    ).toMatch(/HYPERLIQUID_MODE=mock/);
     // The decisive assertion: nothing was sent anywhere.
     expect(fetchMock).not.toHaveBeenCalled();
   });

@@ -45,20 +45,65 @@ export class HyperliquidInfoClient {
     return (await res.json()) as T;
   }
 
+  /**
+   * Reads `metaAndAssetCtxs` and returns it NORMALISED to `{universe, ctxs}`.
+   *
+   * The Info API returns a two-element TUPLE — `[meta, assetCtxs]` — not an
+   * object with `universe`/`ctxs` keys. This method previously returned the raw
+   * response and typed it as an object, so `raw.universe` was `undefined`, the
+   * `?? []` fallback silently produced an empty list, and `GET /api/v1/markets`
+   * returned `{"assets":[]}` with HTTP 200 on a live deployment. Verified
+   * against the live API 2026-10-07:
+   *
+   *   [ { universe: [...], marginTables: [...], collateralToken },
+   *     [ {funding, openInterest, prevDayPx, dayNtlVlm, oraclePx, markPx,
+   *        midPx, impactPxs, ...}, ... ] ]
+   *
+   * Normalising here keeps the shape every caller already expects, so this is a
+   * fix rather than an API change.
+   */
   async metaAndAssetCtxs(): Promise<{
     universe: Array<Record<string, unknown>>;
     ctxs: Array<Record<string, unknown>>;
   }> {
-    return this.post({ type: "metaAndAssetCtxs" });
+    const raw = await this.post<unknown>({ type: "metaAndAssetCtxs" });
+    if (Array.isArray(raw)) {
+      const meta = (raw[0] ?? {}) as Record<string, unknown>;
+      return {
+        universe: Array.isArray(meta.universe)
+          ? (meta.universe as Array<Record<string, unknown>>)
+          : [],
+        ctxs: Array.isArray(raw[1])
+          ? (raw[1] as Array<Record<string, unknown>>)
+          : [],
+      };
+    }
+    // Tolerate the object shape in case the API reverts to it, so a future
+    // change is a non-event rather than an outage.
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    const nestedCtxs = obj.ctxs;
+    return {
+      universe: Array.isArray(obj.universe)
+        ? (obj.universe as Array<Record<string, unknown>>)
+        : [],
+      ctxs: Array.isArray(nestedCtxs)
+        ? (nestedCtxs as Array<Record<string, unknown>>)
+        : Array.isArray((nestedCtxs as Array<unknown> | undefined)?.[0])
+          ? ((nestedCtxs as Array<unknown>)[0] as Array<Record<string, unknown>>)
+          : [],
+    };
   }
 
   async listAssets(): Promise<HLAssetMeta[]> {
     const raw = await this.metaAndAssetCtxs();
-    return (raw.universe ?? []).map((u, i) => {
-      const ctx = raw.ctxs?.[0]?.[i] as Record<string, unknown> | undefined;
+    return raw.universe.map((u, i) => {
+      // Ctxs are positionally aligned with the universe, and since 2026-10 the
+      // universe entry ALSO carries `maxLeverage`. Read from both, universe
+      // first, so leverage survives even if the ctx array is short.
+      const ctx = raw.ctxs[i] ?? raw.ctxs.find((c) => c?.coin === u.name);
       const name = String(u.name ?? "");
       const szDecimals = u.szDecimals;
-      const maxLeverage = ctx?.maxLeverage;
+      const maxLeverage = u.maxLeverage ?? ctx?.maxLeverage;
       return {
         asset: name,
         dex: "perp",
