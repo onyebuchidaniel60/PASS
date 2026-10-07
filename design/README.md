@@ -39,35 +39,58 @@ Status of each wave and screen against
 | Wave | Deliverable | Status |
 |---|---|---|
 | 0 | Token layer, font loading, base styles, token scan, contrast measurement | **Built, not visually verified.** Open: font loading still needs verification by rendered pixels. |
-| 1 | Signature devices and framing | Not started |
-| 2 | Actions and form controls | Not started |
-| 3 | Data display | Not started |
-| 4 | Identity, reputation, state blocks | Not started |
-| 5 | Overlays and chrome | Not started |
-| 6 | Extension surfaces | Not started |
-| 7 | Screens | Not started |
+| 1 | Signature devices and framing, plus the §10.15 gallery route | **Built, not visually verified.** |
+| 2 | Actions and form controls | **Built, not visually verified.** |
+| 3 | Data display | **Built, not visually verified.** |
+| 4 | Identity, reputation, state blocks | **Built, not visually verified.** |
+| 5 | Overlays and chrome | **Built, not visually verified.** |
+| 6 | Extension surfaces (§10.13) | **Built.** The operator must reload the extension in `chrome://extensions` or the old stylesheet keeps serving. |
+| 7 | Screens | **Built and deployed**, not visually verified. |
+
+**The token ratchet is clean.** `pnpm run check:tokens` reports
+`clean: no out-of-token values found` across all 73 scanned files, and the
+per-file `PENDING_MIGRATION` allowance map in `scripts/check-design-tokens.mjs`
+is now **empty** — every entry it held covered a screen that Wave 7 has since
+rebuilt back to zero violations. The ratchet itself was not relaxed.
 
 | Screen | `DESIGN.md` § | Wave | Status |
 |---|---|---|---|
-| Landing | §10.1 | 7 | Not started |
-| Discover / Explore Passes | §10.2 | 7 | Not started |
-| Pass detail — the core conversion surface | §10.3 | 7 | Not started |
-| Trader profile | §10.4 | 7 | Not started |
-| Create Pass | §10.5 | 7 | Not started |
-| Take flow (steps 1–4) | §10.6 | 7 | Not started |
-| Stale Pass interstitial | §10.7 | 7 | Not started |
-| My Passes (dashboard) | §10.8 | 7 | Not started |
-| Executions | §10.9 | 7 | Not started |
-| Profile and connections (own) | §10.10 | 7 | Not started |
-| Onboarding and connect | §10.11 | 7 | Not started |
-| Error and not-found | §10.12 | 7 | Not started |
-| Social preview (Open Graph) | §10.14 | 7 | Not started |
-| Extension surfaces (card, badge, popup) | §10.13 | 6 | Not started |
-| Gallery (development route) | §10.15 | 1 | Not started |
+| Landing | §10.1 | 7 | Built, deployed, not visually verified |
+| Discover / Explore Passes | §10.2 | 7 | Built, deployed, not visually verified |
+| Pass detail — the core conversion surface | §10.3 | 7 | Built, deployed, not visually verified |
+| Trader profile | §10.4 | 7 | Built, deployed, not visually verified |
+| Create Pass | §10.5 | 7 | Built, deployed, not visually verified |
+| Take flow (steps 1–4) | §10.6 | 7 | Built, deployed, not visually verified |
+| Stale Pass interstitial | §10.7 | 7 | Built, deployed, not visually verified |
+| My Passes (dashboard) | §10.8 | 7 | Built, deployed, not visually verified |
+| Executions | §10.9 | 7 | Built, deployed, not visually verified |
+| Profile and connections (own) | §10.10 | 7 | Built, deployed, not visually verified |
+| Onboarding and connect | §10.11 | 7 | Built, deployed, not visually verified |
+| Error and not-found | §10.12 | 7 | Built, deployed, not visually verified |
+| Social preview (Open Graph) | §10.14 | 7 | Built, deployed; card text confirmed served |
+| Extension surfaces (card, badge, popup) | §10.13 | 6 | Built; **operator must reload the extension** |
+| Gallery (development route) | §10.15 | 1 | Built; intentionally **404 in production** (`NODE_ENV` gated) |
 
 **13 web screens + 1 extension surface set + 1 development gallery.** §10 is the
 authoritative list; the Stage K brief's eleven-screen list is superseded and was
 wrong in three ways — see G-16 below.
+
+**"Not visually verified" is not a formality.** Two sessions produced four
+routes that returned HTTP 200 while still serving the *old* UI. A status code is
+a reachability probe. The full operator checklist is
+[`BUILD_CONTINUATION.md`](./BUILD_CONTINUATION.md) §4.
+
+### Tailwind — retained, and `apps/web/src` no longer needs it
+
+`apps/web/src` contains **zero** Tailwind utility classes. `tailwindcss`,
+`postcss`, and `autoprefixer` remain as dev dependencies because two consumers
+are not ours to rewrite: the provisional Stage K primitives in `packages/ui`
+(~37 utility strings, `Button` and `DemoBanner` rendered by the root layout),
+and `connectkit`'s `ConnectKitButton`, whose own rendered markup is Tailwind
+classes. Removing the package would **not fail the build** — it would silently
+strip both of those of every style, which is exactly the failure a green CI run
+cannot catch. The reason is written next to the `@tailwind` directives in
+`apps/web/src/app/globals.css`.
 
 ### G-16 — the brief's screen list was superseded by §10
 
@@ -97,6 +120,29 @@ failing the 3:1 UI-boundary minimum. DESIGN.md §2.3 and §5.3 amended to
 `#656577` (3.33:1); derivation and four-surface measurement in §5.3.1. The value
 is now asserted by `scripts/check-contrast.mjs`, so a regression fails the
 build.
+
+### G-1 – G-16 status at Stage K build completion
+
+Full table with dispositions is in
+[`BUILD_CONTINUATION.md`](./BUILD_CONTINUATION.md) §6. Summary:
+
+- **Closed:** G-14 (token layer path bound), G-15 (input border contrast),
+  G-16 (screen inventory derived from §10).
+- **Decided out** — `DESIGN.md` names the gap and says do not build it:
+  G-1, G-3, G-5, G-9, G-10, G-12, G-13.
+- **Binding and open** — G-2, no logo may be drawn or improvised.
+- **Genuinely unresolved, every one needing a browser or an operator:**
+  G-4 (`ReputationBlock` on mobile), G-6 (avatar fallback beyond the monogram —
+  narrowed this session, the declared reticle is now the only fallback),
+  G-7 (large OS font-scale behaviour), G-8 (modal vs bottom sheet on tablet),
+  G-11 (icon set and licence).
+
+## Deployed
+
+`https://pass-web-dun.vercel.app`. Reachability confirmed at Stage K build
+completion: `/me/passes` 200, `/me/executions` 200, `/settings` 200,
+`/onboarding` 200, `/gallery` **404** (correct — the gallery is a
+`NODE_ENV`-gated development route).
 
 ## Where to start
 
