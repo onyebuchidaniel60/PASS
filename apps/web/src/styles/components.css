@@ -2273,52 +2273,99 @@ li[data-ghost="true"] {
   min-width: 0;
 }
 
+
 /* ===========================================================================
- * §8.4 three-region shell, rebuilt 2026-10-07.
+ * §8.4 the topbar, and the wallet slot. Rewritten 2026-10-07 (Stage K.3).
  *
- * THE FAULT THIS FIXES. The operator reported "connect wallet is at the centre
- * instead of on one side of the screen". The old shell was a flex row in which
- * the nav sat in the flow and the actions were pushed right with
- * `margin-inline-start: auto`. That works only while the nav is narrower than
- * the leftover space: as soon as it is not, the auto margin collapses and the
- * wallet button drifts toward the middle, and at 375px it lands dead centre.
+ * ---------------------------------------------------------------------------
+ * POSITIONING — RESEARCH, AND WHAT IT CHANGED
+ * ---------------------------------------------------------------------------
  *
- * THE FIX. Three explicit grid tracks, one per region, at every width. The
- * actions are the LAST track and are never allowed to shrink, so the wallet
- * button is hard right by construction rather than by an auto margin that
- * happens to work at some widths.
+ * The brief asked for this to be settled by looking at Uniswap, Aave and
+ * OpenSea. This environment has NO BROWSER AUTOMATION, so these are the
+ * documented and self-reported positions, not pixels I measured. That is a
+ * weaker claim than a screenshot and it is stated as such here rather than
+ * presented as a visual audit.
+ *
+ * What the sources agree on:
+ *
+ *   Uniswap  the Connect control lives in the header, at the top right, inside
+ *            the header's own contained layout — not floating at the viewport
+ *            edge (Investor.org's walkthrough calls it "the top right corner of
+ *            the Uniswap interface"; Uniswap's own interface repo confirms the
+ *            web app is a single contained shell).
+ *   Aave     the connect action is in the top bar, on the right, and the main
+ *            navigation is on the LEFT of the screen (Aave's Pro user guide:
+ *            "The left side of the screen contains the main navigation ... The
+ *            Get Started button opens the wallet connection flow" in the top
+ *            right).
+ *   OpenSea  the profile / Link Wallet control is "in the top-right corner of
+ *            the page", and the connected wallet balance sits "in the top
+ *            righthand corner".
+ *
+ * The universal pattern: **brand left, navigation left-of-centre, wallet
+ * right-aligned to the CONTAINER's right padding edge.** The control sits inside
+ * the contained header, never at the viewport edge, and its right edge is the
+ * same right edge as the content below it.
+ *
+ * WHAT THAT CHANGED HERE. The previous version centred the navigation
+ * (`justify-content: center` inside the `1fr` track). That is the exception, not
+ * the rule: Uniswap and Aave both cluster navigation next to the brand. Centring
+ * it also pushed visual weight toward the middle, which is exactly the reading
+ * the operator reported — "connect wallet is at the centre". Moving navigation
+ * left-of-centre isolates the wallet against a wide clear gap, so its position
+ * is unambiguous at a glance.
+ *
+ * ---------------------------------------------------------------------------
+ * ALIGNMENT RULES, AND WHY EACH IS HERE
+ * ---------------------------------------------------------------------------
+ *
+ *  - ONE positioning mechanism. `justify-self: end`, and NO
+ *    `margin-inline-start: auto` anywhere on this element. An auto inline-start
+ *    margin also absorbs free space in the inline axis, so it COMPETES with
+ *    `justify-self` rather than being inert. The stale pre-§14 declaration was
+ *    deleted for exactly this reason.
+ *  - The wallet track is `max-content`, so the control's own width decides the
+ *    track and a long address can never widen it and squeeze the navigation
+ *    (14.15 rule 3).
+ *  - The inner container carries the page's own horizontal padding
+ *    (`--layout-margin-*`), and `.pass-topbar` has a FULL-BLEED background. So
+ *    the wallet's right edge aligns with the inner container's right padding
+ *    edge — the same edge as everything below — not the viewport and not the
+ *    centre. This is the research finding, expressed in CSS.
  * ======================================================================== */
 .pass-topbar-inner {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* Brand | nav | wallet. The wallet track is max-content so it is sized by the
+     control and nothing else. */
+  grid-template-columns: auto minmax(0, 1fr) max-content;
   align-items: center;
   gap: var(--space-4);
   block-size: 100%;
   inline-size: 100%;
+  /* The contained inner layout. Everything inside, the wallet included, is
+     measured against these paddings rather than against the viewport. */
   max-inline-size: var(--layout-content-max);
   margin-inline: auto;
   padding-inline: var(--layout-margin-mobile);
 }
 
+/* Navigation sits LEFT-OF-CENTRE, adjacent to the brand, per the research above
+ * — not centred. Centring it is what made the wallet read as central. */
 .pass-topbar-nav {
   min-inline-size: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .pass-topbar-actions {
-  /* Never shrink. This is the region the operator reported as drifting. */
   justify-self: end;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  max-inline-size: max-content;
   min-inline-size: 0;
-}
-
-/* The nav is centred in its own track on desktop so the four destinations sit
- * optically centred rather than crowding the wordmark. */
-.pass-topbar-nav > .pass-nav {
-  justify-content: center;
 }
 
 @media (min-width: 768px) {
@@ -2328,9 +2375,15 @@ li[data-ghost="true"] {
   }
 }
 
-/* §8.4 mobile: the destinations cannot fit beside the logo and the wallet
- * button at 375px, so the nav scrolls horizontally in its own track rather
- * than wrapping the bar onto two rows and doubling its height. */
+@media (min-width: 1024px) {
+  .pass-topbar-inner {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+/* §8.4 mobile, two rows: brand + wallet on row one, navigation scrolling on row
+ * two. The wallet keeps the same right-padding edge it has at every other
+ * width, because it is the same `.pass-topbar-inner` padding. */
 @media (max-width: 767px) {
   .pass-topbar {
     block-size: auto;
@@ -2356,6 +2409,8 @@ li[data-ghost="true"] {
 
   .pass-topbar-nav {
     grid-area: nav;
+    /* Bleed to the viewport edges so the scroller reaches them, but the LINKS
+       still start at the container's padding. */
     margin-inline: calc(var(--layout-margin-mobile) * -1);
     padding-inline: var(--layout-margin-mobile);
     overflow-x: auto;
@@ -2367,409 +2422,12 @@ li[data-ghost="true"] {
   }
 
   .pass-topbar-nav > .pass-nav {
-    justify-content: flex-start;
     flex-wrap: nowrap;
   }
 
-  /* The bottom-nav reservation (§8.4) is not claimed: there is no bottom nav in
-     the MVP, and the topbar grew by exactly one nav row here. */
   .pass-nav-link {
     font-size: var(--type-body-s-size);
   }
-}
-
-/* §14 footer: brand block on the left, every destination on the right. The old
- * footer was a single left-aligned measure, which made eight links run off the
- * end of a long line. */
-.pass-footer {
-  inline-size: 100%;
-  max-inline-size: var(--layout-content-max);
-  margin-inline: auto;
-  padding: var(--space-7) var(--layout-margin-mobile) var(--space-6);
-  border-block-start: var(--border-hairline);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-inline-size: 0;
-}
-
-.pass-footer-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: start;
-  min-inline-size: 0;
-}
-
-@media (min-width: 768px) {
-  .pass-footer {
-    padding-inline: var(--layout-margin-tablet);
-  }
-
-  .pass-footer-grid {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-7);
-  }
-}
-
-@media (min-width: 1024px) {
-  .pass-footer {
-    padding-inline: var(--layout-margin-desktop);
-  }
-}
-
-.pass-footer-brand {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-inline-size: 0;
-}
-
-.pass-footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  min-inline-size: 0;
-}
-
-.pass-footer-note {
-  font-family: var(--type-body-s-font);
-  font-size: var(--type-body-s-size);
-  line-height: var(--type-body-s-line);
-  color: var(--color-text-tertiary);
-  margin: 0;
-  max-inline-size: var(--measure-body);
-}
-
-/* ===========================================================================
- * §10.1 Landing, rebuilt 2026-10-07 against §14.
- *
- * The previous landing satisfied §§1–13 and read as generic. What changed is
- * structure and surface: a hero that is a clipping wash shell, a bracket frame
- * around the hero, a three-line authored headline, a lede, and a second bracket
- * frame around the step grid.
- * ======================================================================== */
-
-/* The hero shell. `pass-wash` already supplies position/isolation/overflow;
- * this adds the vertical room the taller §14.4 headline needs. */
-.pass-landing-shell {
-  padding-block: var(--space-9) var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  min-inline-size: 0;
-}
-
-@media (min-width: 768px) {
-  .pass-landing-shell {
-    padding-block: var(--space-10) var(--space-9);
-    gap: var(--space-7);
-  }
-}
-
-.pass-landing-frame {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-5);
-  min-inline-size: 0;
-}
-
-.pass-landing-hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-inline-size: 0;
-}
-
-/* §14.4 the lede sits under the headline, not beside it, and is capped so the
- * hero never becomes a paragraph. */
-.pass-landing-lede {
-  font-family: var(--type-body-l-font);
-  font-size: var(--type-body-l-size);
-  line-height: var(--type-body-l-line);
-  letter-spacing: var(--type-body-l-track);
-  color: var(--color-text-secondary);
-  max-inline-size: var(--measure-thesis);
-  margin: 0;
-  min-inline-size: 0;
-}
-
-/* The §14.1 wash is a sibling of the frame, so the CTAs sit ON the wash rather
- * than inside the bracket. The frame marks the hero object; the wash is the
- * field it sits in. */
-.pass-landing .pass-landing-ctas {
-  margin-block-start: var(--space-5);
-}
-
-.pass-landing .pass-landing-support {
-  margin-block-start: var(--space-5);
-}
-
-/* §14.4 the loop strip under a numbered eyebrow needs air above it. */
-.pass-landing .pass-section {
-  display: block;
-}
-
-.pass-loop-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
-  gap: var(--space-3);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  min-inline-size: 0;
-}
-
-/* ===========================================================================
- * §14 informational pages: how it works, FAQs, help, contact.
- *
- * Same language as every other surface: numbered eyebrows, authored headlines,
- * data cards, chamfered chips. A help page rendered in a different visual
- * language from the product it helps with is worse than no help page, because
- * it reads as a different company.
- * ======================================================================== */
-.pass-info-shell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding-block: var(--space-8) var(--space-7);
-  min-inline-size: 0;
-}
-
-@media (min-width: 768px) {
-  .pass-info-shell {
-    padding-block: var(--space-9) var(--space-8);
-  }
-}
-
-/* The card grid the informational pages use. `auto-fit` with a minmax floor, so
- * the column count is a consequence of the available width rather than four
- * hand-set media queries that drift apart. */
-.pass-info-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-  gap: var(--space-4);
-  align-items: stretch;
-  min-inline-size: 0;
-}
-
-/* At 375px `auto-fit` already collapses this to one column. The narrower floor
- * matters at the 768px breakpoint, where an 18rem floor would still fit two
- * columns in a 720px container and leave each card too narrow for its own text. */
-@media (max-width: 767px) {
-  .pass-info-cards {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* On /how-it-works a card's "value" slot carries a paragraph rather than a
- * figure. Same anatomy, different content type, so the type step drops one and
- * the measure caps: a paragraph set at the data-xl step would be unreadable. */
-.pass-info-card .pass-card-value {
-  display: block;
-  font-family: var(--type-body-m-font);
-  font-size: var(--type-body-m-size);
-  line-height: var(--type-body-m-line);
-  letter-spacing: var(--type-body-m-track);
-  color: var(--color-text-secondary);
-  white-space: normal;
-  max-inline-size: var(--measure-body);
-}
-
-/* --- FAQ accordion (§14) -------------------------------------------------
- *
- * A native <details>/<summary> rather than a button + aria-expanded pair: it is
- * keyboard operable, it is announced as a disclosure by every screen reader for
- * free, and it works with JavaScript disabled. The marker is replaced because
- * the default triangle is a platform artefact, not part of the language.
- */
-.pass-faq-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-inline-size: 0;
-}
-
-.pass-faq {
-  background: var(--card-bg);
-  border: var(--border-width-hairline) solid var(--card-border);
-  border-radius: var(--radius-md);
-  min-inline-size: 0;
-  transition: border-color var(--chip-hover-duration) var(--ease-standard);
-}
-
-.pass-faq[open] {
-  border-color: var(--color-accent-edge);
-}
-
-.pass-faq-question {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-block-size: var(--size-target-min);
-  padding: var(--space-3) var(--space-4);
-  font-family: var(--type-body-m-font);
-  font-size: var(--type-body-l-size);
-  line-height: var(--type-body-l-line);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  list-style: none;
-  min-inline-size: 0;
-}
-
-.pass-faq-question::-webkit-details-marker {
-  display: none;
-}
-
-/* The disclosure affordance: a chamfered ember chip that fills when open. One
- * accent fill per open item, which is §2.5's ration applied to a list. */
-.pass-faq-question::after {
-  content: "\\";
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: var(--space-6);
-  block-size: var(--space-6);
-  flex: 0 0 auto;
-  font-family: var(--type-data-xs-font);
-  font-size: var(--type-data-xs-size);
-  color: var(--color-accent);
-  border: var(--border-width-hairline) solid var(--color-accent-edge);
-  border-radius: var(--radius-sm);
-  clip-path: polygon(
-    var(--radius-sm) 0,
-    calc(100% - var(--radius-sm)) 0,
-    100% var(--radius-sm),
-    100% calc(100% - var(--radius-sm)),
-    calc(100% - var(--radius-sm)) 100%,
-    var(--radius-sm) 100%,
-    0 calc(100% - var(--radius-sm)),
-    0 var(--radius-sm)
-  );
-  transition:
-    background-color var(--chip-hover-duration) var(--ease-standard),
-    color var(--chip-hover-duration) var(--ease-standard);
-}
-
-.pass-faq[open] .pass-faq-question::after {
-  content: "\\";
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-  border-color: var(--color-accent);
-}
-
-.pass-faq-answer {
-  padding: 0 var(--space-4) var(--space-4);
-  margin: 0;
-  font-family: var(--type-body-m-font);
-  font-size: var(--type-body-m-size);
-  line-height: var(--type-body-m-line);
-  color: var(--color-text-secondary);
-  max-inline-size: var(--measure-body);
-  border-block-start: var(--border-hairline);
-  padding-block-start: var(--space-3);
-}
-
-/* --- Help search (§14) ---------------------------------------------------- */
-
-.pass-help-search {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-inline-size: var(--measure-body);
-  min-inline-size: 0;
-}
-
-/* ===========================================================================
- * §14.2 Discover header and the §14.15 overflow guards.
- * ======================================================================== */
-.pass-discover-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-block: var(--space-6) var(--space-5);
-  min-inline-size: 0;
-}
-
-@media (min-width: 768px) {
-  .pass-discover-head {
-    padding-block: var(--space-8) var(--space-7);
-  }
-}
-
-/* §14.15 rule 1, stated once here rather than per screen: every grid child gets
- * `min-width: 0` so a long unbroken token (a price, a handle, a URL) cannot set
- * the child's min-content width and push the grid past the viewport. This was
- * the single most common cause of the operator's "overflows" report. */
-.pass-info-cards > *,
-.pass-metric-cards > *,
-.pass-steps > *,
-.pass-brackets > * {
-  min-inline-size: 0;
-}
-
-/* §14.15 rule 3: a handle or a ticker truncates, it never wraps. */
-.pass-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-inline-size: 0;
-}
-
-/* The plain variant of a row link, for wrapping a Button without the row link's
- * block padding and underline. */
-.pass-row-link-plain {
-  display: inline-block;
-  text-decoration: none;
-}
-
-/* ===========================================================================
- * §8.4 the topbar wallet slot, and the connected state.
- *
- * THE ALIGNMENT FAULT, STATED PRECISELY.
- *
- * The three-region grid was already `auto minmax(0, 1fr) auto` with
- * `justify-self: end` on the actions, so the track structure was correct. Two
- * things still pushed the control away from the right edge:
- *
- *  1. `.pass-topbar-actions` still carried `margin-inline-start: auto` from the
- *     pre-§14 rule. It was overridden by `justify-self: end` for POSITIONING,
- *     but an auto inline-start margin still absorbs free space in the inline
- *     axis, and in a grid item that competes with `justify-self` rather than
- *     being inert. Two mechanisms for one job is how a bar drifts.
- *  2. The slot rendered a three-line explanatory paragraph inside it. That
- *     paragraph is onboarding copy. It made the third `auto` track size to
- *     max-content, so the track grew to ~68ch, the nav's `1fr` had nothing left,
- *     and the control ended up wherever that oversized track happened to sit.
- *
- * THE FIX. One positioning mechanism (`justify-self: end`, no auto margin), the
- * third track capped at `max-content`, and a note that is opt-in via the
- * `showNote` prop and OFF in the topbar. The note now lives on /onboarding,
- * which is where it belongs.
- * ======================================================================== */
-.pass-topbar-actions {
-  /* Exactly one positioning mechanism. The stale `margin-inline-start: auto`
-     from the pre-§14 rule is deleted rather than overridden — see the note
-     above for why two mechanisms is the fault. */
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  /* Never grow past its content: an address is short and must not be allowed to
-     widen the track (14.15 rule 3). */
-  max-inline-size: max-content;
-  min-inline-size: 0;
-}
-
-/* The third track is sized by its content and never by the viewport, so the
- * nav keeps its `1fr` and the control keeps the right edge. */
-.pass-topbar-inner {
-  grid-template-columns: auto minmax(0, 1fr) max-content;
 }
 
 /* --- The wallet slot ----------------------------------------------------- */
@@ -2782,35 +2440,26 @@ li[data-ghost="true"] {
   max-inline-size: 100%;
 }
 
-.pass-wallet[data-state="connecting"] {
-  color: var(--color-text-tertiary);
-}
-
-/* §14.13 permits no looping animation, so the connecting state is a WORD plus a
- * static dot rather than a spinner. The information is the word. */
-.pass-wallet-busy {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-block-size: var(--size-target-min);
-  padding-inline: var(--space-3);
-  font-family: var(--type-body-s-font);
-  font-size: var(--type-body-s-size);
-  letter-spacing: var(--type-label-track);
-  text-transform: uppercase;
-  color: var(--color-text-tertiary);
+/* The connect launcher is `.pass-btn[data-variant="primary"]` — the SAME
+ * primitive as every other primary action in the product. Ember fill, dark label
+ * (`--color-text-on-accent`, measured 5.02:1 on `--color-accent`, asserted by
+ * scripts/check-contrast.mjs), `--border-strong` shape, `--radius-md`. It is not
+ * a Tailwind widget any more: `<ConnectKitButton.Custom>` hands us `show()` and
+ * we render this button ourselves. */
+.pass-wallet-connect {
   white-space: nowrap;
-  border: var(--border-width-hairline) solid var(--color-line-hairline);
-  border-radius: var(--radius-md);
 }
 
-.pass-wallet-menu {
-  position: relative;
-  min-inline-size: 0;
+.pass-wallet[data-state="connecting"] .pass-wallet-connect {
+  /* Same variant, same weight, just inert. §6.5 already suppresses the press
+     scale on a disabled control; nothing else changes, so nothing jumps. */
+  cursor: progress;
 }
 
-/* The connected chip: the address is DATA, so it is mono (11.6), and the whole
- * chip is the button. */
+/* The connected chip is a §14.9 chip: CHAMFERED, not rounded, on a muted border,
+ * with the address in the data face and an ember border on hover. §14.9 is
+ * explicit that the reference chips are cut at 45 degrees, consistent with §5.1
+ * and §5.2 — a rounded chip here would be the only rounded thing in the bar. */
 .pass-wallet-chip {
   display: inline-flex;
   align-items: center;
@@ -2818,16 +2467,28 @@ li[data-ghost="true"] {
   max-inline-size: 100%;
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-raised);
+  /* --color-line-strong, the same border the reference chips use. */
   border: var(--border-width-hairline) solid var(--color-line-strong);
-  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   cursor: pointer;
   overflow: hidden;
+  clip-path: polygon(
+    var(--chamfer-size) 0,
+    calc(100% - var(--chamfer-size)) 0,
+    100% var(--chamfer-size),
+    100% calc(100% - var(--chamfer-size)),
+    calc(100% - var(--chamfer-size)) 100%,
+    var(--chamfer-size) 100%,
+    0 calc(100% - var(--chamfer-size)),
+    0 var(--chamfer-size)
+  );
   transition:
     border-color var(--chip-hover-duration) var(--ease-standard),
     color var(--chip-hover-duration) var(--ease-standard);
 }
 
+/* The chamfer clips the border, so the hover brightens the COLOUR rather than
+ * adding a second border that the clip-path would cut away. */
 .pass-wallet-chip:hover {
   border-color: var(--color-accent);
   color: var(--color-accent-text);
@@ -2851,16 +2512,12 @@ li[data-ghost="true"] {
   min-inline-size: 0;
 }
 
-/* A chain the product cannot use is a muted notice, never an accent alarm:
- * there is nothing the user can do about it here, so the accent would be
- * shouting about a fact. */
+/* A chain the product cannot use is a muted notice, never an accent alarm: there
+ * is nothing the user can do about it here, so the accent would be shouting
+ * about a fact. The word in the dropdown carries the meaning. */
 .pass-wallet[data-state="wrong-chain"] .pass-wallet-chip {
   border-color: var(--color-line-hairline);
   color: var(--color-text-tertiary);
-}
-
-.pass-wallet[data-state="wrong-chain"] .pass-wallet-address::after {
-  content: "";
 }
 
 /* --- The menu ------------------------------------------------------------ */
@@ -2868,6 +2525,9 @@ li[data-ghost="true"] {
 .pass-wallet-dropdown {
   position: absolute;
   inset-block-start: calc(100% + var(--space-2));
+  /* Anchored to the chip's RIGHT edge, so the menu does not hang off the
+     viewport on a narrow screen when the chip is already at the right padding
+     edge. */
   inset-inline-end: 0;
   z-index: 20;
   display: flex;
@@ -2881,6 +2541,11 @@ li[data-ghost="true"] {
   border: var(--border-width-hairline) solid var(--color-line-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-overlay);
+}
+
+.pass-wallet-menu {
+  position: relative;
+  min-inline-size: 0;
 }
 
 .pass-wallet-dropdown-note {
@@ -2921,9 +2586,9 @@ li[data-ghost="true"] {
   outline-offset: calc(var(--focus-ring-offset) * -1);
 }
 
-/* Disconnect is destructive but not dangerous: it costs the user a signature
- * and nothing else. Data-negative, not accent — the accent is rationed to one
- * thing per viewport (2.5). */
+/* Disconnect is destructive but not dangerous: it costs a signature and
+ * nothing else. Data-negative, not accent — the accent is rationed to one thing
+ * per viewport (§2.5). */
 .pass-wallet-item-danger {
   color: var(--color-data-negative);
 }

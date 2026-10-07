@@ -38,10 +38,17 @@ vi.mock("wagmi", () => ({
   useDisconnect: () => ({ disconnect }),
 }));
 
-// A button that satisfies the disconnect test's only real requirement: it must
-// be findable and must not throw without a provider.
+// ConnectKit is mocked, and the mock mirrors the part of its API the product
+// actually uses: `ConnectKitButton.Custom`, whose only consumed render prop is
+// `show()`. We render the button; ConnectKit owns wallet discovery and the
+// modal. The previous `<ConnectKitButton />` was deliberately abandoned — it
+// renders a third-party Tailwind widget in the middle of our own design system.
 vi.mock("connectkit", () => ({
-  ConnectKitButton: () => <button type="button">Connect wallet</button>,
+  ConnectKitButton: Object.assign(
+    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
+      children({ show: () => {} }),
+    { Custom: ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) => children({ show: () => {} }) },
+  ),
 }));
 
 const ADDRESS = "0x1234567890abcdef1234567890abcdef12345678" as const;
@@ -75,16 +82,34 @@ describe("WalletControl — disconnected", () => {
 });
 
 describe("WalletControl — connecting", () => {
-  it("says Connecting and offers no control to click", () => {
+  it("shows a disabled button at the same visual weight, not a spinner", () => {
     account = { isConnected: false, isConnecting: true };
     const { container } = render(<WalletControl />);
     expect(container.querySelector(".pass-wallet")?.getAttribute("data-state")).toBe(
       "connecting",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Connecting");
-    // A spinner-only affordance would be invisible and would be motion for its
-    // own sake (§14.13); a disabled launcher is at least honest about why.
-    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+    // The brief's rule: a disabled button, same visual weight. A bespoke bordered
+    // word-chip was the previous treatment and it made the control change weight
+    // and colour mid-transition, which reads as a different component.
+    const button = screen.getByRole("button", { name: /Connecting/ });
+    expect(button).toBeDisabled();
+    expect(button.className).toContain("pass-btn");
+    expect(button).toHaveAttribute("data-variant", "primary");
+  });
+
+  it("keeps the same accent variant as the idle launcher, so nothing jumps", () => {
+    const { unmount } = render(<WalletControl />);
+    const idle = screen.getByRole("button", { name: "Connect wallet" });
+    const idleVariant = idle.getAttribute("data-variant");
+    const idleSize = idle.getAttribute("data-size");
+    unmount();
+
+    account = { isConnected: false, isConnecting: true };
+    const { container } = render(<WalletControl />);
+    const busy = screen.getByRole("button", { name: /Connecting/ });
+    expect(busy.getAttribute("data-variant")).toBe(idleVariant);
+    expect(busy.getAttribute("data-size")).toBe(idleSize);
+    expect(container.querySelector(".pass-wallet-connect")).toBeTruthy();
   });
 
   it("treats a reconnect the same way", () => {
@@ -93,6 +118,24 @@ describe("WalletControl — connecting", () => {
     expect(container.querySelector(".pass-wallet")?.getAttribute("data-state")).toBe(
       "connecting",
     );
+  });
+});
+
+describe("WalletControl — the connect launcher is ours, not ConnectKit's", () => {
+  it("renders the design system's own button primitive", () => {
+    const { container } = render(<WalletControl />);
+    const button = container.querySelector(".pass-btn") as HTMLElement;
+    // Before this, the launcher was `<ConnectKitButton />` — a third-party
+    // Tailwind widget. Now the only thing ConnectKit contributes is `show()`.
+    expect(button).toBeTruthy();
+    expect(button.className).toContain("pass-wallet-connect");
+    expect(button.textContent).toBe("Connect wallet");
+  });
+
+  it("carries the primary variant, so it is the one accent fill in the bar (§2.5)", () => {
+    const { container } = render(<WalletControl />);
+    const accents = container.querySelectorAll('[data-variant="primary"]');
+    expect(accents.length).toBe(1);
   });
 });
 
