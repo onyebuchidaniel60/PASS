@@ -135,6 +135,110 @@
   --color-accent-muted: rgba(240, 58, 28, 0.12);
   --color-accent-edge: rgba(240, 58, 28, 0.35);
 
+  /* §14.1 The reference set's gradient ramp. The Stage K build rendered a flat
+     #0a0a0a canvas on every screen and read as a generic dark theme for exactly
+     that reason. Three stops, read off reference images 1, 7, 8 and 10, plus the
+     three alpha ramps that place them.
+     `--color-accent` above is the UI accent: a control border, a focus ring, one
+     word in a headline. The tokens below are the BACKGROUND ramp and are a
+     different thing -- they are large, low-alpha fields, never borders and never
+     text. Do not substitute one for the other. */
+  --color-canvas-gradient-core: #f4552e;
+  --color-canvas-gradient-mid: #7a2410;
+  --color-canvas-gradient-edge: #0a0a0a;
+  --color-ember-bright: #ff6b33;
+  --wash-core-alpha: 0.38;
+  --wash-mid-alpha: 0.22;
+
+  /* §14.1 Sub-strength wash for section headers, where a hero-strength core
+     would compete with the headline sitting on it. */
+  --wash-section-core-alpha: 0.22;
+  --wash-section-mid-alpha: 0.14;
+
+  /* §14.1 The tight wash, used only behind a device or wordmark hero where a
+     bright core is the point. */
+  --wash-tight-core-alpha: 0.55;
+  --wash-tight-mid-alpha: 0.3;
+
+  /* §14.1 Grain. A base64 SVG feTurbulence tile at this opacity: invisible on a
+     photograph of the screen, visible only as the absence of banding across the
+     gradient. 4% is the value; it is a token because "slightly more grain" is
+     exactly the sort of tweak that must not be made by editing a literal. */
+  --noise-opacity: 0.04;
+
+  /* §14.5 The card. A distinct surface from --color-surface: the reference's
+     cards sit DARKER than the canvas around them, which is the opposite of the
+     usual raised-panel assumption and is what makes them read as apertures. */
+  --card-bg: #0b0b0e;
+  --card-border: #23232c;
+  --card-edge-highlight: #33333f;
+  --card-pad: 20px;
+  --card-pad-compact: 16px;
+  --card-radius: 12px;
+  --card-action-radius: 6px;
+
+  /* §14.2 Corner brackets. The stroke is --color-line-strong at 60% so it reads
+     as a frame rather than as a box. */
+  --bracket-length: 28px;
+  --bracket-offset: 8px;
+  --bracket-color: #3a3a46;
+  --stroke-bracket: 1px;
+
+  /* §14.7 Live indicator. */
+  --live-dot-size: 6px;
+  --live-pulse-duration: 2000ms;
+  --live-pulse-min-opacity: 0.35;
+
+  /* §14.11 Dense row height for any surface of figures. */
+  --row-height-dense: 34px;
+
+  /* §14.4 The hero step. One clamp so the four breakpoints in §14.4 stay a
+     table rather than four numbers in four stylesheets. */
+  --type-display-hero-size: clamp(2.125rem, 1.1rem + 4.6vw, 5.75rem);
+  --type-display-hero-line: 1;
+  --type-display-hero-track: -0.03em;
+  --type-display-hero-font: var(--font-display);
+
+  /* §14.4 Section headline step: smaller than the hero, still display-weight. */
+  --type-display-section-size: clamp(1.625rem, 1.1rem + 2.3vw, 3.5rem);
+  --type-display-section-line: 1.05;
+  --type-display-section-track: -0.03em;
+  --type-display-section-font: var(--font-display);
+
+  /* §14.6 Status badges. Each is a three-token set: word colour, fill at 12%,
+     border at 35%. The WORD carries the state; colour and icon reinforce it
+     (§9.4), and the set reads correctly with all colour removed. */
+  --badge-draft: var(--color-text-tertiary);
+  --badge-active: var(--color-accent);
+  --badge-entry-pending: var(--color-accent);
+  --badge-open: var(--color-accent);
+  --badge-tp-hit: var(--color-data-positive);
+  --badge-sl-hit: var(--color-data-negative);
+  --badge-cancelled: var(--color-text-secondary);
+  --badge-expired: var(--color-text-secondary);
+  --badge-invalidated: var(--color-data-negative);
+  --badge-fill-alpha: 0.12;
+  --badge-border-alpha: 0.35;
+  --badge-size: 10px;
+  --badge-track: 0.1em;
+  --badge-pad-block: 4px;
+  --badge-pad-inline: 8px;
+  --badge-radius: 4px;
+  --badge-icon-size: 14px;
+
+  /* §14.9 Chip buttons. */
+  --chip-pad-block: 10px;
+  --chip-pad-inline: 16px;
+  --chip-label-size: 0.75rem;
+  --chip-label-track: 0.08em;
+  --chip-hover-duration: 180ms;
+
+  /* §14.10 Numbered step grid. */
+  --step-badge-size: 28px;
+  --step-badge-digit-size: 0.8125rem;
+  --step-title-size: 0.9375rem;
+  --step-body-size: 0.8125rem;
+
   /* §2.6 Price-data pair. Strictly subordinate to the accent, never
      decorative, never a control fill. */
   --color-data-positive: #46c08c;
@@ -376,5 +480,11 @@
     --duration-base: 0ms;
     --duration-slow: 0ms;
     --duration-deliberate: 0ms;
+    /* §14.7 The live dot is the one thing §6.6 does not simply shorten: a pulse
+     * at zero duration is not a reduced pulse, it is a decision to keep
+     * animating. Overriding the DURATION token here removes the animation at
+     * the source, and the dot sits at full opacity with the word LIVE intact --
+     * the information is the word, never the movement (§14.13). */
+    --live-pulse-duration: 0ms;
   }
 }
