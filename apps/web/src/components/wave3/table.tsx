@@ -39,6 +39,15 @@ export interface DataTableProps<T> {
   renderRow?: (row: T, key: string) => ReactNode;
   /** Low-emphasis treatment: draft and cancelled rows. */
   isGhost?: (row: T) => boolean;
+  /**
+   * Optional detail row, revealed per row (§10.9.2 reconstructability: the
+   * provider order id and the referenced Pass version).
+   *
+   * Rendered as a second `<tr>` spanning the table rather than inside a cell, so
+   * the detail is not trapped inside one column's width.
+   */
+  isExpanded?: (row: T) => boolean;
+  renderDetail?: (row: T) => ReactNode;
   caption: string;
 }
 
@@ -48,6 +57,8 @@ export function DataTable<T>({
   rowKey,
   renderRow,
   isGhost,
+  isExpanded,
+  renderDetail,
   caption,
 }: DataTableProps<T>) {
   const stack = columns.filter((c) => c.inStack !== false);
@@ -99,14 +110,31 @@ export function DataTable<T>({
                 {c.render(row)}
               </td>
             ));
-            return renderRow ? (
-              <tr key={key} data-ghost={ghost || undefined}>
-                {renderRow(row, key)}
-              </tr>
-            ) : (
-              <tr key={key} data-ghost={ghost || undefined}>
-                {cells}
-              </tr>
+            const detail =
+              isExpanded?.(row) && renderDetail ? (
+                <tr key={`${key}-detail`} data-detail="true">
+                  <td
+                    colSpan={columns.length}
+                    style={{ padding: "0 12px 16px", borderBottom: "1px solid var(--rule)" }}
+                  >
+                    {renderDetail(row)}
+                  </td>
+                </tr>
+              ) : null;
+
+            return (
+              <>
+                {renderRow ? (
+                  <tr key={key} data-ghost={ghost || undefined}>
+                    {renderRow(row, key)}
+                  </tr>
+                ) : (
+                  <tr key={key} data-ghost={ghost || undefined}>
+                    {cells}
+                  </tr>
+                )}
+                {detail}
+              </>
             );
           })}
         </tbody>
@@ -127,7 +155,9 @@ export function DataTable<T>({
                 background: ghost ? "var(--surface-sunken)" : undefined,
               }}
             >
-              {renderRow ? (
+              {isExpanded?.(row) && renderDetail ? (
+                renderDetail(row)
+              ) : renderRow ? (
                 renderRow(row, key)
               ) : (
                 <dl style={{ display: "grid", gap: "6px", margin: 0 }}>

@@ -1078,10 +1078,10 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Inventory tables (§10.8 My Passes, §10.9 Executions).
+ * Inventory tables (ï¿½10.8 My Passes, ï¿½10.9 Executions).
  *
  * No horizontal scroller, deliberately. A sideways-scrolling table hides its
- * last column, and on this product the last column is expiry and realized PnL —
+ * last column, and on this product the last column is expiry and realized PnL ï¿½
  * the numbers a Taker checks before committing. Below 720px the table becomes a
  * stacked definition list so every column stays reachable.
  *
@@ -1111,9 +1111,55 @@
 }
 
 /* Draft and cancelled rows: the row recedes, the text never does.
- * Dimming text opacity would fail the contrast budget (§9), and a row you are
+ * Dimming text opacity would fail the contrast budget (ï¿½9), and a row you are
  * cancelling still has to be readable in order to be cancelled. */
 tr[data-ghost="true"] td,
 li[data-ghost="true"] {
   background-color: var(--color-surface-sunken);
+}
+
+/* Inventory cells (DESIGN.md §10.8, §10.9, §11).
+ *
+ * Figures never wrap mid-number: a price broken across two lines reads as two
+ * numbers, which is a different and wrong number.
+ *
+ * `data-tone` only ever REINFORCES meaning the text already carries (§9.4:
+ * colour is secondary). Strip colour entirely and every value here still reads
+ * correctly, because PnlCell puts the sign in the text and StateChip puts the
+ * state in a label. */
+.pass-cell {
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  line-height: var(--type-data-s-line);
+  letter-spacing: var(--type-data-s-track);
+}
+
+.pass-cell-num {
+  white-space: nowrap;
+}
+
+.pass-cell[data-tone="muted"] {
+  color: var(--color-text-tertiary);
+}
+
+.pass-num[data-tone="positive"] {
+  color: var(--color-data-positive);
+}
+
+.pass-num[data-tone="negative"] {
+  color: var(--color-data-negative);
+}
+
+.pass-num[data-tone="neutral"] {
+  color: var(--color-data-neutral);
+}
+
+.pass-tag {
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  letter-spacing: var(--type-data-s-track);
+  padding: 2px 6px;
+  border: 1px solid var(--color-line-hairline);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
