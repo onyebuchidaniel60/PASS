@@ -32,7 +32,23 @@ export const ApiEnvSchema = z.object({
   SESSION_SECRET: z.string().min(16).optional(),
   ENCRYPTION_KEY: z.string().min(16).optional(),
 
+  /**
+   * Gates BOTH Hyperliquid reads and Hyperliquid writes. Kept as the single
+   * switch for a fully live venue.
+   *
+   * WARNING: `HYPERLIQUID_MODE=live` also arms `relaySignedAction`, which
+   * submits a real signed order to Hyperliquid mainnet. For read-only live
+   * market data use `HYPERLIQUID_READS_MODE` instead — see below and D-021.
+   */
   HYPERLIQUID_MODE: modeFlag("HYPERLIQUID"),
+  /**
+   * Read-only Hyperliquid Info API: mids, L2 books, account state, fills.
+   *
+   * Split out from `HYPERLIQUID_MODE` because a single flag cannot express
+   * "live prices, no execution", and expressing that state by accident means
+   * real orders. Public API, no credentials (D-018.9).
+   */
+  HYPERLIQUID_READS_MODE: modeFlag("HYPERLIQUID_READS"),
   HYPERLIQUID_INFO_URL: z.string().url().optional(),
   HYPERLIQUID_EXCHANGE_URL: z.string().url().optional(),
 
@@ -94,11 +110,12 @@ export function isProduction(env: ApiEnv): boolean {
  */
 export function resolveMode(
   env: ApiEnv,
-  provider: "hyperliquid" | "ethos" | "x",
+  provider: "hyperliquid" | "hyperliquid_reads" | "ethos" | "x",
   requiredCreds: string[],
 ): { mode: RunMode; warning?: string } {
   const requested = env[`${provider.toUpperCase()}_MODE` as
     | "HYPERLIQUID_MODE"
+    | "HYPERLIQUID_READS_MODE"
     | "ETHOS_MODE"
     | "X_MODE"];
   const missing = requiredCreds.filter((c) => !env[c as keyof ApiEnv]);
@@ -130,6 +147,12 @@ export const HYPERLIQUID_REQUIRED_CREDS = [
   "HYPERLIQUID_INFO_URL",
   "HYPERLIQUID_EXCHANGE_URL",
 ] as const;
+/**
+ * Live reads need only the Info URL. The Exchange URL is deliberately NOT
+ * required here: requiring it would make "live reads" impossible to express
+ * without also pointing the adapter at a write endpoint.
+ */
+export const HYPERLIQUID_READS_REQUIRED_CREDS = ["HYPERLIQUID_INFO_URL"] as const;
 export const ETHOS_REQUIRED_CREDS = ["ETHOS_API_BASE_URL"] as const;
 export const X_REQUIRED_CREDS = [
   "X_CLIENT_ID",

@@ -126,7 +126,20 @@ export type EthosReputation = z.infer<typeof EthosReputation>;
 
 /** Which mode each provider adapter resolved to at startup. */
 export const AdapterModes = z.object({
+  /**
+   * The COMBINED Hyperliquid mode: "live" only when reads AND execution are
+   * both live. Kept so existing consumers keep compiling and so a caller that
+   * only cares "is this venue real" gets the conservative answer.
+   */
   hyperliquid: RunMode,
+  /**
+   * Read paths only (Info API: mids, books, account state, fills). Split from
+   * `hyperliquid` by D-021 so "live prices, no execution" is representable and
+   * visible rather than implied.
+   */
+  hyperliquidReads: RunMode,
+  /** Write paths only (order relay, agent approval). Gated by HYPERLIQUID_MODE. */
+  hyperliquidExecution: RunMode,
   ethos: RunMode,
   x: RunMode,
   database: RunMode,
