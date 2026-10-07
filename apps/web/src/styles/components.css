@@ -1234,10 +1234,25 @@ li[data-ghost="true"] {
   white-space: nowrap;
 }
 
-/* Connection chips (�10.10.1).
- *
- * The state WORD is the meaning. `data-tone` reinforces it and is the only thing
- * that changes colour, so the chip survives greyscale and colour blindness. */
+/* Running note text (§3.3 --type-body-s, secondary meta). Used where a control
+ * reports state in prose rather than as data: a signature result, a share
+ * result, a connection instruction. Never a caption — that is --type-data-xs
+ * and lives on .pass-stale. */
+.pass-note {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-secondary);
+}
+
+/* A note that reports a RESULT, separated from the control it belongs to. */
+.pass-note-status {
+  margin-block-start: var(--space-2);
+  color: var(--color-text-tertiary);
+}
+
+/* Avatar (§10.10.1). The box is square and the glyph is half of it, so an
+ * absent image reads as an absence rather than as a broken picture. */
 .pass-avatar {
   display: inline-flex;
   align-items: center;
@@ -1294,13 +1309,6 @@ li[data-ghost="true"] {
 
 .pass-connection-label {
   font-weight: 600;
-}
-
-.pass-connection-detail {
-  font-family: var(--type-body-s-font);
-  font-size: var(--type-body-s-size);
-  line-height: var(--type-body-s-line);
-  color: var(--color-text-secondary);
 }
 
 .pass-connection-state {

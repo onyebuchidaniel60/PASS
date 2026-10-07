@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@pass/ui";
 import { clientPost } from "@/lib/client";
+import { Inline } from "@/components/wave1/layout";
 
 /**
  * docs/API_CONTRACTS.md §5 — sharing. Copy-only always works; native X
@@ -43,16 +44,16 @@ export function ShareControl({ passId }: { passId: string }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2">
+      <Inline gap="2">
         <Button size="sm" disabled={busy} onClick={() => share("copy")}>
           Copy link
         </Button>
         <Button size="sm" disabled={busy} onClick={() => share("post")}>
           Share on X
         </Button>
-      </div>
+      </Inline>
       {msg && (
-        <p role="status" className="mt-2 text-xs text-neutral-600">
+        <p role="status" className="pass-note pass-note-status">
           {msg}
         </p>
       )}

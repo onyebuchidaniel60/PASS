@@ -5,9 +5,16 @@
  * in the MVP and no theme toggle. The previous provisional base was light
  * (#ffffff on :root color-scheme: light), which contradicted the design.
  *
- * Tailwind directives are retained while the Wave 7 screens are migrated off
- * utility classes. New components must use tokens, not utilities. Tracked in
- * design/phase-records/PHASE_00_tokens.md.
+ * Tailwind directives are retained, but NOT because any PASS screen still uses
+ * a utility class: apps/web/src is fully on the token layer. Two things still
+ * need the Tailwind output and neither is ours to rewrite here:
+ *   1. packages/ui - the provisional Stage K primitives (@pass/ui Button,
+ *      DemoBanner), rendered by the root layout and the topbar.
+ *   2. connectkit's ConnectKitButton, whose own rendered markup is Tailwind
+ *      utility classes.
+ * Dropping tailwindcss would not fail the build; it would silently strip the
+ * connect button and the demo banner of every style. Tailwind stays until
+ * @pass/ui is migrated. See design/BUILD_CONTINUATION.md.
  */
 @import "../styles/tokens.css";
 @import "../styles/components.css";

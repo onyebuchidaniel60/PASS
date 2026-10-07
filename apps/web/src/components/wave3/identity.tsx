@@ -94,7 +94,7 @@ export function ConnectionChip({
         <span className="pass-connection-state" data-tone={tone}>
           {TONE_TEXT[tone]}
         </span>
-        {detail ? <span className="pass-connection-detail">{detail}</span> : null}
+        {detail ? <span className="pass-note">{detail}</span> : null}
       </div>
 
       {action ? (

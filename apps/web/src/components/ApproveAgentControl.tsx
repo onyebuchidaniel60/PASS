@@ -5,6 +5,7 @@ import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { Button } from "@pass/ui";
 import { clientPost } from "@/lib/client";
+import { Stack } from "@/components/wave1/layout";
 import {
   generateAgentKey,
   messageForDerivation,
@@ -121,7 +122,7 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
   return (
     <div>
       {approved ? (
-        <p className="text-sm text-neutral-700">
+        <p className="pass-note">
           An agent wallet is approved and can sign orders on your behalf.
         </p>
       ) : (
@@ -130,7 +131,7 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
         </Button>
       )}
       {msg && (
-        <p role="status" className="mt-2 text-xs text-neutral-600">
+        <p role="status" className="pass-note pass-note-status">
           {msg}
         </p>
       )}
@@ -143,12 +144,12 @@ export function ConnectWalletEntry() {
   const { isConnected } = useAccount();
   if (isConnected) return null;
   return (
-    <div className="flex flex-col gap-2">
+    <Stack gap="2">
       <ConnectKitButton />
-      <p className="text-xs text-neutral-500">
+      <p className="pass-note">
         Connecting a wallet lets PASS request your signature to approve an agent
         wallet. PASS never receives a private key.
       </p>
-    </div>
+    </Stack>
   );
 }
