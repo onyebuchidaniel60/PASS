@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 
 import LandingPage from "@/app/page";
@@ -304,8 +306,161 @@ describe("Landing reference language (§14)", () => {
     const classes = Array.from(container.querySelectorAll("[class]")).flatMap((el) =>
       (el.getAttribute("class") ?? "").split(/\s+/).filter(Boolean),
     );
-    for (const c of classes) {
+for (const c of classes) {
       expect(c.startsWith("pass-") || ALLOWED.has(c), `class "${c}"`).toBe(true);
     }
+  });
+});
+
+/**
+ * Footer regression, 2026-10-07 — operator report: "packed up the home and
+ * bottom elements".
+ *
+ * All three causes lived in components.css and changed nothing in the markup, so
+ * every existing assertion stayed green while the page was visibly wrong. The
+ * first is the kind of bug no class-name test can ever catch: `.pass-footer`
+ * declared `max-width` TWICE and CSS resolved it last-wins with no warning, so
+ * the footer silently rendered at 68ch beside 1280px of content.
+ *
+ * These read the stylesheet rather than the DOM on purpose — the defect was in
+ * the stylesheet, and asserting on the rendered class list would have stayed
+ * green throughout.
+ */
+describe("Footer and hero shell layout regression (14.15)", () => {
+  const css = readFileSync(
+    // Not `new URL(..., import.meta.url)`: under the jsdom environment that is
+    // not a file URL and `readFileSync` rejects it.
+    resolve(process.cwd(), "src/styles/components.css"),
+    "utf8",
+  );
+
+  /** The declaration block for a top-level `selector {` rule. */
+  function ruleFor(selector: string): string {
+    const at = css.indexOf(`\n${selector} {`);
+    if (at < 0) return "";
+    const open = css.indexOf("{", at);
+    const close = css.indexOf("}", open);
+    return css.slice(open + 1, close);
+  }
+
+  it("declares max-width exactly once on the footer", () => {
+    const body = ruleFor(".pass-footer");
+    expect(body).not.toBe("");
+    expect((body.match(/max-width:/g) ?? []).length).toBe(1);
+  });
+
+  it("caps the footer at the content width, not the body measure", () => {
+    // The body measure (68ch, roughly 600px) is for prose. On a container it
+    // squeezes eight links into a narrow ragged column — the reported symptom.
+    const body = ruleFor(".pass-footer");
+    expect(body).toContain("--layout-content-max");
+    expect(body).not.toContain("--measure-body");
+  });
+
+  it("actually lays the footer out on a grid", () => {
+    // `.pass-footer-grid` had NO rule at all, so the "grid" was a plain block
+    // div: brand and links stacked with no gap at every width.
+    const body = ruleFor(".pass-footer-grid");
+    expect(body).toContain("display: grid");
+    expect(body).toContain("grid-template-columns: 1fr");
+  });
+
+  /**
+   * Every `@media (min-width: <bp>)` block in the file, concatenated.
+   *
+   * Not `indexOf`: components.css has a dozen 768px blocks and the footer's is
+   * not the first, so a single-index search inspects an unrelated rule and the
+   * assertion passes or fails for the wrong reason.
+   */
+  function mediaBlocks(bp: string): string {
+    const needle = `@media (min-width: ${bp})`;
+    const out: string[] = [];
+    let at = css.indexOf(needle);
+    while (at >= 0) {
+      const open = css.indexOf("{", at);
+      let depth = 0;
+      let i = open;
+      for (; i < css.length; i += 1) {
+        if (css[i] === "{") depth += 1;
+        else if (css[i] === "}") {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      out.push(css.slice(at, i + 1));
+      at = css.indexOf(needle, i + 1);
+    }
+    return out.join("\n");
+  }
+
+  it("switches the footer to two columns at the tablet breakpoint", () => {
+    // A template that never changes cannot overflow-proof itself.
+    const tablet = mediaBlocks("768px");
+    expect(tablet).toContain(".pass-footer-grid");
+    expect(tablet).toMatch(
+      /\.pass-footer-grid[\s\S]{0,200}grid-template-columns/,
+    );
+  });
+
+  it("lets the link list wrap instead of overflowing", () => {
+    expect(ruleFor(".pass-footer-links")).toContain("flex-wrap: wrap");
+  });
+
+  it("resets the link list, because there is no global ul reset", () => {
+    // globals.css carries no `ul`/`ol` rule by design: apps/web is on the token
+    // layer and resets are per-primitive. An unstyled <ul> paints discs and a
+    // 40px indent straight into the footer.
+    const body = ruleFor(".pass-footer-links");
+    expect(body).toContain("list-style: none");
+    expect(body).toMatch(/margin: 0/);
+    expect(body).toMatch(/padding: 0/);
+  });
+
+  it("matches the content gutter at every breakpoint", () => {
+    for (const bp of ["768px", "1024px"]) {
+      expect(mediaBlocks(bp)).toMatch(
+        /\.pass-footer \{[\s\S]{0,200}padding-inline/,
+      );
+    }
+  });
+
+  it("gives the clipped hero shell padding, so the clip has something to spare", () => {
+    // `.pass-wash` sets overflow: clip (§14.15 rule 4). On the hero that is
+    // correct and necessary — but a zero-padding clip cuts the wash, the grain
+    // and the ghost watermark flush on all four sides, which is why the hero
+    // read as a cropped slab.
+    const body = ruleFor(".pass-landing-shell");
+    expect(body).toContain("padding-block");
+    expect(body).toContain("padding-inline");
+  });
+
+  it("pulls the hero shell padding back out to the section gutter", () => {
+    // The shell is a child of `.pass-shell-content`, which already carries the
+    // gutter. Without the negative margin the two paddings stack and the hero
+    // text sits inset from every other section's text.
+    expect(ruleFor(".pass-landing-shell")).toMatch(/margin-inline: calc\(/);
+  });
+
+  it("caps the hero lede at the body measure", () => {
+    // `.pass-landing-lede` had no rule either, so the one prose paragraph in
+    // the hero ran the full 1280px — a line length no one can read.
+    expect(ruleFor(".pass-landing-lede")).toContain("--measure-body");
+  });
+
+  it("leaves the wash, grain and watermark clipping intact", () => {
+    // §14.15 is the reason the clip exists. The fix must not remove it, or the
+    // overlay bug §14.15 rule 4 was written for comes straight back.
+    const wash = ruleFor(".pass-wash");
+    expect(wash).toContain("overflow: clip");
+    expect(wash).toContain("isolation: isolate");
+  });
+
+  it("keeps the hero text above the grid field so the grid cannot overlap it", () => {
+    const at = css.indexOf(".pass-landing-hero,");
+    const open = css.indexOf("{", at);
+    const close = css.indexOf("}", open);
+    const body = css.slice(open + 1, close);
+    expect(body).toContain("position: relative");
+    expect(body).toMatch(/z-index: 1/);
   });
 });

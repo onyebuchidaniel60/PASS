@@ -639,6 +639,26 @@
   min-width: 0;
 }
 
+/* §14.1 the hero shell. `Surface` gives this element `pass-wash`, which sets
+ * `overflow: clip` so the absolutely-positioned wash/grain/watermark cannot
+ * escape onto the next section (§14.15 rule 4).
+ *
+ * The clip needs padding to be meaningful: without it the wash is flush to the
+ * element box, so the watermark glyphs and the glow gradient are cut off on
+ * every side and the hero reads as a cropped slab. The padding also gives the
+ * hero its own vertical breathing room, which it had none of. */
+.pass-landing-shell {
+  padding-block: var(--space-8);
+  padding-inline: var(--layout-margin-mobile);
+  margin-inline: calc(var(--layout-margin-mobile) * -1);
+}
+
+/* §14.2 the bracket frame sits INSIDE the padded shell, so the corner marks are
+ * inset from the clip edge and are never themselves clipped. */
+.pass-landing-frame {
+  padding-block-end: var(--space-6);
+}
+
 .pass-landing-field {
   position: absolute;
   inset-block-start: 0;
@@ -646,6 +666,14 @@
   /* Structural grid, behind the hero, inert. */
   z-index: 0;
   pointer-events: none;
+}
+
+/* §3.4 the lede is body prose: one capped measure, never the hero step, and
+ * never centred — the hero reads start-aligned throughout. */
+.pass-landing-lede {
+  max-width: var(--measure-body);
+  margin-block-start: var(--space-5);
+  color: var(--color-text-secondary);
 }
 
 .pass-landing-hero,
@@ -668,6 +696,20 @@
   max-width: var(--measure-display);
   margin-block-end: var(--space-5);
   text-align: start;
+}
+
+@media (min-width: 768px) {
+  .pass-landing-shell {
+    padding-inline: var(--layout-margin-tablet);
+    margin-inline: calc(var(--layout-margin-tablet) * -1);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-landing-shell {
+    padding-inline: var(--layout-margin-desktop);
+    margin-inline: calc(var(--layout-margin-desktop) * -1);
+  }
 }
 
 .pass-landing-ctas {
@@ -795,7 +837,69 @@
   font-family: var(--type-body-s-font);
   font-size: var(--type-body-s-size);
   color: var(--color-text-tertiary);
+}
+
+/* §8.3 the footer's gutter tracks the content gutter at every breakpoint, so
+ * the links align with the topbar nav above them instead of sitting 20px
+ * further left on mobile and 40px further left on desktop. */
+@media (min-width: 768px) {
+  .pass-footer {
+    padding-inline: var(--layout-margin-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-footer {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+/* §14.8 the footer grid: brand on the left, links on the right at desktop;
+ * stacked at mobile. It is a grid rather than a flex row with `space-between`
+ * because with eight links a flex row overflows before it wraps, and an
+ * overflowing footer is exactly the operator's "packed up the bottom". */
+.pass-footer-grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-footer-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-6);
+    align-items: center;
+  }
+}
+
+.pass-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* There is deliberately NO `ul`/`ol` reset in globals.css — apps/web is fully
+ * on the token layer and the reset is per-primitive. This list is a `<ul>`, so
+ * without `list-style: none` the browser paints discs and a 40px indent into
+ * the footer, which is what the operator saw as a packed bottom edge. */
+.pass-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.pass-footer-note {
+  margin-block-start: var(--space-6);
+  margin-block-end: 0;
   max-width: var(--measure-body);
+  color: var(--color-text-tertiary);
 }
 
 /* -------------------------------------------------------------------------
