@@ -26,9 +26,6 @@ import { useCallback, useState } from "react";
 import {
   ChamferPanel,
   Inline,
-  PageShell,
-  Section,
-  ShellContent,
   Stack,
 } from "@/components/wave1/layout";
 import {
@@ -51,6 +48,7 @@ import {
   StatusChip,
 } from "@/components/wave3/data";
 
+import { Surface } from "@/components/reference";
 import { clientPost } from "@/lib/client";
 
 type Step = 1 | 2 | 3 | 4;
@@ -172,12 +170,26 @@ export function TakeFlowClient({
   const long = initialPass.direction === "long";
 
   return (
-    <PageShell>
-      <ShellContent>
-        <Stack gap="6">
-          <Section label={`Step ${step} of 4`}>
+    /* §14.1 names this surface specifically: "Executions, My Passes, the Take
+       preview, Settings" get the FLAT wash — grain only, no colour behind it.
+       A hero-strength wash here would compete with the digits a Taker is being
+       asked to authorize, and those digits are the whole point of the screen. */
+    <div className="pass-page">
+      <Surface strength="flat" grain>
+        <div className="pass-shell">
+          <main className="pass-shell-content pass-stack pass-stack-6">
+          <section className="pass-section" aria-labelledby="take-step-title">
+            <span className="pass-numbered-eyebrow">
+              <span className="pass-numbered-eyebrow-number">{"//"}</span>
+              Take a Pass
+            </span>
+            {/* §10.6 — progress is MONO TEXT, never a novelty stepper. */}
             <p className="pass-stale">{`STEP ${step} / 4`}</p>
-            <h1 className="pass-asset-line" style={{ marginBlockStart: "var(--space-2)" }}>
+            <h1
+              className="pass-display"
+              id="take-step-title"
+              style={{ marginBlockStart: "var(--space-2)" }}
+            >
               {STEP_TITLE[step]}
             </h1>
             <Inline gap="3" style={{ marginBlockStart: "var(--space-3)" }}>
@@ -187,8 +199,13 @@ export function TakeFlowClient({
               </span>
               <StatusChip state={initialPass.status as never} />
             </Inline>
-          </Section>
+          </section>
 
+          {/* Every behaviour-bearing control below is UNCHANGED by the §14 work:
+              the empty size field (D-015), the gated Authorize button, the
+              plain-language statement above the checkbox, the verbatim provider
+              receipt, and warnings as sentences rather than red borders. Only
+              the chrome above and around them changed. */}
           {step === 1 ? (
             <Stack gap="5">
               {/* §10.6 Step 1 — the size field is the first and largest element. */}
@@ -408,8 +425,9 @@ export function TakeFlowClient({
               )}
             </Stack>
           ) : null}
-        </Stack>
-      </ShellContent>
-    </PageShell>
+          </main>
+        </div>
+      </Surface>
+    </div>
   );
 }

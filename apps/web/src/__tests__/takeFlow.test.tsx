@@ -250,3 +250,59 @@ describe("Take flow step 4 — confirmation (§10.6)", () => {
     expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument();
   });
 });
+/**
+ * §14 assertions for the Take flow. Added 2026-10-07 on the visual rebuild.
+ *
+ * These are deliberately about the CHROME, because the rebuild was allowed to
+ * change exactly one thing: how the flow is framed. Every rule below pins a
+ * §14 clause so a future restyle cannot quietly reintroduce a novelty control
+ * on the screen where a Taker signs for their own money.
+ */
+describe("Take flow reference language (14)", () => {
+  it("uses the FLAT wash, because 14.1 names this exact screen", () => {
+    const { container } = render(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
+    // §14.1 lists "the Take preview" among the surfaces that get grain only, no
+    // colour behind them. A hero wash would compete with the figures the Taker
+    // is being asked to authorize.
+    const surface = container.querySelector("[data-strength]") as HTMLElement;
+    expect(surface.getAttribute("data-strength")).toBe("flat");
+    expect(surface.querySelector(".pass-grain")).toBeTruthy();
+  });
+
+  it("uses the numbered eyebrow", () => {
+    const { container } = render(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
+    expect(container.querySelector(".pass-numbered-eyebrow-number")).toBeTruthy();
+  });
+
+  it("keeps progress as mono text and never renders a stepper widget", () => {
+    const { container } = render(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
+    expect(screen.getByText("STEP 1 / 4")).toBeInTheDocument();
+    // 10.6 forbids a novelty stepper. This is asserted structurally because a
+    // stepper can be added without changing any existing assertion.
+    expect(container.querySelector("[role='progressbar']")).toBeNull();
+    expect(container.querySelector("ol")).toBeNull();
+  });
+
+  it("puts exactly one accent fill on the screen: the forward action", () => {
+    const { container } = render(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
+    // 2.5 rations the accent to one thing per viewport. On step 1 that is
+    // "Review order"; the "Back to Pass" text link is deliberately not a
+    // second accent.
+    expect(container.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    expect(container.querySelectorAll(".pass-link-btn")).toHaveLength(1);
+  });
+
+  it("still names the step title as the page heading", () => {
+    render(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Choose your size",
+    );
+  });
+
+  it("labels the main region so the screen is navigable", () => {
+    const { container } = render(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
+    // A 4-step document with no landmark is a wall of controls.
+    expect(container.querySelector("main")).toBeTruthy();
+    expect(container.querySelector("section[aria-labelledby]")).toBeTruthy();
+  });
+});
