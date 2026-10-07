@@ -211,7 +211,42 @@ they are data-heavy, §14.1's flat rule applies, and the primitives already exis
    nine `/fonts/*.woff2` at 200, and **a heading at 200% zoom must not render in
    a serif.**
 
-## 9. Standing constraints
+## 9. Stage K.3 — DONE, deployed at `832c7ac`
+
+The three video-critical screens and the wallet control are built, checked, and
+deployed. Full detail, including every judgement call where the brief and
+`DESIGN.md` disagreed, is in
+[`phase-records/PHASE_08_stage_k3_rebuild.md`](./phase-records/PHASE_08_stage_k3_rebuild.md).
+Read that before changing any of it.
+
+Live: `https://pass-web-dun.vercel.app` — `/p/{id}`, `/u/{slug}`, and
+`/passes/{id}/take` all serve 200.
+
+`pnpm run check` exits 0 at **526 tests** (was 441). Stage K.3 added 59
+assertions that pin the §14 reference language on the three screens; §10's
+behavioural contracts were already asserted and stayed green throughout.
+
+Three things the operator should know before the visual pass:
+
+1. **The bracket ration is now spent.** Landing has two, `/how-it-works` one,
+   **Trader profile one**. That is all four. Pass detail and the Take flow
+   deliberately do **not** have one — adding a fifth would turn a ration into a
+   border style. Each screen asserts its own count.
+2. **The Ethos score is rendered once per screen, not twice.** The K.3 brief
+   listed it on the trader mini-card; §11.4 and D-007 put it in the reputation
+   block, so that is where it is. See PHASE_08 §2.1. Reversible if you disagree,
+   but one of the two placements has to go.
+3. **Win rate, average R and TP-hit rate are not on the profile** because the API
+   does not return them. The screen says so in text rather than estimating. If
+   you want them, that is a backend change — do not let a future pass "fix" this
+   by computing them from the published/completed counters.
+
+**Known tooling gap:** `check-design-tokens.mjs` does not detect a `var()`
+referencing a token that does not exist. Eight such references shipped in this
+phase and were only caught by hand. A resolution check is the obvious next
+script and is still unwritten.
+
+## 10. Standing constraints
 
 - No browser automation. Nothing here is visually verified. Stage K.2 stays open.
 - No UI framework, no component library, no animation library.

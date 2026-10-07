@@ -13,6 +13,7 @@ Superseded entries are marked, never deleted.
 | [PHASE_05_take_route_verification.md](./PHASE_05_take_route_verification.md) | Wave 7 | Take route 404 root cause | see file | deployed | **CLOSED** |
 | [PHASE_06_env_og_closure.md](./PHASE_06_env_og_closure.md) | Wave 7 | `NEXT_PUBLIC_API_URL` / OG investigation | see file | deployed | **CLOSED** |
 | [PHASE_07_my_passes_attempt.md](./PHASE_07_my_passes_attempt.md) | Wave 7 | §10.8 attempt, **not landed** — recorded as superseded | none | n/a | **SUPERSEDED** by the landed §10.8 commit |
+| [PHASE_08_stage_k3_rebuild.md](./PHASE_08_stage_k3_rebuild.md) | Stage K.3 | Wallet control, §14 rebuild of Pass detail, Trader profile, Take flow | see file | deployed | **OPEN — awaiting operator verification** |
 | Stage K completion summary | Waves 0–7 | Ratchet closure, screen inventory, Tailwind decision | see [`../BUILD_CONTINUATION.md`](../BUILD_CONTINUATION.md) | deployed | **OPEN — awaiting the operator checklist** |
 
 ## Phase status
