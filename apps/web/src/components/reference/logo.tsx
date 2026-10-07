@@ -115,7 +115,6 @@ function Reticle({ detailed }: { detailed: boolean }) {
 }
 
 export function LogoMark({ size = 24, className, title = null }: LogoProps) {
-  const detailed = size >= 32;
   return (
     <svg
       className={className}
