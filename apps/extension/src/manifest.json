@@ -26,11 +26,5 @@
   "action": {
     "default_title": "PASS",
     "default_popup": "popup.html"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["pass-panel.css"],
-      "matches": ["https://x.com/*", "https://twitter.com/*"]
-    }
-  ]
+  }
 }

@@ -1,4 +1,4 @@
-import { PASS_API_URL, profileUrl } from "./config.js";
+import { BUILD_STAMP, PASS_API_URL, profileUrl } from "./config.js";
 
 /**
  * PASS extension popup.
@@ -345,6 +345,10 @@ function renderHeader(): void {
   const api = el("span", "muted small", PASS_API_URL.replace(/^https?:\/\//, ""));
   head.appendChild(api);
   app.appendChild(head);
+  // Which build is answering. A reload of an unpacked extension does not
+  // re-inject the content script into an open tab, so this line is how the
+  // operator confirms the reload reached the running code.
+  app.appendChild(el("span", "muted small", `build ${BUILD_STAMP}`));
 }
 
 async function main(): Promise<void> {

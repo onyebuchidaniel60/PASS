@@ -57,3 +57,13 @@ export function profileUrl(slug: string): string {
 export function passUrl(publicId: string): string {
   return `${PASS_WEB_URL}/p/${publicId}`;
 }
+
+/**
+ * ISO timestamp of the build that produced this bundle.
+ *
+ * Printed by the content script on every page load and shown in the popup.
+ * A reload of an unpacked extension does not re-inject a content script into an
+ * already-open tab, so without this stamp "I reloaded and nothing changed"
+ * cannot be told apart from "the new code never shipped".
+ */
+export const BUILD_STAMP: string = __PASS_BUILD__;

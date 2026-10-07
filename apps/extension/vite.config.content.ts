@@ -27,6 +27,11 @@ export default defineConfig(({ mode }) => ({
   // Pin production so `.env.production` supplies the live API/web URLs.
   mode: mode === "development" ? "development" : "production",
   envDir: ".",
+  // Build stamp, so the operator can tell WHICH build is running in the page
+  // console instead of guessing whether a reload took effect.
+  define: {
+    __PASS_BUILD__: JSON.stringify(new Date().toISOString()),
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

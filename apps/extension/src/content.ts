@@ -23,7 +23,7 @@
  *    (docs/DECISIONS.md D-009).
  */
 
-import { profileUrl } from "./config.js";
+import { BUILD_STAMP, profileUrl } from "./config.js";
 
 const CARD_ID = "pass-overlay-card";
 
@@ -343,6 +343,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   return false;
 });
+
+/**
+ * FIRST LINE OF THE SCRIPT, deliberately.
+ *
+ * Reloading an unpacked extension does NOT re-inject a content script into a
+ * tab that is already open: the tab keeps running the previous script with the
+ * previous stylesheet. That produced an operator report of "no changes on the
+ * extension even after refresh" which could not be diagnosed from the outside,
+ * because nothing in the page said which build was live.
+ *
+ * This line is the first thing that executes, before any watcher is registered
+ * and before any API call, so its presence proves the freshly-loaded build
+ * reached this page at all. If it is missing after a reload, the TAB needs
+ * reloading, not the extension.
+ */
+log(`css loaded at ${Date.now()} · build ${BUILD_STAMP} · url=${window.location.href}`);
 
 log(`content script loaded, url=${window.location.href}`);
 startWatchers();

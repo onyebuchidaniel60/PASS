@@ -20,6 +20,11 @@ export default defineConfig(({ mode }) => ({
   // `.env.production` for mode === "production", so pin the mode explicitly.
   mode: mode === "development" ? "development" : "production",
   envDir: ".",
+  // Same stamp as the content pass, so the popup and the page console report
+  // one build rather than two independently-timed ones.
+  define: {
+    __PASS_BUILD__: JSON.stringify(new Date().toISOString()),
+  },
   build: {
     outDir: "dist",
     // Do not wipe dist: the content-script pass already wrote content.js here.

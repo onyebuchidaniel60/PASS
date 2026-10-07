@@ -1,4 +1,4 @@
-import { PASS_API_URL, profileUrl } from "./config.js";
+import { BUILD_STAMP, PASS_API_URL, profileUrl } from "./config.js";
 
 /**
  * PASS extension service worker.
@@ -102,7 +102,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
 
     case "pass:config": {
-      sendResponse({ apiUrl: PASS_API_URL, webUrl: profileUrl("") });
+      // `build` makes a reload verifiable: the popup surfaces it, so the
+      // operator can see that the freshly-loaded extension is the one answering
+      // instead of assuming a reload took effect.
+      sendResponse({ apiUrl: PASS_API_URL, webUrl: profileUrl(""), build: BUILD_STAMP });
       return true;
     }
 
