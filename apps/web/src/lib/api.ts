@@ -5,8 +5,28 @@
  * no secret ever passes through here (docs/SECURITY_SPEC.md §16).
  */
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:4000";
+/**
+ * Resolves the API base URL.
+ *
+ * The local fallback is DEVELOPMENT ONLY. In production a missing
+ * NEXT_PUBLIC_API_URL throws instead of silently resolving to localhost: a
+ * silent fallback makes every server-side call — including `generateMetadata` —
+ * quietly fail and serve fallback content, which is a far harder failure to
+ * diagnose than a build error. This exact class of problem cost two sessions
+ * before it was caught.
+ */
+function resolveApiUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set. Refusing to fall back to localhost in production.",
+    );
+  }
+  return "http://127.0.0.1:4000";
+}
+
+export const API_URL = resolveApiUrl();
 
 export const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
