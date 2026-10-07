@@ -1,0 +1,195 @@
+"use client";
+
+/**
+ * §14.5 data cards — the pattern the operator named by name ("missed details
+ * and cards from the reference").
+ *
+ * The card is DARKER than the canvas around it. That inverts the usual
+ * raised-panel assumption, and it is the single change that most separates
+ * this from the Stage K `Panel`, which was `--color-surface` on `--color-canvas`
+ * and therefore read as a slightly lighter rectangle.
+ *
+ * Every measurement here is a token. A value written here would be a literal,
+ * and `scripts/check-design-tokens.mjs` fails the build on one.
+ */
+
+import type { ReactNode } from "react";
+
+import { StatusBadge, type StatusTone } from "./markers";
+
+export interface CardMetric {
+  label: string;
+  value: ReactNode;
+}
+
+export interface DataCardProps {
+  /** `BTC LONG`, `PASS 7721`. The one accent in the header. */
+  id: string;
+  /** One muted line under the identifier: asset, direction, subtitle. */
+  sub?: string;
+  /** The big figure. */
+  value: ReactNode;
+  /** Unit suffix. Set on the SAME baseline as the value, never its own line. */
+  unit?: string;
+  /** Right-hand header slot: a `LiveDot`, a state word, nothing. */
+  headerAside?: ReactNode;
+  metrics?: CardMetric[];
+  children?: ReactNode;
+  status?: { tone: StatusTone; label: string };
+  /** Full-width action. `href` renders a link, otherwise a button. */
+  action?: { label: string; href?: string; onClick?: () => void };
+  /** Wraps the whole card in a link. Makes the card a hit target. */
+  interactive?: boolean;
+  as?: "article" | "section" | "div";
+  className?: string;
+  labelledBy?: string;
+}
+
+export function DataCard({
+  id,
+  sub,
+  value,
+  unit,
+  headerAside,
+  metrics = [],
+  children,
+  status,
+  action,
+  interactive = false,
+  as: As = "article",
+  className,
+  labelledBy,
+}: DataCardProps) {
+  return (
+    <As
+      className={["pass-card", className].filter(Boolean).join(" ")}
+      data-interactive={interactive ? "true" : undefined}
+      aria-labelledby={labelledBy}
+    >
+      <div className="pass-card-header">
+        <span className="pass-card-id">{id}</span>
+        {headerAside ? <span>{headerAside}</span> : null}
+      </div>
+
+      {sub ? <p className="pass-card-sub">{sub}</p> : null}
+
+      <p className="pass-card-value">
+        <span>{value}</span>
+        {unit ? <span className="pass-card-value-unit">{unit}</span> : null}
+      </p>
+
+      {children}
+
+      {metrics.length > 0 ? (
+        <dl className="pass-card-metrics">
+          {metrics.map((m) => (
+            <div className="pass-card-metric" key={m.label}>
+              <dt>{m.label}</dt>
+              <dd>{m.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {status ? (
+        <div className="pass-badge-status-row">
+          <span className="pass-card-metric-label">Status</span>
+          <StatusBadge tone={status.tone} label={status.label} variant="bare" />
+        </div>
+      ) : null}
+
+      {action ? (
+        action.href ? (
+          <a className="pass-card-action" href={action.href}>
+            <span>{action.label}</span>
+            <span aria-hidden="true">{"\\u2197"}</span>
+          </a>
+        ) : (
+          <button type="button" className="pass-card-action" onClick={action.onClick}>
+            <span>{action.label}</span>
+            <span aria-hidden="true">{"\\u2197"}</span>
+          </button>
+        )
+      ) : null}
+    </As>
+  );
+}
+
+export interface MetricCardProps {
+  label: string;
+  value: ReactNode;
+  /** Optional second line, muted. §14.5 stat card. */
+  sub?: string;
+  className?: string;
+}
+
+/**
+ * One label, one value. The §14.5 metric card, and the only card type that
+ * carries a live figure on its own — which is why it is laid out to five across
+ * at 1440 by `auto-fit`, never by a hand-set column count.
+ */
+export function MetricCard({ label, value, sub, className }: MetricCardProps) {
+  return (
+    <div className={["pass-metric-card", className].filter(Boolean).join(" ")}>
+      <span className="pass-metric-card-label">{label}</span>
+      <span className="pass-metric-card-value">{value}</span>
+      {sub ? <span className="pass-card-sub">{sub}</span> : null}
+    </div>
+  );
+}
+
+export function MetricCardRow({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={["pass-metric-cards", className].filter(Boolean).join(" ")}>{children}</div>
+  );
+}
+
+export interface SparklineProps {
+  /** Normalised series, oldest first. Values are scaled by the component. */
+  points: number[];
+  /** Line and fill colour. §11.4 governs which tone a change may carry. */
+  tone?: "positive" | "negative" | "neutral";
+  /** Required: a chart with no accessible name is a chart nobody can read. */
+  label: string;
+}
+
+const VIEW_W = 100;
+const VIEW_H = 32;
+
+/**
+ * §14.5.7 and §11.2. The only chart PASS has; G-3 forbids axes, labels,
+ * gridlines, indicators or a terminal. No axes, no ticks, no tooltip.
+ */
+export function Sparkline({ points, tone = "neutral", label }: SparklineProps) {
+  const usable = points.filter((n) => Number.isFinite(n));
+  if (usable.length < 2) {
+    // A single point has no direction. Rendering an empty axis would imply a
+    // flat series that was never observed, so the slot collapses instead.
+    return null;
+  }
+
+  const min = Math.min(...usable);
+  const max = Math.max(...usable);
+  const span = max - min || 1;
+  const step = VIEW_W / (usable.length - 1);
+
+  const coords = usable.map(
+    (n, i) => `${(i * step).toFixed(2)},${(VIEW_H - ((n - min) / span) * VIEW_H).toFixed(2)}`,
+  );
+  const line = `M${coords.join(" L")}`;
+  const area = `${line} L${VIEW_W},${VIEW_H} L0,${VIEW_H} Z`;
+
+  return (
+    <svg
+      className="pass-sparkline"
+      data-tone={tone}
+      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <path d={area} fill="currentColor" opacity="0.24" stroke="none" />
+      <path d={line} />
+    </svg>
+  );
+}

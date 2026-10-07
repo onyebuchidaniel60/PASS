@@ -165,6 +165,9 @@
      gradient. 4% is the value; it is a token because "slightly more grain" is
      exactly the sort of tweak that must not be made by editing a literal. */
   --noise-opacity: 0.04;
+  /* The turbulence tile is 128x128 so its repeat period is not visible as a
+     grid across a wide hero. */
+  --noise-tile-size: 128px;
 
   /* §14.5 The card. A distinct surface from --color-surface: the reference's
      cards sit DARKER than the canvas around them, which is the opposite of the
@@ -191,6 +194,9 @@
 
   /* §14.11 Dense row height for any surface of figures. */
   --row-height-dense: 34px;
+  /* §14.8 Ticker bar height. Its own token because it is a shell dimension the
+     space reserved for it and the space it occupies must not drift apart. */
+  --layout-ticker: 28px;
 
   /* §14.4 The hero step. One clamp so the four breakpoints in §14.4 stay a
      table rather than four numbers in four stylesheets. */
@@ -386,6 +392,12 @@
   /* §5.3 Borders */
   --border-hairline: 1px solid var(--color-line-hairline);
   --border-strong: 1px solid var(--color-line-strong);
+  /* Border WIDTHS as lengths. The shorthands above cannot express a surface
+     whose border colour is a data attribute (`currentColor`) or whose width is
+     not 1px, and §14.5/§14.6/§14.11 all need exactly that. Declared so those
+     cases are a token rather than a literal. */
+  --border-width-hairline: 1px;
+  --border-width-selected: 2px;
   /* §5.3 Accent edge on a key panel: 1px solid var(--color-accent-edge) on the
      TOP edge only. */
   --border-accent-edge: 1px solid var(--color-accent-edge);
