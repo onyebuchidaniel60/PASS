@@ -194,3 +194,161 @@ describe("Extension handoff", () => {
     expect(screen.getByText("turnttfup99")).toBeInTheDocument();
   });
 });
+
+/**
+ * §14.4 assertions for the trader profile. Added 2026-10-07 on the rebuild.
+ *
+ * The 13 tests above were all green BEFORE the rebuild and would have stayed
+ * green after a purely cosmetic change. They pin the contracts D-007 and §10.4
+ * depend on; these pin the §14 reference language.
+ */
+describe("Trader profile reference language (14.4)", () => {
+  it("frames the credential header with corner brackets", async () => {
+    const { container } = await renderProfile();
+    await screen.findByRole("heading", { level: 1 });
+    // §14.2 rations brackets to four uses product-wide. Two went to Landing and
+    // one to /how-it-works, so exactly one is left and this is it.
+    expect(container.querySelectorAll(".pass-brackets")).toHaveLength(1);
+  });
+
+  it("uses the numbered eyebrow, not a lettered one", async () => {
+    const { container } = await renderProfile();
+    await screen.findByRole("heading", { level: 1 });
+    expect(container.querySelector(".pass-numbered-eyebrow-number")).toBeTruthy();
+  });
+
+  it("states the credential in the 14.4 form with one accent word", async () => {
+    const { container } = await renderProfile();
+    await screen.findByRole("heading", { level: 1 });
+    const line = container.querySelector(".pass-display-sub") as HTMLElement;
+    expect(line.textContent).toContain("@turnttfup99 is");
+    expect(line.textContent).toContain("verified on PASS");
+    // Exactly one accent word on the line: two would stop either one from
+    // pointing at anything.
+    expect(line.querySelectorAll(".pass-display-accent")).toHaveLength(1);
+    expect(line.querySelector(".pass-display-accent")?.textContent).toBe("verified");
+  });
+
+  it("keeps the display name the h1 and the handle off the h1", async () => {
+    await renderProfile();
+    const h1 = await screen.findByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("Demo Trader");
+    // A handle is an identifier, not a title.
+    expect(h1.textContent).not.toContain("@turnttfup99");
+  });
+
+  it("puts reputation BEFORE PASS performance, separated by the rule", async () => {
+    await renderProfile();
+    await screen.findByRole("region", { name: "Reputation" });
+    // §14.4: on a profile the reader is judging a PERSON, so who they are
+    // precedes what they published.
+    const dom = document.body.textContent ?? "";
+    expect(dom.indexOf("Reputation")).toBeLessThan(dom.indexOf("PASS Performance"));
+  });
+
+  it("frames each of the two blocks as a card, and never merges them", async () => {
+    const { container } = await renderProfile();
+    await screen.findByRole("region", { name: "Reputation" });
+    // Two separate frames. One frame holding both IS the merge, and it would
+    // still pass every assertion above.
+    expect(container.querySelectorAll(".pass-data-card")).toHaveLength(2);
+  });
+
+  it("states the Ethos score exactly once across the screen", async () => {
+    await renderProfile();
+    await waitFor(() => expect(screen.getByText("1,392")).toBeInTheDocument());
+    // §11.4: one figure, one place.
+    expect(screen.getAllByText("1,392").length).toBe(1);
+  });
+
+  it("says the un-reported metrics are omitted rather than estimating them", async () => {
+    await renderProfile();
+    await screen.findByRole("region", { name: "Reputation" });
+    // The API returns no win rate / average R / TP-hit rate for a trader. §10.2
+    // forbids inventing them, so the screen has to say so rather than leave a
+    // reader wondering whether PASS simply has a bad win rate.
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/not reported by the PASS API/i);
+    expect(text).toMatch(/omitted rather than estimated/i);
+  });
+
+it("renders the Active Passes list on the 14.8 grid, not as rows", async () => {
+    const { container } = await renderProfile([
+      {
+        publicId: "UvvuxpWPZ4",
+        asset: "BTC",
+        direction: "long",
+        status: "active",
+        entryPrice: "113400",
+        takeProfit: "116000",
+        stopLoss: "111900",
+      },
+    ]);
+    const link = await screen.findByRole("link", { name: /BTC/ });
+    expect(link).toHaveAttribute("href", "/p/UvvuxpWPZ4");
+    expect(container.querySelector(".pass-cards-grid")).toBeTruthy();
+  });
+
+  it("makes the whole card the link, with no nested anchor", async () => {
+    await renderProfile([
+      {
+        publicId: "UvvuxpWPZ4",
+        asset: "BTC",
+        direction: "long",
+        status: "active",
+      },
+    ]);
+    await screen.findByRole("link", { name: /BTC/ });
+    // An <a> inside an <a> is invalid HTML and breaks hydration, so the card
+    // must not also pass DataCard an `action`.
+    const nested = Array.from(
+      document.querySelectorAll(".pass-card-link a"),
+    ).filter((a) => a.closest(".pass-card-link") !== a);
+    expect(nested).toHaveLength(0);
+  });
+
+  it("keeps the trailing affordance muted, not accent", async () => {
+    await renderProfile([
+      {
+        publicId: "UvvuxpWPZ4",
+        asset: "BTC",
+        direction: "long",
+        status: "active",
+      },
+    ]);
+    await screen.findByRole("link", { name: /BTC/ });
+    // §2.5: the accent is spent once. An accented "View Pass" per card would
+    // spend it once per card and stop it pointing at anything.
+    expect(document.querySelector(".pass-row-arrow")?.className).not.toMatch(
+      /accent/,
+    );
+  });
+
+  it("keeps the route slug as a plain datum, not a performance figure", async () => {
+    await renderProfile();
+    await screen.findByRole("heading", { level: 1 });
+    // D-019.3: the extension emits /u/{slug}, so the slug must be present and
+    // legible, but it is a URL convention and must not be dressed as a stat.
+    expect(screen.getByText("Profile slug")).toBeInTheDocument();
+  });
+
+  it("shows an unavailable Ethos state instead of removing the block", async () => {
+    mockGet.mockImplementation((url?: unknown) =>
+      Promise.resolve(
+        typeof url === "string" && url.includes("/passes")
+          ? { passes: [] }
+          : { ...PROFILE, reputation: null },
+      ),
+    );
+    await act(async () => {
+      render(<TraderProfileClient slug="turnttfup99" />);
+    });
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/Ethos unavailable/i);
+    // The distinction that matters: an unresolved external profile must not read
+    // as "this trader has no reputation".
+    expect(status.textContent).toMatch(/does not mean the trader lacks a reputation/i);
+    // And the block is still there, with the rule still in place.
+    expect(screen.getByRole("separator")).toBeInTheDocument();
+  });
+});

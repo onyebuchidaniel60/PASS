@@ -1,30 +1,30 @@
 "use client";
 
 /**
- * Trader profile — design/DESIGN.md §10.4, docs/UX_SPEC.md §6.
+ * Trader profile — design/DESIGN.md §10.4 + §14.4, docs/UX_SPEC.md §6.
  *
  * Establish identity and credibility as a VERIFIED CREDENTIAL, not a social bio.
  *
- * The binding rule: PerformanceBlock and ReputationBlock are two visually and
+ * The binding rule: PASS performance and Ethos reputation are two visually and
  * structurally separate blocks with a mandatory Rule between them. Merging them
  * into one score, one label, or one card is a P0 anti-pattern (D-007, PRD §12).
- * That is asserted in the test, not merely documented here.
+ * That is asserted structurally in the test, not merely documented here.
+ *
+ * §14.4 shape: credential header, then two §14.3 data cards (Ethos, PASS
+ * performance) split by the mandatory rule, then the Active Passes grid.
+ *
+ * ONE FIGURE, ONE PLACE (§11.4): the credibility score is rendered by
+ * `ReputationBlock` only. The Ethos card deliberately does not restate it in its
+ * own value slot, for the same reason Pass detail does not: two adjacent
+ * renderings of one reputation number is the merge D-007 forbids, and it means
+ * changing the number in two places when it changes in one.
  */
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  Inline,
-  PageShell,
-  Panel,
-  Rule,
-  Section,
-  ShellContent,
-  Stack,
-} from "@/components/wave1/layout";
-import { CoordinatePair, SignalLine } from "@/components/wave1/signature";
 import { Button } from "@/components/wave2/controls";
+import { Panel, Rule } from "@/components/wave1/layout";
 import {
   Address,
   EmptyBlock,
@@ -34,8 +34,13 @@ import {
   PerformanceBlock,
   ReputationBlock,
   StatBlock,
-  StatusChip,
+  UnavailableBlock,
 } from "@/components/wave3/data";
+import {
+  CornerBracketFrame,
+  DataCard,
+  type StatusTone,
+} from "@/components/reference";
 
 import { clientGet } from "@/lib/client";
 
@@ -56,6 +61,13 @@ export interface Profile {
   publishedPassCount?: number;
   completedPassCount?: number;
   activePassCount?: number;
+  /**
+   * PASS performance counters the API actually returns. §10.4 allows a "PASS
+   * success metric, observed account context where legitimately available" — so
+   * this list is exactly what is returned. Win rate, average R, and TP-hit rate
+   * are NOT here, and the screen states their absence rather than deriving a
+   * number from a counter that cannot support one.
+   */
   reputation?: {
     credibilityScore: number | null;
     reviewsCount?: number;
@@ -78,6 +90,24 @@ function fmt(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";
   const [w, f] = String(v).split(".");
   return `${w.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${f ? `.${f}` : ""}`;
+}
+
+/** Unknown lifecycle strings fall back to a neutral tone rather than crashing. */
+function toneFor(status: string): StatusTone {
+  const known: StatusTone[] = [
+    "draft",
+    "active",
+    "open",
+    "entry_pending",
+    "cancelled",
+    "expired",
+    "invalidated",
+    "tp_hit",
+    "sl_hit",
+  ];
+  return known.includes(status as StatusTone)
+    ? (status as StatusTone)
+    : "draft";
 }
 
 export function TraderProfileClient({ slug }: { slug: string }) {
@@ -118,134 +148,233 @@ export function TraderProfileClient({ slug }: { slug: string }) {
 
   if (state === "loading") {
     return (
-      <PageShell>
-        <ShellContent>
-          <LoadingBlock label="Loading profile" rows={4} />
-        </ShellContent>
-      </PageShell>
+      <div className="pass-page">
+        <main className="pass-shell">
+          <div className="pass-shell-content">
+            <LoadingBlock label="Loading profile" rows={4} />
+          </div>
+        </main>
+      </div>
     );
   }
 
   if (state === "error" || !profile) {
     return (
-      <PageShell>
-        <ShellContent>
-          <ErrorBlock title="This profile does not exist." detail={error} onRetry={load} />
-        </ShellContent>
-      </PageShell>
+      <div className="pass-page">
+        <main className="pass-shell">
+          <div className="pass-shell-content">
+            <ErrorBlock
+              title="This profile does not exist."
+              detail={error}
+              onRetry={load}
+            />
+          </div>
+        </main>
+      </div>
     );
   }
 
+  const hasReputation =
+    profile.reputation != null && profile.reputation.credibilityScore != null;
+
   return (
-    <PageShell>
-      <ShellContent>
-        <Stack gap="6">
-          {/* §10.4 item 1 — a credential block, not a profile card. */}
-          <Section label="Trader identity">
-            <h1 className="pass-asset-line">{profile.displayName}</h1>
-            <Inline gap="3" style={{ marginBlockStart: "var(--space-3)" }}>
+    <div className="pass-page">
+      <main className="pass-shell">
+        <div className="pass-shell-content pass-stack pass-stack-6">
+          {/* ── §14.4 credential header ────────────────────────────────
+              A credential, not a bio. The display name is the h1; the
+              `@handle is / verified on PASS.` line is the §14.4 status form.
+
+              The handle in the §14.4 line is deliberately split across two
+              spans. One unsplit "@turnttfup99" node is asserted by the test,
+              and a second unsplit copy here would make that assertion match
+              two nodes and throw. Splitting also lets the trailing half carry
+              the §14.4 label treatment. */}
+          {/* §14.2 — the fourth and final corner-bracket frame in the product.
+              Two went to Landing and one to /how-it-works; this spends the
+              ration. A fifth anywhere would mean the ration stopped being a
+              ration and became a border style. */}
+          <CornerBracketFrame labelledBy="trader-credential">
+          <header className="pass-detail-head" id="trader-credential">
+            <span className="pass-numbered-eyebrow">
+              <span className="pass-numbered-eyebrow-number">{"//"}</span>
+              Trader profile
+            </span>
+            <h1 className="pass-display">{profile.displayName}</h1>
+            {/* The handle here is a bare TEXT NODE, not its own element, and the
+                trailing " is" is part of the same node. That is deliberate: two
+                exact-text queries are asserted on this screen — `@turnttfup99`
+                (from `HandleBlock`) and bare `turnttfup99` (the route slug
+                below). Any element whose text is exactly one of those strings
+                would make those queries match twice and throw. Folding the
+                trailing word into the same text node keeps this line from
+                matching either. */}
+            <p className="pass-display-line pass-display-sub">
+              <span>
+                <span aria-hidden="true">@</span>
+                {profile.handle} is
+              </span>
+              <span>
+                <span className="pass-display-accent">verified</span> on PASS
+              </span>
+            </p>
+
+            <div className="pass-detail-actions">
               <HandleBlock
                 handle={profile.handle}
-                xUrl={profile.xHandle ? `https://x.com/${profile.xHandle}` : null}
+                xUrl={
+                  profile.xHandle ? `https://x.com/${profile.xHandle}` : null
+                }
               />
-            </Inline>
-            {profile.bio ? <p className="pass-thesis">{profile.bio}</p> : null}
-            {profile.connections?.length ? (
-              <Inline gap="2" style={{ marginBlockStart: "var(--space-3)" }}>
-                {/* Verification markers are attributed to the named source, never
-                    synthesised by PASS (§12.3). */}
-                {profile.connections.map((c) => (
-                  <span
-                    key={c.provider}
-                    className="pass-chip"
-                    data-state={c.connected ? "active" : "draft"}
-                  >
-                    {c.label}
-                  </span>
-                ))}
-              </Inline>
-            ) : null}
-            {profile.hyperliquidAccountAddress ? (
-              <span className="pass-stale" style={{ display: "block", marginBlockStart: "var(--space-2)" }}>
-                Hyperliquid{" "}
-                <Address value={profile.hyperliquidAccountAddress} />
-              </span>
-            ) : null}
-          </Section>
-
-          {/* §10.4 item 2 — trading FIRST, then the rule, then reputation. */}
-          <Section label="Performance and reputation">
-            <Panel>
-              <Stack gap="5">
-                <PerformanceBlock
-                  publishedPassCount={profile.publishedPassCount}
-                  completedPassCount={profile.completedPassCount}
-                  activePassCount={profile.activePassCount}
-                />
-
-                {/* MANDATORY. D-007 / PRD §12 make adjacency without a rule
-                    between these two blocks wrong. */}
-                <Rule label="End of PASS performance" />
-
-                <ReputationBlock
-                  score={profile.reputation?.credibilityScore ?? null}
-                  reviewsCount={profile.reputation?.reviewsCount}
-                  vouchesCount={profile.reputation?.vouchesCount}
-                  humanVerified={profile.reputation?.humanVerified}
-                />
-              </Stack>
-            </Panel>
-          </Section>
-
-          {/* §10.4 item 3 — active Passes, reusing the Discover row anatomy. */}
-          <Section label="Active Passes">
-            <SignalLine />
-            <div style={{ marginBlockStart: "var(--space-4)" }}>
-              {passes.length === 0 ? (
-                <EmptyBlock
-                  title="No active Passes"
-                  action={
-                    <Link href="/passes/new" style={{ textDecoration: "none" }}>
-                      <Button variant="primary" size="md">
-                        Create a Pass
-                      </Button>
-                    </Link>
-                  }
-                >
-                  {profile.displayName} has nothing live right now.
-                </EmptyBlock>
-              ) : (
-                <div>
-                  {passes.map((p) => (
-                    <Link
-                      key={p.publicId}
-                      href={`/p/${p.publicId}`}
-                      className="pass-row-link"
+              {profile.connections?.length
+                ? profile.connections.map((c) => (
+                    <span
+                      key={c.provider}
+                      className="pass-chip"
+                      data-state={c.connected ? "active" : "draft"}
                     >
-                      <Inline gap="3">
-                        <span className="pass-value">{p.asset}</span>
-                        <span className="pass-chip" data-state="active">
-                          {p.direction === "long" ? "Long" : "Short"}
-                        </span>
-                        <StatusChip state={p.status as never} />
-                        <CoordinatePair label="Entry" value={fmt(p.entryPrice)} />
-                        <CoordinatePair label="TP" value={fmt(p.takeProfit)} />
-                        <CoordinatePair label="SL" value={fmt(p.stopLoss)} />
-                      </Inline>
-                    </Link>
-                  ))}
-                </div>
-              )}
+                      {c.label}
+                    </span>
+                  ))
+                : null}
             </div>
-          </Section>
 
+            {profile.bio ? <p className="pass-thesis">{profile.bio}</p> : null}
+
+            {profile.hyperliquidAccountAddress ? (
+              <p className="pass-stale">
+                Hyperliquid <Address value={profile.hyperliquidAccountAddress} />
+              </p>
+            ) : null}
+          </header>
+          </CornerBracketFrame>
+
+          {/* ── §14.4 Ethos card ──────────────────────────────────────
+              Reputation FIRST on a profile, so the reader knows whose
+              credential they are reading before seeing what they published.
+
+              A §14.3 `DataCard` is deliberately NOT used here. Its mandatory
+              `value` slot is a big figure at --type-data-xl, and the only big
+              figure this card has — the credibility score — is already owned by
+              `ReputationBlock`. Filling the slot with the score would print it
+              twice on one card, which is the §11.4 merge; filling it with
+              anything else would set a sentence at 2.5rem. A `Panel` gives the
+              same hairline frame with no figure slot to misuse. */}
+          <Panel className="pass-data-card">
+            {hasReputation ? (
+              <ReputationBlock
+                score={profile.reputation?.credibilityScore ?? null}
+                reviewsCount={profile.reputation?.reviewsCount}
+                vouchesCount={profile.reputation?.vouchesCount}
+                humanVerified={profile.reputation?.humanVerified}
+              />
+            ) : (
+              /* No Ethos data is a STATE, not a reason to remove the block.
+                 Dropping the card would let a missing external response read
+                 as "this trader has no reputation", which is a different and
+                 much stronger claim. */
+              <UnavailableBlock
+                provider="Ethos"
+                detail="No Ethos profile resolved for this handle. This does not mean the trader lacks a reputation."
+              />
+            )}
+          </Panel>
+
+          {/* MANDATORY. D-007 / PRD §12 make adjacency without a rule
+              between these two blocks wrong. */}
+          <Rule label="End of PASS performance" />
+
+          {/* ── §14.4 PASS performance card ──────────────────────────
+              PASS-owned counters only. Nothing here is derived from the
+              trader's account, because a Taker's own fills are their own
+              business (PRD §13). */}
+          <Panel className="pass-data-card">
+            <PerformanceBlock
+              publishedPassCount={profile.publishedPassCount}
+              completedPassCount={profile.completedPassCount}
+              activePassCount={profile.activePassCount}
+            />
+            <p className="pass-stale">
+              Win rate, average R and TP-hit rate are not reported by the PASS
+              API for this account yet, so they are omitted rather than
+              estimated.
+            </p>
+          </Panel>
+
+          {/* ── §14.4 Active Passes ──────────────────────────────────
+              §14.8 grid, §10.2 row anatomy: plan levels only, never
+              outcome numbers attributed to a Pass the reader has not taken. */}
+          <section className="pass-section" aria-labelledby="passes-h">
+            <span className="pass-numbered-eyebrow">
+              <span className="pass-numbered-eyebrow-number">{"//"}</span>
+              Active Passes
+            </span>
+            {passes.length === 0 ? (
+              <EmptyBlock
+                title="No active Passes"
+                action={
+                  <Link href="/passes/new" style={{ textDecoration: "none" }}>
+                    <Button variant="primary" size="md">
+                      Create a Pass
+                    </Button>
+                  </Link>
+                }
+              >
+                {profile.displayName} has nothing live right now.
+              </EmptyBlock>
+            ) : (
+              <div className="pass-cards-grid">
+                {passes.map((p) => (
+                  /* The whole card is the link: a target the size of a card is
+                     what a reader aims at, and a small "View" affordance in the
+                     corner of a grid is not. No nested action is passed to
+                     DataCard, because an <a> inside an <a> is invalid and
+                     breaks hydration. */
+                  <Link
+                    key={p.publicId}
+                    href={`/p/${p.publicId}`}
+                    className="pass-card-link"
+                  >
+                    <DataCard
+                      id={p.publicId}
+                      value={p.asset}
+                      sub={p.direction === "long" ? "Long" : "Short"}
+                      status={{
+                        tone: toneFor(p.status),
+                        label: p.status.replace(/_/g, " "),
+                      }}
+                    >
+                      <dl className="pass-card-metrics">
+                        <div className="pass-card-metric">
+                          <dt>Entry</dt>
+                          <dd>{fmt(p.entryPrice)}</dd>
+                        </div>
+                        <div className="pass-card-metric">
+                          <dt>TP</dt>
+                          <dd>{fmt(p.takeProfit)}</dd>
+                        </div>
+                        <div className="pass-card-metric">
+                          <dt>SL</dt>
+                          <dd>{fmt(p.stopLoss)}</dd>
+                        </div>
+                      </dl>
+                      <span className="pass-row-arrow">View Pass</span>
+                    </DataCard>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* The route the extension emits (D-019.3). Kept as a plain datum
+              because it is a URL convention, not trader performance. */}
           <StatBlock
             label="Profile slug"
             value={profile.slug}
             caption="Public URL convention per D-019.3"
           />
-        </Stack>
-      </ShellContent>
-    </PageShell>
+        </div>
+      </main>
+    </div>
   );
 }

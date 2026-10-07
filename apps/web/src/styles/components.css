@@ -1,26 +1,26 @@
-/* PASS Wave 1 components — signature devices and framing.
+﻿/* PASS Wave 1 components â€” signature devices and framing.
  *
- * design/DESIGN.md §9.1 and §9.2; wave 1 of
- * design/FRONTEND_IMPLEMENTATION_PLAN.md §3.
+ * design/DESIGN.md Â§9.1 and Â§9.2; wave 1 of
+ * design/FRONTEND_IMPLEMENTATION_PLAN.md Â§3.
  *
  * Tokens only. No raw value appears in this file, which
  * scripts/check-design-tokens.mjs enforces.
  *
  * Elevation is expressed ONLY as a lighter surface plus a hairline border
- * (§5.4). There is no shadow on any non-overlay surface in this file, and
- * --shadow-overlay is deliberately absent — it is permitted only on the overlay
+ * (Â§5.4). There is no shadow on any non-overlay surface in this file, and
+ * --shadow-overlay is deliberately absent â€” it is permitted only on the overlay
  * tier built in Wave 5.
  *
  * Nothing animates behind reading content. The SignalLine reveals once and is
- * then still (§6.4, gap G-13); there is no shimmer, no drifting gradient, and no
+ * then still (Â§6.4, gap G-13); there is no shimmer, no drifting gradient, and no
  * looping scanline anywhere.
  */
 
 /* -------------------------------------------------------------------------
- * §9.1 Layout and framing
+ * Â§9.1 Layout and framing
  * ---------------------------------------------------------------------- */
 
-/* §4 Vertical rhythm: inside a panel, blocks are separated by --space-5. */
+/* Â§4 Vertical rhythm: inside a panel, blocks are separated by --space-5. */
 .pass-stack {
   display: flex;
   flex-direction: column;
@@ -34,7 +34,7 @@
   min-width: 0;
 }
 
-/* §4 Sections are separated by --space-8 on mobile and --space-9 on desktop. */
+/* Â§4 Sections are separated by --space-8 on mobile and --space-9 on desktop. */
 .pass-section {
   margin-block: var(--rhythm-section);
 }
@@ -45,17 +45,17 @@
   }
 }
 
-/* §2.2 Surfaces step by lightness, never by shadow. */
+/* Â§2.2 Surfaces step by lightness, never by shadow. */
 .pass-panel {
   background-color: var(--color-surface);
   border: var(--border-hairline);
-  /* §5.1 The system is nearly square; panels take no radius. */
+  /* Â§5.1 The system is nearly square; panels take no radius. */
   border-radius: var(--radius-none);
   padding: var(--rhythm-panel);
   min-width: 0;
 }
 
-/* §5.2 The signature frame: chamfered, not rounded. The chamfer replaces the
+/* Â§5.2 The signature frame: chamfered, not rounded. The chamfer replaces the
    radius. Framing only, so it is never combined with a drop shadow. */
 .pass-chamfer-panel {
   position: relative;
@@ -74,19 +74,19 @@
   );
 }
 
-/* §5.3 Accent edge on a key panel: top edge only, never a full accent border. */
+/* Â§5.3 Accent edge on a key panel: top edge only, never a full accent border. */
 .pass-chamfer-panel[data-accent-edge="true"] {
   border-top: var(--border-accent-edge);
 }
 
-/* §5.3 Default border. */
+/* Â§5.3 Default border. */
 .pass-rule {
   border: 0;
   border-top: var(--border-hairline);
   margin: 0;
 }
 
-/* §8.2 Background column rules are structural and may sit behind a hero only.
+/* Â§8.2 Background column rules are structural and may sit behind a hero only.
    Never behind body content, never as a decorative overlay on top of text. */
 .pass-grid-field {
   display: grid;
@@ -103,7 +103,7 @@
   border-right: var(--border-grid);
 }
 
-/* §8.4 Every scrolling region is a flex child with min-height 0 and
+/* Â§8.4 Every scrolling region is a flex child with min-height 0 and
    min-width 0, so a wide child cannot force the page to overflow. */
 .pass-page-shell {
   display: flex;
@@ -114,7 +114,7 @@
   color: var(--color-text-primary);
 }
 
-/* §12.5 A dark surface that does not extend to the viewport edge is a P0
+/* Â§12.5 A dark surface that does not extend to the viewport edge is a P0
    visual defect at every breakpoint. */
 .pass-page-shell > main {
   flex: 1 1 auto;
@@ -123,14 +123,14 @@
   background-color: var(--color-canvas);
 }
 
-/* §8.4 Content carries bottom padding equal to the bottom nav's exported
+/* Â§8.4 Content carries bottom padding equal to the bottom nav's exported
    height plus --space-6, so the last element is never occluded. The reserved
    clearance is measured in the gallery, not assumed. */
 .pass-page-shell[data-bottom-nav="true"] > main {
   padding-bottom: calc(var(--layout-bottomnav) + var(--space-6));
 }
 
-/* §8.3 Content is capped at 1280px and the grid is centred above that. */
+/* Â§8.3 Content is capped at 1280px and the grid is centred above that. */
 .pass-shell-content {
   width: 100%;
   max-width: var(--layout-content-max);
@@ -152,11 +152,11 @@
 }
 
 /* -------------------------------------------------------------------------
- * §9.2 Signature devices
+ * Â§9.2 Signature devices
  * ---------------------------------------------------------------------- */
 
-/* §3.4 Eyebrows are uppercase, monospace, and framed by ember delimiters.
-   The delimiters are the only place the accent touches a heading (§2.5). */
+/* Â§3.4 Eyebrows are uppercase, monospace, and framed by ember delimiters.
+   The delimiters are the only place the accent touches a heading (Â§2.5). */
 .pass-eyebrow {
   display: flex;
   align-items: baseline;
@@ -180,7 +180,7 @@
   color: var(--color-accent-text);
 }
 
-/* §3.4 The section number sits at the opposite edge of the same row. */
+/* Â§3.4 The section number sits at the opposite edge of the same row. */
 .pass-section-number {
   margin-inline-start: auto;
   font-family: var(--type-eyebrow-font);
@@ -192,7 +192,7 @@
   font-variant-numeric: var(--numeric-tabular);
 }
 
-/* §9.2 A horizontal ember rule with an optional reticle node. Structural,
+/* Â§9.2 A horizontal ember rule with an optional reticle node. Structural,
    once per major region. The reveal runs once and never loops. */
 .pass-signal-line {
   position: relative;
@@ -209,9 +209,9 @@
   margin: 0;
 }
 
-/* DESIGN.md §6.4: horizontal scale 0 -> 1 from the left, ONCE, at
+/* DESIGN.md Â§6.4: horizontal scale 0 -> 1 from the left, ONCE, at
    --duration-deliberate. Under reduced motion the token resolves to 0ms and the
-   line renders in its final state with no sweep (§6.6). */
+   line renders in its final state with no sweep (Â§6.6). */
 .pass-signal-line[data-reveal="true"] > hr {
   transform-origin: left center;
   animation: pass-signal-reveal var(--duration-deliberate) var(--ease-standard)
@@ -234,7 +234,7 @@
   }
 }
 
-/* §7.1 Icons inherit currentColor and the size token of their context. Icon
+/* Â§7.1 Icons inherit currentColor and the size token of their context. Icon
    colour is never hard-coded. */
 .pass-reticle {
   color: var(--color-accent);
@@ -242,12 +242,12 @@
   display: inline-flex;
 }
 
-/* §9.2 A labelled mono pair, e.g. ENTRY / 113,400.00. The precision motif. */
+/* Â§9.2 A labelled mono pair, e.g. ENTRY / 113,400.00. The precision motif. */
 .pass-coordinate-pair {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  /* §8.5 Long values shrink and truncate with an explicit line limit; a fixed
+  /* Â§8.5 Long values shrink and truncate with an explicit line limit; a fixed
      width is a layout bug waiting for a longer value. */
   min-width: 0;
 }
@@ -264,7 +264,7 @@
 .pass-coordinate-pair-value {
   font-family: var(--font-data);
   font-variant-numeric: var(--numeric-tabular);
-  /* §11.1 Data is never set in a body face. */
+  /* Â§11.1 Data is never set in a body face. */
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -284,7 +284,7 @@
   letter-spacing: var(--type-data-l-track);
 }
 
-/* §11.3 The three price levels are visually equal in weight and are NOT
+/* Â§11.3 The three price levels are visually equal in weight and are NOT
    colour-coded good/bad. A reached level is shown by the status chip. */
 .pass-coordinate-grid {
   display: grid;
@@ -294,7 +294,7 @@
 }
 
 /* -------------------------------------------------------------------------
- * �9.3 Actions and �9.4 Form controls � Wave 2
+ * ï¿½9.3 Actions and ï¿½9.4 Form controls ï¿½ Wave 2
  *
  * Press feedback is defined ONCE here and inherited by every variant
  * (DESIGN.md 6.5). Measured minimum target is --size-target-min (44px) for any
@@ -624,12 +624,12 @@
 }
 
 /* -------------------------------------------------------------------------
- * �10.1 Landing
+ * ï¿½10.1 Landing
  *
- * Full-bleed canvas. GridField behind the HERO ONLY (�8.2) � never behind body
+ * Full-bleed canvas. GridField behind the HERO ONLY (ï¿½8.2) ï¿½ never behind body
  * content and never as a decorative overlay on top of text.
  *
- * �3.4 display type is tight-tracked and set flush left; the hero is the one
+ * ï¿½3.4 display type is tight-tracked and set flush left; the hero is the one
  * place centring is permitted, and it is not centred here.
  * ---------------------------------------------------------------------- */
 
@@ -664,7 +664,7 @@
   letter-spacing: var(--type-display-xl-track);
   font-weight: 600;
   color: var(--color-text-primary);
-  /* �3.4 capped at 18ch so the hero never runs to three lines on desktop. */
+  /* ï¿½3.4 capped at 18ch so the hero never runs to three lines on desktop. */
   max-width: var(--measure-display);
   margin-block-end: var(--space-5);
   text-align: start;
@@ -688,7 +688,7 @@
   margin-block-start: var(--space-7);
 }
 
-/* �8.2 the grid is 12 columns; the loop is a statement strip, not a card grid. */
+/* ï¿½8.2 the grid is 12 columns; the loop is a statement strip, not a card grid. */
 .pass-loop-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
@@ -705,7 +705,7 @@
   line-height: var(--type-body-l-line);
   letter-spacing: var(--type-body-l-track);
   color: var(--color-text-secondary);
-  /* �3.4 body measure capped at 68ch. */
+  /* ï¿½3.4 body measure capped at 68ch. */
   max-width: var(--measure-body);
   margin-block-start: var(--space-7);
 }
@@ -716,7 +716,7 @@
   }
 }
 
-/* Reduced motion: �6.6 the signal line renders final-state with no sweep, and
+/* Reduced motion: ï¿½6.6 the signal line renders final-state with no sweep, and
    nothing moves. The token override handles the duration; this removes the
    transform entirely so no residue of the sweep remains. */
 @media (prefers-reduced-motion: reduce) {
@@ -727,9 +727,9 @@
 }
 
 /* -------------------------------------------------------------------------
- * �8.4 Public shell: sticky top bar, 64px, hairline bottom border.
+ * ï¿½8.4 Public shell: sticky top bar, 64px, hairline bottom border.
  * The bar exports its own height as a token so the space reserved for it and
- * the space it occupies cannot drift apart (skill �9 rule 10).
+ * the space it occupies cannot drift apart (skill ï¿½9 rule 10).
  * ---------------------------------------------------------------------- */
 
 .pass-topbar {
@@ -741,10 +741,10 @@
   border-block-end: var(--border-hairline);
 }
 
-/* §8.4 The topbar inner layout and both of its padding media queries live in
-   the three-region block further down this file. They were duplicated here —
+/* Â§8.4 The topbar inner layout and both of its padding media queries live in
+   the three-region block further down this file. They were duplicated here â€”
    a flex rule whose display, width and gap were all superseded by the grid rule
-   that follows it — and a duplicated declaration is a second mechanism for one
+   that follows it â€” and a duplicated declaration is a second mechanism for one
    job, which is how the original drift happened. Removed, not overridden. */
 
 .pass-wordmark {
@@ -759,7 +759,7 @@
   align-items: center;
 }
 
-/* �7.3 No custom logo mark exists until gap G-2 closes, so the wordmark is set
+/* ï¿½7.3 No custom logo mark exists until gap G-2 closes, so the wordmark is set
    as type only. No favicon or mark was improvised. */
 
 .pass-nav {
@@ -799,7 +799,7 @@
 }
 
 /* -------------------------------------------------------------------------
- * �11.7 StatusChip. Uppercase, monospace, always text.
+ * ï¿½11.7 StatusChip. Uppercase, monospace, always text.
  *
  * Colour is a SECONDARY cue only. No chip uses a filled accent background: the
  * accent is rationed (2.5) and the chip is text-first by design, because UX_SPEC
@@ -849,7 +849,7 @@
   border-color: var(--color-line-strong);
 }
 
-/* �11.1 every numeric value and status chip is IBM Plex Mono with tabular
+/* ï¿½11.1 every numeric value and status chip is IBM Plex Mono with tabular
    figures, so a chip in a table column does not reflow its neighbours. */
 .pass-value {
   font-family: var(--font-data);
@@ -872,7 +872,7 @@
   color: var(--color-accent-text);
 }
 
-/* �10.4 Performance and Reputation must never share a treatment. They are
+/* ï¿½10.4 Performance and Reputation must never share a treatment. They are
    separated by a Rule at the screen level; these give them distinct internal
    headings so neither can be mistaken for the other. */
 .pass-block-heading {
@@ -908,7 +908,7 @@
   color: var(--color-text-primary);
 }
 
-/* �11.4 PnL sign glyph is mandatory; colour never load-bearing alone. */
+/* ï¿½11.4 PnL sign glyph is mandatory; colour never load-bearing alone. */
 .pass-pnl[data-tone="positive"] { color: var(--color-data-positive); }
 .pass-pnl[data-tone="negative"] { color: var(--color-data-negative); }
 .pass-pnl[data-tone="neutral"]  { color: var(--color-data-neutral); }
@@ -941,14 +941,14 @@
 }
 
 /* -------------------------------------------------------------------------
- * �5.4 Overlay tier. The ONLY tier permitted a shadow, and --shadow-overlay
- * appears nowhere else in the codebase (plan �3 Wave 5 gate).
+ * ï¿½5.4 Overlay tier. The ONLY tier permitted a shadow, and --shadow-overlay
+ * appears nowhere else in the codebase (plan ï¿½3 Wave 5 gate).
  * ---------------------------------------------------------------------- */
 
 .pass-scrim {
   position: fixed;
   inset: 0;
-  /* �5.4 backdrop */
+  /* ï¿½5.4 backdrop */
   background-color: var(--color-scrim);
   display: flex;
   align-items: center;
@@ -966,7 +966,7 @@
   border: var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-6);
-  /* �5.4 the single permitted shadow */
+  /* ï¿½5.4 the single permitted shadow */
   box-shadow: var(--shadow-overlay);
 }
 
@@ -993,8 +993,8 @@
   gap: var(--space-3);
 }
 
-/* �9.5 DataTable: header in --type-label, tabular figures, hairline rules.
-   �5.3 row striping is prohibited. */
+/* ï¿½9.5 DataTable: header in --type-label, tabular figures, hairline rules.
+   ï¿½5.3 row striping is prohibited. */
 .pass-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1020,7 +1020,7 @@
   font-weight: 500;
 }
 
-/* �10.3 The Pass object line. BTC LONG is the largest element on the page. */
+/* ï¿½10.3 The Pass object line. BTC LONG is the largest element on the page. */
 .pass-asset-line {
   font-family: var(--type-display-l-font);
   font-size: var(--type-display-l-size);
@@ -1054,10 +1054,10 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Inventory tables (�10.8 My Passes, �10.9 Executions).
+ * Inventory tables (ï¿½10.8 My Passes, ï¿½10.9 Executions).
  *
  * No horizontal scroller, deliberately. A sideways-scrolling table hides its
- * last column, and on this product the last column is expiry and realized PnL �
+ * last column, and on this product the last column is expiry and realized PnL ï¿½
  * the numbers a Taker checks before committing. Below 720px the table becomes a
  * stacked definition list so every column stays reachable.
  *
@@ -1157,19 +1157,19 @@
 }
 
 /* Draft and cancelled rows: the row recedes, the text never does.
- * Dimming text opacity would fail the contrast budget (�9), and a row you are
+ * Dimming text opacity would fail the contrast budget (ï¿½9), and a row you are
  * cancelling still has to be readable in order to be cancelled. */
 tr[data-ghost="true"] td,
 li[data-ghost="true"] {
   background-color: var(--color-surface-sunken);
 }
 
-/* Inventory cells (DESIGN.md �10.8, �10.9, �11).
+/* Inventory cells (DESIGN.md ï¿½10.8, ï¿½10.9, ï¿½11).
  *
  * Figures never wrap mid-number: a price broken across two lines reads as two
  * numbers, which is a different and wrong number.
  *
- * `data-tone` only ever REINFORCES meaning the text already carries (�9.4:
+ * `data-tone` only ever REINFORCES meaning the text already carries (ï¿½9.4:
  * colour is secondary). Strip colour entirely and every value here still reads
  * correctly, because PnlCell puts the sign in the text and StateChip puts the
  * state in a label. */
@@ -1210,9 +1210,9 @@ li[data-ghost="true"] {
   white-space: nowrap;
 }
 
-/* Running note text (§3.3 --type-body-s, secondary meta). Used where a control
+/* Running note text (Â§3.3 --type-body-s, secondary meta). Used where a control
  * reports state in prose rather than as data: a signature result, a share
- * result, a connection instruction. Never a caption — that is --type-data-xs
+ * result, a connection instruction. Never a caption â€” that is --type-data-xs
  * and lives on .pass-stale. */
 .pass-note {
   font-family: var(--type-body-s-font);
@@ -1227,7 +1227,7 @@ li[data-ghost="true"] {
   color: var(--color-text-tertiary);
 }
 
-/* Avatar (§10.10.1). The box is square and the glyph is half of it, so an
+/* Avatar (Â§10.10.1). The box is square and the glyph is half of it, so an
  * absent image reads as an absence rather than as a broken picture. */
 .pass-avatar {
   display: inline-flex;
@@ -1316,9 +1316,9 @@ li[data-ghost="true"] {
 }
 
 /* ===========================================================================
- * §14. The visual language extracted from the reference set.
+ * Â§14. The visual language extracted from the reference set.
  *
- * design/DESIGN.md §14 was added 2026-10-07 after the operator opened the
+ * design/DESIGN.md Â§14 was added 2026-10-07 after the operator opened the
  * Stage K screens against design/references/ and reported them generic and
  * dead. Every rule below is sourced to a numbered subsection of that section,
  * so an implementer never has to guess and a reviewer can check the claim.
@@ -1328,7 +1328,7 @@ li[data-ghost="true"] {
  * named as missing. Delete a rule here and a screen goes flat again.
  * ======================================================================== */
 
-/* --- §14.1 Backgrounds ---------------------------------------------------
+/* --- Â§14.1 Backgrounds ---------------------------------------------------
  *
  * The single largest reason the Stage K build read as a generic dark theme:
  * every surface was a flat --color-canvas fill. The reference is never flat.
@@ -1336,7 +1336,7 @@ li[data-ghost="true"] {
  * The wash is `position: absolute` INSIDE a `position: relative` shell that
  * clips. This is not a style preference: an unclipped absolute wash escapes its
  * shell and lands on top of the next section, which is precisely the operator's
- * "overflows and overlay on other elements" report (§14.15 rule 4).
+ * "overflows and overlay on other elements" report (Â§14.15 rule 4).
  */
 .pass-wash {
   position: relative;
@@ -1375,9 +1375,9 @@ li[data-ghost="true"] {
   );
 }
 
-/* Flat rule (§14.1): data-heavy surfaces get grain but NO wash. A gradient
+/* Flat rule (Â§14.1): data-heavy surfaces get grain but NO wash. A gradient
  * behind dense digits reduces the contrast of the numbers, which is the one
- * thing §11.1 refuses to compromise. */
+ * thing Â§11.1 refuses to compromise. */
 .pass-wash[data-strength="flat"] > .pass-wash-layer {
   background: none;
 }
@@ -1395,7 +1395,7 @@ li[data-ghost="true"] {
   background-size: var(--noise-tile-size) var(--noise-tile-size);
 }
 
-/* §14.1 The ghost watermark: brand type at 5% bleeding off both edges. Hero
+/* Â§14.1 The ghost watermark: brand type at 5% bleeding off both edges. Hero
  * content only. Never behind body copy, never on a data surface. */
 .pass-watermark {
   position: absolute;
@@ -1415,7 +1415,7 @@ li[data-ghost="true"] {
   overflow: hidden;
 }
 
-/* --- §14.2 Corner brackets -----------------------------------------------
+/* --- Â§14.2 Corner brackets -----------------------------------------------
  *
  * Four L-shaped corners drawn INSIDE the element's padding box. `::before` and
  * `::after` each carry two corners, so the frame costs two pseudo-elements
@@ -1487,13 +1487,13 @@ li[data-ghost="true"] {
   }
 }
 
-/* --- §14.3 Numbered eyebrows ---------------------------------------------
+/* --- Â§14.3 Numbered eyebrows ---------------------------------------------
  *
  *   \\  SECTION NAME  \\                    \\  07  \\
  *
  * The delimiters and the number are ember; the label is tertiary. Colour is the
  * only accent on the line, and the line still reads in greyscale because the
- * word is written out and the number is a number (§9.4).
+ * word is written out and the number is a number (Â§9.4).
  */
 .pass-numbered-eyebrow {
   display: flex;
@@ -1533,7 +1533,7 @@ li[data-ghost="true"] {
 }
 
 /* The dot variant, for a section whose content changes rather than one that is
- * merely positioned (§14.3). */
+ * merely positioned (Â§14.3). */
 .pass-dot-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -1546,7 +1546,7 @@ li[data-ghost="true"] {
   color: var(--color-text-tertiary);
 }
 
-/* --- §14.4 Display headlines ---------------------------------------------
+/* --- Â§14.4 Display headlines ---------------------------------------------
  *
  * One ember word per line. The lines and the accent word are AUTHORED, never
  * inferred: a hero that wraps to five lines at 375px is a layout failure.
@@ -1559,7 +1559,7 @@ li[data-ghost="true"] {
   font-weight: 700;
   color: var(--color-text-primary);
   margin: 0;
-  /* §14.15 rule 1: without this a long unbroken token sets the min-content
+  /* Â§14.15 rule 1: without this a long unbroken token sets the min-content
      width and pushes the whole page past the viewport. */
   min-width: 0;
 }
@@ -1573,7 +1573,7 @@ li[data-ghost="true"] {
 }
 
 /* The reference also runs a horizontal gradient across the hero headline
- * (§14.4). Landing hero only: never a section headline, never a headline
+ * (Â§14.4). Landing hero only: never a section headline, never a headline
  * carrying a live value, because a gradient behind changing digits makes the
  * digits harder to read. */
 .pass-display[data-gradient="true"] {
@@ -1599,13 +1599,13 @@ li[data-ghost="true"] {
   min-width: 0;
 }
 
-/* --- §14.5 Data cards ----------------------------------------------------
+/* --- Â§14.5 Data cards ----------------------------------------------------
  *
  * A card sits DARKER than the canvas around it. That inverts the usual
  * raised-panel assumption and is what makes the reference's cards read as
  * apertures rather than as tiles.
  *
- * Bottom corners carry a §5.2 chamfer, top corners are square, and a 1px
+ * Bottom corners carry a Â§5.2 chamfer, top corners are square, and a 1px
  * lighter line sits along the top edge as if lit from above. The asymmetry is
  * the reference's.
  */
@@ -1618,7 +1618,7 @@ li[data-ghost="true"] {
   background: var(--card-bg);
   border: var(--border-width-hairline) solid var(--card-border);
   border-radius: var(--card-radius);
-  /* §14.15 rule 1 */
+  /* Â§14.15 rule 1 */
   min-width: 0;
   clip-path: polygon(
     0 0,
@@ -1661,7 +1661,7 @@ li[data-ghost="true"] {
   border-color: var(--color-accent-edge);
 }
 
-/* No lift, no scale, no shadow: §5.4 forbids shadow on a non-overlay surface. */
+/* No lift, no scale, no shadow: Â§5.4 forbids shadow on a non-overlay surface. */
 .pass-card[data-interactive="true"]:hover::before,
 .pass-card[data-interactive="true"]:focus-within::before {
   opacity: 1;
@@ -1706,7 +1706,7 @@ li[data-ghost="true"] {
 }
 
 /* Primary value with its unit suffix on the SAME baseline. Never on its own
- * line: a unit on a separate line reads as a second value (§14.5.4). */
+ * line: a unit on a separate line reads as a second value (Â§14.5.4). */
 .pass-card-value {
   display: flex;
   align-items: baseline;
@@ -1728,7 +1728,7 @@ li[data-ghost="true"] {
   white-space: nowrap;
 }
 
-/* §14.5.4 has a FIGURE in the value slot. When the value is prose instead, the
+/* Â§14.5.4 has a FIGURE in the value slot. When the value is prose instead, the
  * type step drops two and the measure caps, because a paragraph set at the
  * data-xl step is 2.5rem mono and overflows its card at every width.
  *
@@ -1748,7 +1748,7 @@ li[data-ghost="true"] {
   max-inline-size: var(--measure-body);
 }
 
-/* §14.5.1 the identifier truncates rather than clipping mid-word. With a prose
+/* Â§14.5.1 the identifier truncates rather than clipping mid-word. With a prose
  * value the card is wider than a figure card, so the identifier is allowed to
  * occupy two lines instead of being squeezed. */
 .pass-card-prose .pass-card-id {
@@ -1796,7 +1796,7 @@ li[data-ghost="true"] {
   font-variant-numeric: var(--numeric-tabular);
   color: var(--color-text-primary);
   text-align: end;
-  /* §14.15 rule 2: a figure that wraps reads as two numbers. */
+  /* Â§14.15 rule 2: a figure that wraps reads as two numbers. */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1832,7 +1832,7 @@ li[data-ghost="true"] {
   stroke: var(--color-text-tertiary);
 }
 
-/* §14.13.5 The line draws itself once on first render, then nothing. A
+/* Â§14.13.5 The line draws itself once on first render, then nothing. A
  * zero-duration sweep under reduced motion leaves the line simply present. */
 .pass-sparkline path {
   stroke-dasharray: var(--sparkline-length, 1000);
@@ -1884,7 +1884,7 @@ li[data-ghost="true"] {
 }
 
 /* Metric cards: one label, one value. Five across at 1440, three at 1280, two
- * at 768, one at 375 (§14.5). */
+ * at 768, one at 375 (Â§14.5). */
 .pass-metric-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
@@ -1926,7 +1926,7 @@ li[data-ghost="true"] {
   text-overflow: ellipsis;
 }
 
-/* §14.5.4 the unit suffix, on the SAME baseline as the value. A unit on its
+/* Â§14.5.4 the unit suffix, on the SAME baseline as the value. A unit on its
    own line reads as a second value, which is why it is a child of the value
    element and not a sibling of it. */
 .pass-metric-card-unit {
@@ -1938,7 +1938,7 @@ li[data-ghost="true"] {
   margin-inline-start: var(--space-1);
 }
 
-/* --- §14.6 Status badges ------------------------------------------------ */
+/* --- Â§14.6 Status badges ------------------------------------------------ */
 
 .pass-badge {
   display: inline-flex;
@@ -1972,7 +1972,7 @@ li[data-ghost="true"] {
 .pass-badge[data-tone="invalidated"] { color: var(--badge-invalidated); }
 
 /* On a card's status row the badge is borderless and the word alone carries the
- * colour (§14.6). A pill on every row would spend the accent repeatedly. */
+ * colour (Â§14.6). A pill on every row would spend the accent repeatedly. */
 .pass-badge[data-variant="bare"] {
   padding: 0;
   border: 0;
@@ -1989,10 +1989,10 @@ li[data-ghost="true"] {
   min-width: 0;
 }
 
-/* --- §14.7 Live indicators -----------------------------------------------
+/* --- Â§14.7 Live indicators -----------------------------------------------
  *
  * Two pulses, then rest. A permanently looping dot is a distraction the
- * reference never has (§14.7). The word carries the information, so removing
+ * reference never has (Â§14.7). The word carries the information, so removing
  * the animation removes nothing.
  */
 .pass-live {
@@ -2034,11 +2034,11 @@ li[data-ghost="true"] {
   }
 }
 
-/* --- §14.8 Ticker / data bar ---------------------------------------------
+/* --- Â§14.8 Ticker / data bar ---------------------------------------------
  *
  * A thin full-bleed bar under the topbar. No marquee: it re-renders on each
  * poll, which is honest. A marquee that never matches the data is a lie the
- * reference does not tell (§14.8).
+ * reference does not tell (Â§14.8).
  */
 .pass-ticker {
   display: flex;
@@ -2090,10 +2090,10 @@ li[data-ghost="true"] {
   color: var(--color-text-tertiary);
 }
 
-/* --- §14.9 Chip buttons -------------------------------------------------
+/* --- Â§14.9 Chip buttons -------------------------------------------------
  *
  * CHAMFERED, not rounded. The reference chips have 45-degree cut corners,
- * consistent with §5.1 and §5.2 (§14.9).
+ * consistent with Â§5.1 and Â§5.2 (Â§14.9).
  */
 .pass-chip {
   display: inline-flex;
@@ -2134,7 +2134,7 @@ li[data-ghost="true"] {
   color: var(--color-accent-text);
 }
 
-/* One accent fill per region (§2.5), which is why a filter bar shows exactly
+/* One accent fill per region (Â§2.5), which is why a filter bar shows exactly
  * one selected chip. */
 .pass-chip[aria-pressed="true"],
 .pass-chip[data-selected="true"] {
@@ -2156,7 +2156,7 @@ li[data-ghost="true"] {
   min-width: 0;
 }
 
-/* --- §14.10 Numbered step grid ------------------------------------------ */
+/* --- Â§14.10 Numbered step grid ------------------------------------------ */
 
 .pass-steps {
   display: grid;
@@ -2252,7 +2252,7 @@ li[data-ghost="true"] {
   white-space: nowrap;
 }
 
-/* --- §14.11 Terminal-grade density -------------------------------------- */
+/* --- Â§14.11 Terminal-grade density -------------------------------------- */
 
 .pass-dense-row {
   display: flex;
@@ -2287,10 +2287,10 @@ li[data-ghost="true"] {
 
 
 /* ===========================================================================
- * §8.4 the topbar, and the wallet slot. Rewritten 2026-10-07 (Stage K.3).
+ * Â§8.4 the topbar, and the wallet slot. Rewritten 2026-10-07 (Stage K.3).
  *
  * ---------------------------------------------------------------------------
- * POSITIONING — RESEARCH, AND WHAT IT CHANGED
+ * POSITIONING â€” RESEARCH, AND WHAT IT CHANGED
  * ---------------------------------------------------------------------------
  *
  * The brief asked for this to be settled by looking at Uniswap, Aave and
@@ -2302,7 +2302,7 @@ li[data-ghost="true"] {
  * What the sources agree on:
  *
  *   Uniswap  the Connect control lives in the header, at the top right, inside
- *            the header's own contained layout — not floating at the viewport
+ *            the header's own contained layout â€” not floating at the viewport
  *            edge (Investor.org's walkthrough calls it "the top right corner of
  *            the Uniswap interface"; Uniswap's own interface repo confirms the
  *            web app is a single contained shell).
@@ -2324,7 +2324,7 @@ li[data-ghost="true"] {
  * (`justify-content: center` inside the `1fr` track). That is the exception, not
  * the rule: Uniswap and Aave both cluster navigation next to the brand. Centring
  * it also pushed visual weight toward the middle, which is exactly the reading
- * the operator reported — "connect wallet is at the centre". Moving navigation
+ * the operator reported â€” "connect wallet is at the centre". Moving navigation
  * left-of-centre isolates the wallet against a wide clear gap, so its position
  * is unambiguous at a glance.
  *
@@ -2335,7 +2335,7 @@ li[data-ghost="true"] {
  *  - ONE positioning mechanism. `justify-self: end`, and NO
  *    `margin-inline-start: auto` anywhere on this element. An auto inline-start
  *    margin also absorbs free space in the inline axis, so it COMPETES with
- *    `justify-self` rather than being inert. The stale pre-§14 declaration was
+ *    `justify-self` rather than being inert. The stale pre-Â§14 declaration was
  *    deleted for exactly this reason.
  *  - The wallet track is `max-content`, so the control's own width decides the
  *    track and a long address can never widen it and squeeze the navigation
@@ -2343,7 +2343,7 @@ li[data-ghost="true"] {
  *  - The inner container carries the page's own horizontal padding
  *    (`--layout-margin-*`), and `.pass-topbar` has a FULL-BLEED background. So
  *    the wallet's right edge aligns with the inner container's right padding
- *    edge — the same edge as everything below — not the viewport and not the
+ *    edge â€” the same edge as everything below â€” not the viewport and not the
  *    centre. This is the research finding, expressed in CSS.
  * ======================================================================== */
 .pass-topbar-inner {
@@ -2363,7 +2363,7 @@ li[data-ghost="true"] {
 }
 
 /* Navigation sits LEFT-OF-CENTRE, adjacent to the brand, per the research above
- * — not centred. Centring it is what made the wallet read as central. */
+ * â€” not centred. Centring it is what made the wallet read as central. */
 .pass-topbar-nav {
   min-inline-size: 0;
   display: flex;
@@ -2393,7 +2393,7 @@ li[data-ghost="true"] {
   }
 }
 
-/* §8.4 mobile, two rows: brand + wallet on row one, navigation scrolling on row
+/* Â§8.4 mobile, two rows: brand + wallet on row one, navigation scrolling on row
  * two. The wallet keeps the same right-padding edge it has at every other
  * width, because it is the same `.pass-topbar-inner` padding. */
 @media (max-width: 767px) {
@@ -2452,7 +2452,7 @@ li[data-ghost="true"] {
   max-inline-size: 100%;
 }
 
-/* The connect launcher is `.pass-btn[data-variant="primary"]` — the SAME
+/* The connect launcher is `.pass-btn[data-variant="primary"]` â€” the SAME
  * primitive as every other primary action in the product. Ember fill, dark label
  * (`--color-text-on-accent`, measured 5.02:1 on `--color-accent`, asserted by
  * scripts/check-contrast.mjs), `--border-strong` shape, `--radius-md`. It is not
@@ -2463,15 +2463,15 @@ li[data-ghost="true"] {
 }
 
 .pass-wallet[data-state="connecting"] .pass-wallet-connect {
-  /* Same variant, same weight, just inert. §6.5 already suppresses the press
+  /* Same variant, same weight, just inert. Â§6.5 already suppresses the press
      scale on a disabled control; nothing else changes, so nothing jumps. */
   cursor: progress;
 }
 
-/* The connected chip is a §14.9 chip: CHAMFERED, not rounded, on a muted border,
- * with the address in the data face and an ember border on hover. §14.9 is
- * explicit that the reference chips are cut at 45 degrees, consistent with §5.1
- * and §5.2 — a rounded chip here would be the only rounded thing in the bar. */
+/* The connected chip is a Â§14.9 chip: CHAMFERED, not rounded, on a muted border,
+ * with the address in the data face and an ember border on hover. Â§14.9 is
+ * explicit that the reference chips are cut at 45 degrees, consistent with Â§5.1
+ * and Â§5.2 â€” a rounded chip here would be the only rounded thing in the bar. */
 .pass-wallet-chip {
   display: inline-flex;
   align-items: center;
@@ -2549,7 +2549,7 @@ li[data-ghost="true"] {
   max-inline-size: min(20rem, calc(100vw - var(--space-7)));
   padding: var(--space-2);
   background: var(--color-surface-raised);
-  /* §5.4: the overlay tier is the ONE place a shadow is permitted. */
+  /* Â§5.4: the overlay tier is the ONE place a shadow is permitted. */
   border: var(--border-width-hairline) solid var(--color-line-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-overlay);
@@ -2599,8 +2599,8 @@ li[data-ghost="true"] {
 }
 
 /* Disconnect is destructive but not dangerous: it costs a signature and
- * nothing else. Data-negative, not accent — the accent is rationed to one thing
- * per viewport (§2.5). */
+ * nothing else. Data-negative, not accent â€” the accent is rationed to one thing
+ * per viewport (Â§2.5). */
 .pass-wallet-item-danger {
   color: var(--color-data-negative);
 }
@@ -2611,7 +2611,7 @@ li[data-ghost="true"] {
 }
 
 /* ===========================================================================
- * §10.3 Pass detail.
+ * Â§10.3 Pass detail.
  * ======================================================================== */
 
 .pass-detail-shell {
@@ -2628,8 +2628,8 @@ li[data-ghost="true"] {
   }
 }
 
-/* §14.4 the asset and the direction are set in the DATA face, not the display
- * face: §3.2 forbids setting data in a body face and the same rule binds in
+/* Â§14.4 the asset and the direction are set in the DATA face, not the display
+ * face: Â§3.2 forbids setting data in a body face and the same rule binds in
  * reverse. The hero step is kept, and the tracking is relaxed because mono needs
  * the room. */
 .pass-detail-object .pass-display {
@@ -2646,7 +2646,7 @@ li[data-ghost="true"] {
 }
 
 /* The avatar in the trader card's value slot: it is a picture, not a figure, so
- * it must not inherit the oversized mono step. §7.1 puts it on the 20px grid. */
+ * it must not inherit the oversized mono step. Â§7.1 puts it on the 20px grid. */
 .pass-detail-avatar {
   vertical-align: middle;
 }
@@ -2654,3 +2654,110 @@ li[data-ghost="true"] {
 .pass-info-lead {
   margin-block-start: var(--space-5);
 }
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Â§14.4 Trader profile, and the Pass-detail text link that had no rule.
+ *
+ * Written as ONE block because these are the two screens the Â§14 rebuild
+ * touched most recently, and every rule below is traceable to a Â§14 clause
+ * rather than to taste.
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/* The text link under the market snapshot and above the CTA. It was left
+ * unstyled when the Pass detail was rebuilt, so it inherited the browser
+ * default blue underline â€” an accent-coloured, underlined element sitting two
+ * steps above the one accent control on the page (Â§2.5). Neutral by default:
+ * the underlined affordance is what marks it as a link, not colour. */
+.pass-row-link-plain {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-primary);
+  text-decoration: underline;
+text-underline-offset: 0.2em;
+}
+
+.pass-row-link-plain:hover {
+  color: var(--ink-secondary);
+}
+
+/* Â§14.4 credential header. Same rhythm as the Pass-detail head so the two
+ * screens read as one system rather than two. */
+.pass-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block-end: var(--space-5);
+  border-block-end: var(--border-hairline);
+}
+
+/* The second line of a Â§14.4 display form: `@handle is / verified on PASS.` It
+ * is one step down from the hero word, and it is NOT the hero treatment â€” a
+ * credential header with two competing display sizes has no reading order. */
+.pass-display-sub {
+  font-size: var(--type-data-lg);
+  color: var(--ink-secondary);
+}
+
+/* Â§11.4: identity actions sit on the baseline grid, wrapping rather than
+ * overflowing when a trader has three connections and a long address. */
+.pass-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Â§14.3 card frame for a block that owns its own figures.
+ *
+ * A `DataCard` cannot be used for this: its mandatory `value` slot is a big
+ * figure, and the Ethos card's only big figure belongs to `ReputationBlock`.
+ * Duplicating it would be the Â§11.4 merge, and the alternative â€” a sentence in
+ * that slot â€” renders at 2.5rem. So this is the hairline frame on its own,
+ * with no figure slot to fill incorrectly. */
+.pass-data-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-hairline);
+  background: var(--surface-1);
+}
+
+/* Â§14.8 grid. `auto-fill` + `minmax` rather than a fixed column count, so the
+ * same rule serves three cards and nine without a breakpoint per case. */
+.pass-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-4);
+}
+
+/* The whole card is the hit target on the profile (Â§14.8). It is a real anchor,
+ * not a div with a click handler, so middle-click, open-in-new-tab, and the
+ * status-bar preview all work â€” which is most of why a card should be a link. */
+.pass-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.pass-card-link:hover .pass-card-link * {
+  border-color: var(--line-strong);
+}
+
+/* Trailing affordance. Muted, never accent: Â§2.5 spends the accent on the CTA
+ * alone, so a second accented arrow per card would spend it once per card. */
+.pass-row-arrow {
+  margin-block-start: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption);
+  color: var(--ink-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Â§7.1 â€” every offset is a multiple of the 8px grid. */
+.pass-stack-6 {
+  gap: var(--space-6);
+}
+
