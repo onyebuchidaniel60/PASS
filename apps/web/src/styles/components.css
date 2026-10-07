@@ -1076,3 +1076,44 @@
 .pass-row-link:hover {
   background-color: var(--color-surface-raised);
 }
+
+/* ---------------------------------------------------------------------------
+ * Inventory tables (§10.8 My Passes, §10.9 Executions).
+ *
+ * No horizontal scroller, deliberately. A sideways-scrolling table hides its
+ * last column, and on this product the last column is expiry and realized PnL —
+ * the numbers a Taker checks before committing. Below 720px the table becomes a
+ * stacked definition list so every column stays reachable.
+ *
+ * No zebra striping either: it is a table-template default that fights the
+ * paper field, and separation comes from the rule line alone.
+ * ------------------------------------------------------------------------- */
+
+[data-testid="data-table"] {
+  display: block;
+}
+
+[data-testid="data-table-stacked"] {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 720px) {
+  [data-testid="data-table"] {
+    display: none;
+  }
+
+  [data-testid="data-table-stacked"] {
+    display: block;
+  }
+}
+
+/* Draft and cancelled rows: the row recedes, the text never does.
+ * Dimming text opacity would fail the contrast budget (§9), and a row you are
+ * cancelling still has to be readable in order to be cancelled. */
+tr[data-ghost="true"] td,
+li[data-ghost="true"] {
+  background-color: var(--color-surface-sunken);
+}
