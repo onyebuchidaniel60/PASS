@@ -2755,8 +2755,56 @@ li[data-ghost="true"] {
   vertical-align: middle;
 }
 
-.pass-info-lead {
-  margin-block-start: var(--space-5);
+/* ===========================================================================
+ * Demo-mode banner.
+ *
+ * The previous banner was hard-coded Tailwind amber
+ * (`border-amber-300 bg-amber-50 text-amber-900`), which is off-system: apps/web
+ * is fully on the token layer and there is no amber in it. These rules use the
+ * same tokens as every other surface.
+ *
+ * `--color-data-negative` on `--color-canvas` is measured at 5.3:1 (§2.6), so
+ * the lead word clears the 4.5:1 text minimum. Colour is not the only cue: the
+ * banner states which surfaces are simulated in words, which is the cue that
+ * survives forced-colors mode.
+ * ======================================================================== */
+
+.pass-demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: baseline;
+  padding: var(--space-2) var(--layout-margin-mobile);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-block-end: var(--border-accent-edge);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+}
+
+@media (min-width: 768px) {
+  .pass-demo-banner {
+    padding-inline: var(--layout-margin-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-demo-banner {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+.pass-demo-banner-lead {
+  color: var(--color-data-negative);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--type-label-track);
+  font-size: var(--type-label-size);
+}
+
+.pass-demo-banner-note {
+  color: var(--color-text-secondary);
 }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2865,4 +2913,6 @@ text-underline-offset: 0.2em;
   gap: var(--space-6);
 }
 
-
+.pass-info-lead {
+  margin-block-start: var(--space-5);
+}

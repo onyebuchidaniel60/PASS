@@ -9,7 +9,7 @@ import {
   type ApiEnv,
 } from "@pass/contracts";
 import type { EthosPort, HyperliquidPort, XPort } from "./ports.js";
-import { LiveHyperliquid, SplitHyperliquid } from "./hyperliquid/live.js";
+import { SplitHyperliquid } from "./hyperliquid/live.js";
 import { LiveEthos } from "./ethos/live.js";
 import { LiveX } from "./x/live.js";
 import { MockEthos, MockHyperliquid, MockX } from "./mock.js";

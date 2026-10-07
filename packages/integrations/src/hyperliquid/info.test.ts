@@ -52,7 +52,8 @@ describe("HyperliquidInfoClient.metaAndAssetCtxs", () => {
 
   it("still tolerates an object-shaped response", async () => {
     // If the API ever reverts, this must be a non-event rather than an outage.
-    stubJson({ universe: TUPLE[0].universe, ctxs: TUPLE[1] });
+    const meta = TUPLE[0] as { universe: unknown[] };
+    stubJson({ universe: meta.universe, ctxs: TUPLE[1] });
     const { universe, ctxs } = await new HyperliquidInfoClient(INFO).metaAndAssetCtxs();
     expect(universe).toHaveLength(2);
     expect(ctxs).toHaveLength(2);

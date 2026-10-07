@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
-import { DemoBanner } from "@pass/ui";
+import { DemoBanner } from "@/components/DemoBanner";
 import { Providers } from "@/components/Providers";
 import { ConnectWalletEntry } from "@/components/ApproveAgentControl";
 import { Logo } from "@/components/reference/logo";
