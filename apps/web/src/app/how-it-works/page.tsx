@@ -131,12 +131,7 @@ export default function HowItWorksPage() {
             <NumberedEyebrow label="What a Pass is not" number={3} />
             <div className="pass-info-cards">
               {FAQ_TEASER.map((f) => (
-                <DataCard
-                  key={f.id}
-                  id={f.title}
-                  value={f.body}
-                  className="pass-info-card"
-                />
+                <DataCard key={f.id} id={f.title} prose value={f.body} />
               ))}
             </div>
             <p className="pass-landing-support">

@@ -132,7 +132,13 @@ export default function HelpPage() {
             </ChipBar>
             <div className="pass-info-cards">
               {TOPICS.map((t) => (
-                <DataCard key={t.title} id={t.title} value={t.body} action={{ label: "Read more", href: t.to }} />
+                <DataCard
+                  key={t.title}
+                  id={t.title}
+                  prose
+                  value={t.body}
+                  action={{ label: "Read more", href: t.to }}
+                />
               ))}
             </div>
           </Stack>
@@ -146,6 +152,7 @@ export default function HelpPage() {
                 <DataCard
                   key={s.label}
                   id={s.id}
+                  prose
                   value={s.body}
                   headerAside={<StatusBadge tone={s.tone} label={s.label} />}
                 />

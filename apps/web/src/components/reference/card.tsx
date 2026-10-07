@@ -27,8 +27,27 @@ export interface DataCardProps {
   id: string;
   /** One muted line under the identifier: asset, direction, subtitle. */
   sub?: string;
-  /** The big figure. */
+  /**
+   * The big figure. A NUMBER by default — set at --type-data-xl in the data
+   * face, which is §14.5.4.
+   *
+   * Pass `prose` when the value is SENTENCES instead. A paragraph set at the
+   * data-xl step is 2.5rem IBM Plex Mono, which overflows the card at every
+   * width; that is not a guess, it is exactly what the `/help` topic cards were
+   * doing before this prop existed.
+   */
   value: ReactNode;
+  /**
+   * Declares that `value` is prose rather than a figure, and drops the value
+   * slot to --type-body-m with a capped measure.
+   *
+   * This is a prop rather than a class the caller writes by hand on purpose:
+   * `/help` had nine prose cards that each needed `className="pass-info-card"`
+   * and did not have it, so all nine rendered a paragraph at 2.5rem. Forgetting
+   * a class name is invisible; passing a boolean at the call site is a decision
+   * on a line someone is already editing.
+   */
+  prose?: boolean;
   /** Unit suffix. Set on the SAME baseline as the value, never its own line. */
   unit?: string;
   /** Right-hand header slot: a `LiveDot`, a state word, nothing. */
@@ -49,6 +68,7 @@ export function DataCard({
   id,
   sub,
   value,
+  prose = false,
   unit,
   headerAside,
   metrics = [],
@@ -62,8 +82,11 @@ export function DataCard({
 }: DataCardProps) {
   return (
     <As
-      className={["pass-card", className].filter(Boolean).join(" ")}
+      className={["pass-card", prose ? "pass-card-prose" : null, className]
+        .filter(Boolean)
+        .join(" ")}
       data-interactive={interactive ? "true" : undefined}
+      data-prose={prose ? "true" : undefined}
       aria-labelledby={labelledBy}
     >
       <div className="pass-card-header">

@@ -803,13 +803,6 @@
   text-decoration: underline;
 }
 
-.pass-topbar-actions {
-  margin-inline-start: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .pass-footer {
   width: 100%;
   max-width: var(--layout-content-max);
@@ -1752,6 +1745,34 @@ li[data-ghost="true"] {
   white-space: nowrap;
 }
 
+/* §14.5.4 has a FIGURE in the value slot. When the value is prose instead, the
+ * type step drops two and the measure caps, because a paragraph set at the
+ * data-xl step is 2.5rem mono and overflows its card at every width.
+ *
+ * `.pass-card-prose` is applied by the DataCard `prose` prop rather than
+ * hand-written as a className, because `/help` had nine prose cards that each
+ * needed it and did not have it. `display: block` is required, not cosmetic: the
+ * figure treatment is a baseline-aligned flex row so the value and its unit sit
+ * on one line, which is meaningless for a paragraph and leaves it in a row. */
+.pass-card-prose .pass-card-value {
+  display: block;
+  font-family: var(--type-body-m-font);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  letter-spacing: var(--type-body-m-track);
+  color: var(--color-text-secondary);
+  white-space: normal;
+  max-inline-size: var(--measure-body);
+}
+
+/* §14.5.1 the identifier truncates rather than clipping mid-word. With a prose
+ * value the card is wider than a figure card, so the identifier is allowed to
+ * occupy two lines instead of being squeezed. */
+.pass-card-prose .pass-card-id {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* Metric rows: label left, value right, hairline between. A definition list;
  * the value is never centred. */
 .pass-card-metrics {
@@ -2559,6 +2580,15 @@ li[data-ghost="true"] {
   min-inline-size: 0;
 }
 
+/* At 375px `auto-fit` already collapses this to one column. The narrower floor
+ * matters at the 768px breakpoint, where an 18rem floor would still fit two
+ * columns in a 720px container and leave each card too narrow for its own text. */
+@media (max-width: 767px) {
+  .pass-info-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* On /how-it-works a card's "value" slot carries a paragraph rather than a
  * figure. Same anatomy, different content type, so the type step drops one and
  * the measure caps: a paragraph set at the data-xl step would be unreadable. */
@@ -2719,4 +2749,209 @@ li[data-ghost="true"] {
 .pass-row-link-plain {
   display: inline-block;
   text-decoration: none;
+}
+
+/* ===========================================================================
+ * §8.4 the topbar wallet slot, and the connected state.
+ *
+ * THE ALIGNMENT FAULT, STATED PRECISELY.
+ *
+ * The three-region grid was already `auto minmax(0, 1fr) auto` with
+ * `justify-self: end` on the actions, so the track structure was correct. Two
+ * things still pushed the control away from the right edge:
+ *
+ *  1. `.pass-topbar-actions` still carried `margin-inline-start: auto` from the
+ *     pre-§14 rule. It was overridden by `justify-self: end` for POSITIONING,
+ *     but an auto inline-start margin still absorbs free space in the inline
+ *     axis, and in a grid item that competes with `justify-self` rather than
+ *     being inert. Two mechanisms for one job is how a bar drifts.
+ *  2. The slot rendered a three-line explanatory paragraph inside it. That
+ *     paragraph is onboarding copy. It made the third `auto` track size to
+ *     max-content, so the track grew to ~68ch, the nav's `1fr` had nothing left,
+ *     and the control ended up wherever that oversized track happened to sit.
+ *
+ * THE FIX. One positioning mechanism (`justify-self: end`, no auto margin), the
+ * third track capped at `max-content`, and a note that is opt-in via the
+ * `showNote` prop and OFF in the topbar. The note now lives on /onboarding,
+ * which is where it belongs.
+ * ======================================================================== */
+.pass-topbar-actions {
+  /* Exactly one positioning mechanism. The stale `margin-inline-start: auto`
+     from the pre-§14 rule is deleted rather than overridden — see the note
+     above for why two mechanisms is the fault. */
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Never grow past its content: an address is short and must not be allowed to
+     widen the track (14.15 rule 3). */
+  max-inline-size: max-content;
+  min-inline-size: 0;
+}
+
+/* The third track is sized by its content and never by the viewport, so the
+ * nav keeps its `1fr` and the control keeps the right edge. */
+.pass-topbar-inner {
+  grid-template-columns: auto minmax(0, 1fr) max-content;
+}
+
+/* --- The wallet slot ----------------------------------------------------- */
+
+.pass-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.pass-wallet[data-state="connecting"] {
+  color: var(--color-text-tertiary);
+}
+
+/* §14.13 permits no looping animation, so the connecting state is a WORD plus a
+ * static dot rather than a spinner. The information is the word. */
+.pass-wallet-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-target-min);
+  padding-inline: var(--space-3);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  border: var(--border-width-hairline) solid var(--color-line-hairline);
+  border-radius: var(--radius-md);
+}
+
+.pass-wallet-menu {
+  position: relative;
+  min-inline-size: 0;
+}
+
+/* The connected chip: the address is DATA, so it is mono (11.6), and the whole
+ * chip is the button. */
+.pass-wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--size-target-min);
+  max-inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border: var(--border-width-hairline) solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color var(--chip-hover-duration) var(--ease-standard),
+    color var(--chip-hover-duration) var(--ease-standard);
+}
+
+.pass-wallet-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.pass-wallet-chip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pass-wallet-address {
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  line-height: var(--type-data-s-line);
+  font-variant-numeric: var(--numeric-tabular);
+  /* Truncate rather than wrap: a wrapped address is unreadable and a wide one
+     widens the topbar track. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-inline-size: 0;
+}
+
+/* A chain the product cannot use is a muted notice, never an accent alarm:
+ * there is nothing the user can do about it here, so the accent would be
+ * shouting about a fact. */
+.pass-wallet[data-state="wrong-chain"] .pass-wallet-chip {
+  border-color: var(--color-line-hairline);
+  color: var(--color-text-tertiary);
+}
+
+.pass-wallet[data-state="wrong-chain"] .pass-wallet-address::after {
+  content: "";
+}
+
+/* --- The menu ------------------------------------------------------------ */
+
+.pass-wallet-dropdown {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 14rem;
+  max-inline-size: min(20rem, calc(100vw - var(--space-7)));
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  /* §5.4: the overlay tier is the ONE place a shadow is permitted. */
+  border: var(--border-width-hairline) solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+
+.pass-wallet-dropdown-note {
+  margin: 0;
+  padding: var(--space-2);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-secondary);
+  border-block-end: var(--border-hairline);
+  overflow-wrap: anywhere;
+}
+
+.pass-wallet-item {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--size-target-min);
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-family: var(--type-body-m-font);
+  font-size: var(--type-body-m-size);
+  color: var(--color-text-primary);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pass-wallet-item:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-accent-text);
+}
+
+.pass-wallet-item:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+/* Disconnect is destructive but not dangerous: it costs the user a signature
+ * and nothing else. Data-negative, not accent — the accent is rationed to one
+ * thing per viewport (2.5). */
+.pass-wallet-item-danger {
+  color: var(--color-data-negative);
+}
+
+.pass-wallet-item-danger:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-data-negative);
 }

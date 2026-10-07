@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
-import { ConnectKitButton } from "connectkit";
 import { Button } from "@pass/ui";
 import { clientPost } from "@/lib/client";
-import { Stack } from "@/components/wave1/layout";
 import {
   generateAgentKey,
   messageForDerivation,
@@ -139,17 +137,19 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
   );
 }
 
-/** Entry point shown before a wallet is connected. */
-export function ConnectWalletEntry() {
-  const { isConnected } = useAccount();
-  if (isConnected) return null;
-  return (
-    <Stack gap="2">
-      <ConnectKitButton />
-      <p className="pass-note">
-        Connecting a wallet lets PASS request your signature to approve an agent
-        wallet. PASS never receives a private key.
-      </p>
-    </Stack>
-  );
-}
+/**
+ * The topbar's wallet slot.
+ *
+ * THIS USED TO BE THIS COMPONENT, and it was the reported bug:
+ *
+ *     const { isConnected } = useAccount();
+ *     if (isConnected) return null;
+ *     return <ConnectKitButton />;
+ *
+ * `return null` on connect meant the whole right-hand region of the topbar
+ * vanished the moment a wallet connected — no address, no disconnect, no way
+ * back. It now lives in `WalletControl`, which authors the connected state
+ * rather than delegating it to ConnectKit's own (Tailwind-styled) dropdown.
+ * Re-exported here so existing importers keep working.
+ */
+export { WalletControl as ConnectWalletEntry } from "@/components/WalletControl";

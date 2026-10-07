@@ -193,3 +193,47 @@ describe("informational pages share one visual language (§14)", () => {
     }
   });
 });
+
+/**
+ * §14.5.4 the value slot holds a FIGURE. These assertions exist because of a
+ * shipped defect: nine `/help` cards passed SENTENCES into that slot, so each
+ * rendered a paragraph at `--type-data-xl-size` (2.5rem) in IBM Plex Mono, which
+ * overflowed the card at every width. The operator reported it as "card titles
+ * render at a size that overflows the card".
+ *
+ * The fix is the DataCard `prose` prop rather than a class each caller must
+ * remember, so these tests assert the prop is SET wherever the value is prose.
+ */
+describe("prose values opt out of the figure treatment (14.5.4)", () => {
+  it("marks every /help topic and state card as prose", () => {
+    const { container } = render(<HelpPage />);
+    const cards = container.querySelectorAll(".pass-card");
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.getAttribute("data-prose"), card.textContent?.slice(0, 40)).toBe("true");
+    }
+  });
+
+  it("marks the /how-it-works teaser cards as prose", () => {
+    const { container } = render(<HowItWorksPage />);
+    const cards = container.querySelectorAll(".pass-card");
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.getAttribute("data-prose")).toBe("true");
+    }
+  });
+
+  it("leaves the contact channel cards as figures, because they hold handles", () => {
+    const { container } = render(<ContactPage />);
+    // `hello` + `@pass.trade` is a split figure at the data step, not a sentence.
+    expect(container.querySelectorAll("[data-prose='true']")).toHaveLength(0);
+  });
+
+  it("uses the prose class only via the prop, never a hand-written className", () => {
+    const { container } = render(<HowItWorksPage />);
+    // The old mechanism was className="pass-info-card" on the caller, which is
+    // what nine /help cards silently forgot.
+    expect(container.querySelector(".pass-info-card")).toBeNull();
+    expect(container.querySelectorAll(".pass-card-prose").length).toBeGreaterThan(0);
+  });
+});
