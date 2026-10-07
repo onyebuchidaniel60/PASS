@@ -217,7 +217,7 @@ export function SettingsClient({
                     Save
                   </button>
                   {me.bio ? (
-                    <span className="pass-body-s">{me.bio}</span>
+                    <span className="pass-stale">{me.bio}</span>
                   ) : (
                     <span className="pass-stale">No bio yet.</span>
                   )}
