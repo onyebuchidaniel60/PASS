@@ -2268,3 +2268,180 @@ li[data-ghost="true"] {
   border-block-end: var(--border-strong);
   min-width: 0;
 }
+
+/* ===========================================================================
+ * §8.4 three-region shell, rebuilt 2026-10-07.
+ *
+ * THE FAULT THIS FIXES. The operator reported "connect wallet is at the centre
+ * instead of on one side of the screen". The old shell was a flex row in which
+ * the nav sat in the flow and the actions were pushed right with
+ * `margin-inline-start: auto`. That works only while the nav is narrower than
+ * the leftover space: as soon as it is not, the auto margin collapses and the
+ * wallet button drifts toward the middle, and at 375px it lands dead centre.
+ *
+ * THE FIX. Three explicit grid tracks, one per region, at every width. The
+ * actions are the LAST track and are never allowed to shrink, so the wallet
+ * button is hard right by construction rather than by an auto margin that
+ * happens to work at some widths.
+ * ======================================================================== */
+.pass-topbar-inner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  block-size: 100%;
+  inline-size: 100%;
+  max-inline-size: var(--layout-content-max);
+  margin-inline: auto;
+  padding-inline: var(--layout-margin-mobile);
+}
+
+.pass-topbar-nav {
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+}
+
+.pass-topbar-actions {
+  /* Never shrink. This is the region the operator reported as drifting. */
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+/* The nav is centred in its own track on desktop so the four destinations sit
+ * optically centred rather than crowding the wordmark. */
+.pass-topbar-nav > .pass-nav {
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .pass-topbar-inner {
+    padding-inline: var(--layout-margin-tablet);
+    gap: var(--space-5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-topbar-inner {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+/* §8.4 mobile: the destinations cannot fit beside the logo and the wallet
+ * button at 375px, so the nav scrolls horizontally in its own track rather
+ * than wrapping the bar onto two rows and doubling its height. */
+@media (max-width: 767px) {
+  .pass-topbar {
+    block-size: auto;
+    min-block-size: var(--layout-topbar);
+  }
+
+  .pass-topbar-inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "brand actions"
+      "nav nav";
+    row-gap: 0;
+    padding-block: var(--space-2);
+  }
+
+  .pass-wordmark {
+    grid-area: brand;
+  }
+
+  .pass-topbar-actions {
+    grid-area: actions;
+  }
+
+  .pass-topbar-nav {
+    grid-area: nav;
+    margin-inline: calc(var(--layout-margin-mobile) * -1);
+    padding-inline: var(--layout-margin-mobile);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pass-topbar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pass-topbar-nav > .pass-nav {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+  }
+
+  /* The bottom-nav reservation (§8.4) is not claimed: there is no bottom nav in
+     the MVP, and the topbar grew by exactly one nav row here. */
+  .pass-nav-link {
+    font-size: var(--type-body-s-size);
+  }
+}
+
+/* §14 footer: brand block on the left, every destination on the right. The old
+ * footer was a single left-aligned measure, which made eight links run off the
+ * end of a long line. */
+.pass-footer {
+  inline-size: 100%;
+  max-inline-size: var(--layout-content-max);
+  margin-inline: auto;
+  padding: var(--space-7) var(--layout-margin-mobile) var(--space-6);
+  border-block-start: var(--border-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-inline-size: 0;
+}
+
+.pass-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  min-inline-size: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-footer {
+    padding-inline: var(--layout-margin-tablet);
+  }
+
+  .pass-footer-grid {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-footer {
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+.pass-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.pass-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.pass-footer-note {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-tertiary);
+  margin: 0;
+  max-inline-size: var(--measure-body);
+}

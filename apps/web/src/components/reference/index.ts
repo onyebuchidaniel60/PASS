@@ -61,3 +61,5 @@ export {
   type TickerBarProps,
   type TickerEntry,
 } from "./blocks";
+
+export { Logo, LogoMark, type LogoProps } from "./logo";

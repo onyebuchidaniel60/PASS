@@ -13,6 +13,8 @@ import {
   GradientWash,
   HERO_LINES,
   LiveDot,
+  Logo,
+  LogoMark,
   MetricCard,
   MetricCardRow,
   NoiseOverlay,
@@ -451,5 +453,69 @@ describe("14.11 dense rows", () => {
     render(<DenseHead left="Pass" right="Entry" />);
     expect(screen.getByText("Pass")).toBeInTheDocument();
     expect(screen.getByText("Entry")).toBeInTheDocument();
+  });
+});
+
+describe("14.14 the PASS mark", () => {
+  it("announces itself by name in the topbar, where nothing else says PASS", () => {
+    render(<Logo size={26} />);
+    expect(screen.getByRole("img", { name: "PASS" })).toBeInTheDocument();
+  });
+
+  it("is decorative when the surrounding label already names it", () => {
+    const { container } = render(<Logo size={26} title={null} />);
+    // Two announcements of the same word is noise, not redundancy.
+    expect(container.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(container.querySelector("svg")?.getAttribute("role")).toBeNull();
+  });
+
+  it("draws the signal line across the full wordmark width", () => {
+    const { container } = render(<Logo size={40} />);
+    const lines = Array.from(container.querySelectorAll("path")).filter((p) =>
+      (p.getAttribute("d") ?? "").startsWith("M0 15h"),
+    );
+    expect(lines.length).toBe(1);
+    expect(lines[0].getAttribute("d")).toBe("M0 15h132");
+  });
+
+  it("carries the reticle in the P's counter with a dot on its ring", () => {
+    const { container } = render(<Logo size={40} />);
+    const reticle = container.querySelector(".pass-logo-reticle") as HTMLElement;
+    expect(reticle).toBeTruthy();
+    // Two rings and one filled dot: ring outline, dot.
+    expect(reticle.querySelectorAll("circle").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("drops the crosshair below the detailed threshold, because it does not raster", () => {
+    const { container: small } = render(<Logo size={24} />);
+    const smallReticle = small.querySelector(".pass-logo-reticle") as HTMLElement;
+    const smallPaths = smallReticle.querySelectorAll("path").length;
+    const { container: large } = render(<Logo size={40} />);
+    const largeReticle = large.querySelector(".pass-logo-reticle") as HTMLElement;
+    const largePaths = largeReticle.querySelectorAll("path").length;
+    // At favicon size the mark degrades to PASS struck through, not to noise.
+    expect(largePaths).toBeGreaterThan(smallPaths);
+  });
+
+  it("takes no colour literal: every paint is a token reference", () => {
+    const { container } = render(<Logo size={40} />);
+    for (const node of Array.from(container.querySelectorAll("[fill],[stroke]"))) {
+      const value = node.getAttribute("fill") ?? node.getAttribute("stroke") ?? "";
+      if (value && value !== "none") {
+        expect(value.startsWith("var(--")).toBe(true);
+      }
+    }
+  });
+
+  it("is never focusable, because it is a mark and not a control", () => {
+    const { container } = render(<Logo size={40} />);
+    expect(container.querySelector("svg")?.getAttribute("focusable")).toBe("false");
+  });
+
+  it("renders the mark alone with the ember wash and the knocked-out reticle", () => {
+    const { container } = render(<LogoMark size={24} title="PASS" />);
+    expect(container.querySelector("rect")?.getAttribute("rx")).toBe("5.5");
+    expect(container.querySelector("radialGradient")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "PASS" })).toBeInTheDocument();
   });
 });
