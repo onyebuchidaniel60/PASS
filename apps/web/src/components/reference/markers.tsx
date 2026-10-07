@@ -201,11 +201,28 @@ export function ChipButton({
   );
 }
 
-export function ChipBar({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * A filter set.
+ *
+ * `label` is not optional decoration: a row of toggle buttons with no group
+ * name is announced as four unlabelled buttons, and the reader cannot tell which
+ * question the row is asking. Passing it renders `role="group"` with the name;
+ * omitting it leaves the row as a plain div for uses that are not a filter.
+ */
+export function ChipBar({
+  children,
+  className,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  label?: string;
+}) {
   return (
     <div
       className={["pass-chip-bar", className].filter(Boolean).join(" ")}
-      role={undefined}
+      role={label ? "group" : undefined}
+      aria-label={label}
     >
       {children}
     </div>

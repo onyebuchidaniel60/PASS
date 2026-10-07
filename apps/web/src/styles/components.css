@@ -2677,3 +2677,46 @@ li[data-ghost="true"] {
   max-inline-size: var(--measure-body);
   min-inline-size: 0;
 }
+
+/* ===========================================================================
+ * §14.2 Discover header and the §14.15 overflow guards.
+ * ======================================================================== */
+.pass-discover-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block: var(--space-6) var(--space-5);
+  min-inline-size: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-discover-head {
+    padding-block: var(--space-8) var(--space-7);
+  }
+}
+
+/* §14.15 rule 1, stated once here rather than per screen: every grid child gets
+ * `min-width: 0` so a long unbroken token (a price, a handle, a URL) cannot set
+ * the child's min-content width and push the grid past the viewport. This was
+ * the single most common cause of the operator's "overflows" report. */
+.pass-info-cards > *,
+.pass-metric-cards > *,
+.pass-steps > *,
+.pass-brackets > * {
+  min-inline-size: 0;
+}
+
+/* §14.15 rule 3: a handle or a ticker truncates, it never wraps. */
+.pass-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-inline-size: 0;
+}
+
+/* The plain variant of a row link, for wrapping a Button without the row link's
+ * block padding and underline. */
+.pass-row-link-plain {
+  display: inline-block;
+  text-decoration: none;
+}
