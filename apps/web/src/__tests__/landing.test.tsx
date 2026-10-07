@@ -213,3 +213,99 @@ describe("Landing reduced-motion path (§6.6)", () => {
     expect(container.querySelector(".pass-signal-line hr")).not.toBeNull();
   });
 });
+
+/**
+ * §14 assertions. Added 2026-10-07 when the Landing was rebuilt, because every
+ * one of these is a clause the previous version silently failed while still
+ * passing all 18 tests above. That is the point: the screen was compliant with
+ * §§1–13 and wrong, and only new assertions caught it.
+ */
+describe("Landing reference language (§14)", () => {
+  it("puts the hero on a wash shell with grain and a ghost watermark", () => {
+    const { container } = render(<LandingPage />);
+    const shell = container.querySelector(".pass-landing-shell") as HTMLElement;
+    expect(shell).toBeTruthy();
+    expect(shell.getAttribute("data-strength")).toBe("hero");
+    expect(shell.querySelector(".pass-wash-layer")).toBeTruthy();
+    expect(shell.querySelector(".pass-grain")).toBeTruthy();
+    expect(shell.querySelector(".pass-watermark")?.textContent).toBe("PASS");
+  });
+
+  it("frames the hero and the step grid with corner brackets, and nothing else", () => {
+    const { container } = render(<LandingPage />);
+    // §14.2 rations these to four uses in the whole product. The Landing spends
+    // two of them; a third here would mean the ration is not being enforced.
+    expect(container.querySelectorAll(".pass-brackets")).toHaveLength(2);
+  });
+
+  it("sets one ember word on the hero's first line and none on the others", () => {
+    const { container } = render(<LandingPage />);
+    const hero = container.querySelector(".pass-display") as HTMLElement;
+    const lines = hero.querySelectorAll(".pass-display-line");
+    expect(lines).toHaveLength(3);
+    expect(lines[0].querySelectorAll(".pass-display-accent")).toHaveLength(1);
+    expect(lines[0].querySelector(".pass-display-accent")?.textContent).toBe("trade.");
+    expect(lines[1].querySelectorAll(".pass-display-accent")).toHaveLength(0);
+    expect(lines[2].querySelectorAll(".pass-display-accent")).toHaveLength(0);
+  });
+
+  it("gives the hero an accessible name with the lines separated", () => {
+    render(<LandingPage />);
+    // Each line is its own block span, so without an explicit name a screen
+    // reader says "See a trade.Know the trader.Take the trade."
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "See a trade. Know the trader. Take the trade.",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("numbers the three sections 01, 02 and 03", () => {
+    const { container } = render(<LandingPage />);
+    const numbers = Array.from(
+      container.querySelectorAll(".pass-numbered-eyebrow-number"),
+    ).map((n) => n.textContent?.replace(/\\/g, "").trim());
+    expect(numbers).toEqual(["01", "02", "03"]);
+  });
+
+  it("renders the four-step grid with a data card in each visual slot", () => {
+    const { container } = render(<LandingPage />);
+    expect(container.querySelectorAll(".pass-steps")).toHaveLength(1);
+    expect(container.querySelectorAll(".pass-step")).toHaveLength(4);
+    // §14.10 forbids an image in the visual slot.
+    expect(container.querySelectorAll(".pass-step-visual")).toHaveLength(4);
+    expect(container.querySelectorAll(".pass-step-visual img")).toHaveLength(0);
+    expect(container.querySelectorAll(".pass-step-visual .pass-metric-card")).toHaveLength(8);
+  });
+
+  it("puts the informational pages in the chip bar", () => {
+    render(<LandingPage />);
+    expect(screen.getByRole("link", { name: "How it works" })).toHaveAttribute(
+      "href",
+      "/how-it-works",
+    );
+    expect(screen.getByRole("link", { name: "FAQs" })).toHaveAttribute("href", "/faqs");
+  });
+
+  it("keeps exactly one accent fill: the Explore Passes button", () => {
+    const { container } = render(<LandingPage />);
+    // §2.5 rations the accent to one thing per viewport, and the step grid adds
+    // eight metric cards. None of them may become an accent fill.
+    expect(container.querySelectorAll(".pass-card-action")).toHaveLength(0);
+    expect(container.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+  });
+
+  it("uses only the documented class vocabulary, so no bespoke class creeps in", () => {
+    const { container } = render(<LandingPage />);
+    // `visually-hidden` is the screen-reader clip utility and is deliberately
+    // NOT `pass-`-prefixed: it is a general utility, not a PASS component.
+    const ALLOWED = new Set(["visually-hidden"]);
+    const classes = Array.from(container.querySelectorAll("[class]")).flatMap((el) =>
+      (el.getAttribute("class") ?? "").split(/\s+/).filter(Boolean),
+    );
+    for (const c of classes) {
+      expect(c.startsWith("pass-") || ALLOWED.has(c), `class "${c}"`).toBe(true);
+    }
+  });
+});

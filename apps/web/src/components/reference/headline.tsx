@@ -95,6 +95,19 @@ export function DisplayHeadline({
   className,
   as: As = "h1",
 }: DisplayHeadlineProps) {
+  // The accessible name is computed from the SAME `lines` data that renders the
+  // visible words, so the two cannot drift. It is set explicitly because each
+  // line is its own block-level span: without it, name computation concatenates
+  // the lines with no separator and a screen reader says
+  // "See a trade.Know the trader.Take the trade." — three sentences run into one
+  // word. That is a real defect, not a test artefact, and it is invisible to
+  // anyone reading the rendered page.
+  const accessibleName = lines
+    .map((line) => line.map((w) => w.text).join(" "))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   return (
     <As
       className={[
@@ -104,6 +117,7 @@ export function DisplayHeadline({
         .filter(Boolean)
         .join(" ")}
       data-gradient={gradient ? "true" : undefined}
+      aria-label={accessibleName}
     >
       {lines.map((line, i) => (
         // The index is the identity here on purpose: these lines are authored
@@ -140,8 +154,12 @@ export const HERO_LINES = {
     [{ text: "You" }, { text: "author" }],
     [{ text: "your" }, { text: "own", accent: true }, { text: "size." }],
   ],
+  // The accent word is "promise", not "Pass". "Pass" is the product noun and it
+  // already appears verbatim in the §10.1 loop strip on this same page; two
+  // elements reading "Pass" on one screen is ambiguity the reader has to
+  // resolve, and it is avoidable for free.
   howItWorks: [
-    [{ text: "A" }, { text: "Pass", accent: true }, { text: "is" }],
-    [{ text: "a" }, { text: "plan," }, { text: "not" }, { text: "a" }, { text: "promise." }],
+    [{ text: "A" }, { text: "plan" }, { text: "is" }],
+    [{ text: "not" }, { text: "a" }, { text: "promise.", accent: true }],
   ],
 } as const;

@@ -2445,3 +2445,83 @@ li[data-ghost="true"] {
   margin: 0;
   max-inline-size: var(--measure-body);
 }
+
+/* ===========================================================================
+ * §10.1 Landing, rebuilt 2026-10-07 against §14.
+ *
+ * The previous landing satisfied §§1–13 and read as generic. What changed is
+ * structure and surface: a hero that is a clipping wash shell, a bracket frame
+ * around the hero, a three-line authored headline, a lede, and a second bracket
+ * frame around the step grid.
+ * ======================================================================== */
+
+/* The hero shell. `pass-wash` already supplies position/isolation/overflow;
+ * this adds the vertical room the taller §14.4 headline needs. */
+.pass-landing-shell {
+  padding-block: var(--space-9) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-inline-size: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-landing-shell {
+    padding-block: var(--space-10) var(--space-9);
+    gap: var(--space-7);
+  }
+}
+
+.pass-landing-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  min-inline-size: 0;
+}
+
+.pass-landing-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+/* §14.4 the lede sits under the headline, not beside it, and is capped so the
+ * hero never becomes a paragraph. */
+.pass-landing-lede {
+  font-family: var(--type-body-l-font);
+  font-size: var(--type-body-l-size);
+  line-height: var(--type-body-l-line);
+  letter-spacing: var(--type-body-l-track);
+  color: var(--color-text-secondary);
+  max-inline-size: var(--measure-thesis);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+/* The §14.1 wash is a sibling of the frame, so the CTAs sit ON the wash rather
+ * than inside the bracket. The frame marks the hero object; the wash is the
+ * field it sits in. */
+.pass-landing .pass-landing-ctas {
+  margin-block-start: var(--space-5);
+}
+
+.pass-landing .pass-landing-support {
+  margin-block-start: var(--space-5);
+}
+
+/* §14.4 the loop strip under a numbered eyebrow needs air above it. */
+.pass-landing .pass-section {
+  display: block;
+}
+
+.pass-loop-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
