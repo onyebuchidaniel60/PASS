@@ -31,3 +31,5 @@ apps/extension/dist/
 # reproducible from the repository alone.
 !apps/extension/.env.example
 !apps/extension/.env.production
+apps/web/test-results/
+apps/web/playwright-report
