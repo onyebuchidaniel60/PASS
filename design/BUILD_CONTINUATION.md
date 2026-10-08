@@ -246,7 +246,82 @@ referencing a token that does not exist. Eight such references shipped in this
 phase and were only caught by hand. A resolution check is the obvious next
 script and is still unwritten.
 
-## 10. Standing constraints
+## 10. Landing/footer regression + live provider reads (2026-10-07)
+
+Deployed at `7ffedba`. Live modes, from `GET /health`:
+
+```
+hyperliquidReads: live     hyperliquidExecution: mock
+ethos: live                x: mock
+```
+
+### Footer regression — three CSS causes, all silent
+
+Operator report was "packed up the home and bottom elements". §14.15 was **not**
+the cause: `.pass-wash` has `isolation: isolate` + `overflow: clip` and the hero
+text sits inside a `z-index: 1` parent, so nothing was clipped or overlapped.
+
+1. `.pass-footer` declared `max-width` **twice** — `--layout-content-max` (1280px)
+   then `--measure-body` (68ch). CSS resolves duplicates last-wins with no
+   warning, so the footer silently rendered at 68ch beside 1280px of content.
+2. `.pass-footer-grid` had **no CSS rule at all**. The "grid" was a plain block
+   div, so brand and links stacked with no gap at every width.
+3. `.pass-footer-links` is a `<ul>` with **no rule**, and `globals.css` carries
+   no `ul`/`ol` reset by design (apps/web is on the token layer; resets are
+   per-primitive). So it painted browser-default discs and a 40px indent.
+
+Also fixed: `.pass-landing-shell` had no padding, and `overflow: clip` on a
+zero-padding element cuts the wash, grain and ghost watermark flush on all four
+sides — which is why the hero read as a cropped slab. And `.pass-landing-lede`
+had no rule, so the hero's one prose paragraph ran the full 1280px.
+
+None of this changed a class name, so every existing assertion stayed green.
+The 13 new assertions read the stylesheet directly.
+
+### Two provider bugs found by calling the APIs
+
+1. **Ethos** — the adapter called `/api/v1/reputation/{ref}` and
+   `/api/v1/x/{handle}`. **Both 404.** `getJson` mapped 404 to `null`, so
+   `ETHOS_MODE=live` would have shown "no Ethos data" for *every* profile —
+   indistinguishable from a trader having no reputation (D-007). Rewritten
+   against the verified v2 endpoint `GET /api/v2/user/by/x/{username}`, which
+   returns score, review split, vouch count and profile link in one call.
+   It now also throws on 5xx instead of reporting an outage as no reputation.
+2. **Hyperliquid** — `metaAndAssetCtxs` returns the **tuple** `[meta, ctxs]`,
+   not an object with `universe`/`ctxs` keys. The client typed it as the object
+   shape, so `raw.universe` was always `undefined` and `GET /api/v1/markets`
+   answered `{"assets":[]}` with **HTTP 200** on a live deployment. Silent and
+   200, which is why it survived every typecheck and test. 234 assets are
+   available; none were being returned.
+
+### D-021 — reads and execution split
+
+`HYPERLIQUID_MODE` gated reads *and* `relaySignedAction` together, so asking for
+live prices armed real orders. Split into `HYPERLIQUID_READS_MODE` (Info API) and
+`HYPERLIQUID_MODE` (Exchange API, which additionally requires reads). Live
+writes with mock reads is rejected at construction. See
+[`docs/DECISIONS.md`](../docs/DECISIONS.md) D-021.
+
+### Two open execution gaps — do not read past this line
+
+`docs/EXECUTION_READINESS.md` is the full report. The one that matters:
+
+**A Take today sends a single entry order with no take-profit or stop-loss leg.**
+`buildExchangeRequest` signs one `buildOrderAction`, and nothing places an exit
+after the fill — while the Pass on screen advertises both. A real Take would
+leave an **unprotected open position**. Anyone testing on mainnet must be at the
+Hyperliquid UI with the close button ready.
+
+Also fixed while writing that report: a relay that *returned* a rejection rather
+than throwing was recorded as a real execution with an empty `provider_order_id`.
+`execution-service.ts` now treats a returned rejection as a rejection.
+
+### Still unverified
+
+Everything visual, and unchanged: no browser automation. The §4 operator
+checklist still applies. `pnpm run check` is green at **578 tests**.
+
+## 11. Standing constraints
 
 - No browser automation. Nothing here is visually verified. Stage K.2 stays open.
 - No UI framework, no component library, no animation library.
