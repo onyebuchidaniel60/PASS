@@ -341,6 +341,16 @@ export const oauthStates = pgTable(
     state: text("state").primaryKey(),
     provider: text("provider").notNull(),
     redirectTo: text("redirect_to"),
+  /**
+   * The PASS account that started the flow, when there was one.
+   *
+   * /auth/x/start must not require a session, so an existing session is
+   * recorded here instead of being demanded. Null for a first-time visitor.
+   *
+   * Deliberately NOT reusing `redirectTo`, which is a post-login
+   * destination PATH. See migrations/0001_oauth_state_user_id.sql.
+   */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
     codeVerifier: text("code_verifier"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

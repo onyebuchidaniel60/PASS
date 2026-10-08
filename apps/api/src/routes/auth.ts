@@ -133,10 +133,23 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
   /**
    * X connection start. In live mode this returns the real OAuth URL with
    * state and PKCE. In mock mode it links a display-only identity so the
-   * product is fully walkable without credentials.
+   * X OAuth entry point.
+   *
+   * MUST NOT require an existing PASS session. This is the route a brand-new
+   * user arrives at, so requiring a session made the flow unreachable: it
+   * answered AUTH_REQUIRED to exactly the people it exists for. The session is
+   * created at the END, in the callback, once X has told us who the user is.
+   *
+   * A session IS honoured when one happens to exist: a signed-in user who
+   * reconnects X should land on their existing account, not a second one.
+   *
+   * Responds 302 to X's authorize endpoint. It previously returned
+   * `{mode, url, state}` as JSON, which meant the browser had to be told where
+   * to go by JavaScript instead of actually being sent there — and the
+   * authorize URL, which carries `state` and the PKCE challenge, was then
+   * visible in a response body rather than in a Location header.
    */
-  app.get("/api/v1/auth/x/start", async (req) => {
-    const userId = await requireUser(req);
+  app.get("/api/v1/auth/x/start", async (req, reply) => {
     const state = randomToken(24);
     const verifier = randomToken(32);
 
@@ -144,26 +157,35 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
     await ctx.db.insert(oauthStates).values({
       state,
       provider: "x",
-      redirectTo: null,
+      // Bound to the existing session when there is one, so the callback knows
+      // which account to attach X to. Null for a first-time visitor.
+      userId: req.sessionUserId ?? null,
       codeVerifier: verifier,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    if (ctx.adapters.x.mode === "live") {
-      if (!ctx.env.X_CLIENT_ID || !ctx.env.X_REDIRECT_URI) {
-        throw new AppError("IDENTITY_NOT_CONNECTED", "X OAuth is not configured.");
-      }
-      const url = ctx.adapters.x.buildAuthorizationUrl({
-        clientId: ctx.env.X_CLIENT_ID,
-        redirectUri: ctx.env.X_REDIRECT_URI,
+    if (ctx.adapters.x.mode !== "live") {
+      // Mock mode has no X to redirect to. JSON rather than a 302 to nowhere.
+      return {
+        mode: "mock" as const,
+        url: null,
         state,
-        codeChallenge: pkceChallenge(verifier),
-        scope: "tweet.read tweet.write users.read offline.access",
-      });
-      return { mode: "live", url, state };
+        userId: req.sessionUserId ?? null,
+      };
     }
 
-    return { mode: "mock", url: null, state, userId };
+    if (!ctx.env.X_CLIENT_ID || !ctx.env.X_REDIRECT_URI) {
+      throw new AppError("IDENTITY_NOT_CONNECTED", "X OAuth is not configured.");
+    }
+    const url = ctx.adapters.x.buildAuthorizationUrl({
+      clientId: ctx.env.X_CLIENT_ID,
+      redirectUri: ctx.env.X_REDIRECT_URI,
+      state,
+      codeChallenge: pkceChallenge(verifier),
+      scope: "tweet.read tweet.write users.read offline.access",
+    });
+
+    return reply.redirect(url);
   });
 
   /** Mock-mode X link. Requires no credentials and stores no token. */
@@ -223,8 +245,27 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
     if (!query.code) {
       throw new AppError("AUTH_REQUIRED", "Missing authorization code.");
     }
-    const userId = req.sessionUserId;
-    if (!userId) throw new AppError("AUTH_REQUIRED");
+
+    /**
+     * Resolve the PASS account.
+     *
+     * Three cases, in order:
+     *  1. a live session exists  -> attach X to that user (reconnect);
+     *  2. the state row recorded a userId at /start -> same, across the redirect
+     *     where the cookie may not have survived;
+     *  3. neither -> CREATE a PASS user. This is the first-time path, and it is
+     *     the reason the callback must not call requireUser: X has now told us
+     *     who the user is, which is strictly more information than a session
+     *     cookie we would have required before starting.
+     */
+    const boundUserId = req.sessionUserId ?? stored.userId ?? null;
+    let userId = boundUserId;
+    if (!userId) {
+      const inserted = await ctx.db.insert(users).values({}).returning();
+      const created = inserted[0];
+      if (!created) throw new AppError("INTERNAL_ERROR", "Could not create the user.");
+      userId = created.id;
+    }
 
 // Token exchange. Authorization Code + PKCE.
 //
@@ -297,6 +338,12 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
         : null,
       scopes: tokens.scope ? tokens.scope.split(" ") : null,
     });
+
+    // The session is issued HERE, at the end of the flow, which is the only
+    // point at which the user is authenticated. Before this change a first-time
+    // user could not obtain one at all.
+    const sessionId = await createSession(ctx, userId);
+    setSessionCookie(reply, sessionId, secure);
 
     return reply.redirect(`${ctx.env.APP_URL}/settings?x=connected`);
   });
