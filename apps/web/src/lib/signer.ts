@@ -31,6 +31,16 @@ export interface OrderIntent {
   reduceOnly?: boolean;
   tif?: "Alo" | "Ioc" | "Gtc";
   chain?: HLChain;
+  /**
+   * The Pass's own take profit and stop loss, as authored by the Trader.
+   *
+   * Both are independently optional and both are NEVER derived, defaulted or
+   * invented. A Pass with only a stop loss must produce a bracket with only a
+   * stop leg, because fabricating the other side would be a claim about a
+   * Trader's risk that the Trader never made.
+   */
+  takeProfit?: string | null;
+  stopLoss?: string | null;
 }
 
 /**
@@ -58,6 +68,9 @@ export function buildExchangeRequest(intent: OrderIntent): {
     size: intent.size,
     reduceOnly: intent.reduceOnly,
     tif: intent.tif,
+    // Forwarded as authored. `buildOrderAction` decides the grouping.
+    takeProfit: intent.takeProfit,
+    stopLoss: intent.stopLoss,
   });
 
   return {

@@ -108,19 +108,82 @@ export function buildOrderAction(params: {
   reduceOnly?: boolean;
   tif?: "Alo" | "Ioc" | "Gtc";
   grouping?: "na" | "normalTpsl" | "positionTpsl";
+  /**
+   * The Pass's own exit levels. Present or absent independently — a Pass with
+   * only a stop loss must not gain an invented take profit.
+   */
+  takeProfit?: string | null;
+  stopLoss?: string | null;
 }) {
+  const orders: Array<Record<string, unknown>> = [
+    {
+      a: params.assetIndex,
+      b: params.isBuy,
+      p: params.price,
+      s: params.size,
+      r: params.reduceOnly ?? false,
+      t: { limit: { tif: params.tif ?? "Gtc" } },
+    },
+  ];
+
+  /**
+   * Bracket exits.
+   *
+   * WHY THIS EXISTS: a Pass advertises entry, take profit and stop loss, but
+   * until this the action carried ONLY the entry. A Taker who took such a Pass
+   * would have held an UNPROTECTED position with no exit order anywhere at the
+   * venue — see docs/EXECUTION_READINESS.md.
+   *
+   * Shape verified against the official Exchange endpoint documentation:
+   *   t: { trigger: { isMarket, triggerPx, tpsl: "tp" | "sl" } }
+   *   grouping: "normalTpsl"
+   *
+   * Three rules that are load-bearing and easy to get backwards:
+   *
+   *  - The exits are on the OPPOSITE side to the entry. An exit that matched
+   *    the entry side would ADD to the position instead of closing it. So
+   *    `isBuy` is inverted here, once, and nowhere else.
+   *  - `r: true` on both exits. Reduce-only is what makes them incapable of
+   *    reversing the position if the stop is hit before the fill.
+   *  - `isMarket: true`, so a triggered exit does not rest unfilled on a book
+   *    that has already gapped through the level. A stop that does not fill is
+   *    not a stop.
+   */
+  const exitSide = !params.isBuy;
+  const hasExits = Boolean(params.takeProfit || params.stopLoss);
+
+  if (params.takeProfit) {
+    orders.push({
+      a: params.assetIndex,
+      b: exitSide,
+      // The resting price is irrelevant for a market trigger, but the field is
+      // required. The trigger price is what the exchange acts on.
+      p: params.takeProfit,
+      s: params.size,
+      r: true,
+      t: { trigger: { isMarket: true, triggerPx: params.takeProfit, tpsl: "tp" } },
+    });
+  }
+
+  if (params.stopLoss) {
+    orders.push({
+      a: params.assetIndex,
+      b: exitSide,
+      p: params.stopLoss,
+      s: params.size,
+      r: true,
+      t: { trigger: { isMarket: true, triggerPx: params.stopLoss, tpsl: "sl" } },
+    });
+  }
+
   return {
     type: "order" as const,
-    orders: [
-      {
-        a: params.assetIndex,
-        b: params.isBuy,
-        p: params.price,
-        s: params.size,
-        r: params.reduceOnly ?? false,
-        t: { limit: { tif: params.tif ?? "Gtc" } },
-      },
-    ],
-    grouping: params.grouping ?? "na",
+    orders,
+    // `normalTpsl` is the documented grouping that tells the exchange these
+    // orders are one bracket. It is only meaningful when exits exist, so a
+    // bare entry keeps "na".
+    grouping: hasExits
+      ? ((params.grouping ?? "normalTpsl") as "na" | "normalTpsl" | "positionTpsl")
+      : "na",
   };
 }

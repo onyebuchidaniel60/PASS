@@ -188,17 +188,32 @@ mainnet test; all of them are blockers for real users at real size.
    unless the client request id is used for idempotency.
 3. **No idempotency enforcement on relay.** `clientRequestId` exists on the
    execution row, but it is not checked before relaying.
-4. **CONFIRMED, and the most serious gap here: a Take is a NAKED entry.** The
-   signed action is built by `buildExchangeRequest` in
-   `apps/web/src/lib/signer.ts`, which calls `buildOrderAction({ assetIndex,
-   isBuy, price, size, reduceOnly, tif })` — a **single** order. There is no
-   take-profit or stop-loss order in the payload, and nothing in
-   `execution-service.ts` places one after the fill.
+4. **CONFIRMED, and still the most serious gap: a real Take is STILL a naked
+   entry, because nothing signs the bracket.**
 
-   The Pass a Taker is reading advertises `takeProfit` and `stopLoss`, and the
-   execution row stores them (`snapshot.takeProfit`, `snapshot.stopLoss`) — so
-   the plan on screen looks bracketed while only the entry is actually sent.
-   **A Taker who takes a Pass today gets an unprotected position with no exit.**
+   The **builder is fixed**. `buildOrderAction` in `apps/web/src/lib/hyperliquid.ts`
+   now emits the entry plus reduce-only take-profit and stop-loss trigger orders
+   in a single `grouping: "normalTpsl"` action, with the shape verified against
+   the official Exchange endpoint documentation
+   (`t: { trigger: { isMarket, triggerPx, tpsl } }`) and covered by 16 tests.
+
+   **But the builder has no callers.** `TakeFlowClient.authorize()` posts the
+   literal string `{ sizeUsd, leverage, signedAction: "demo" }` — it never
+   builds, signs or submits an order.
+
+   So the effect is unchanged: **a real Take today would still open an
+   unprotected position.** What changed is that the correct bracket now exists
+   and is tested, so closing this is wiring rather than design. Three product
+   decisions must be made first, and this document will not invent them:
+
+   - which limit price the entry uses (mark, mark ± slippage, or the Pass's
+     authored entry) — a passive limit may never fill, an aggressive one may fill
+     worse than the plan promised;
+   - how `sizeUsd` and `leverage` become a base-asset size, which needs the mark
+     price and the asset's `szDecimals` from the Info API universe;
+   - the server contract: `execution-service.ts` reads
+     `input.signedPayload.exchangeRequest`, while the client currently sends
+     `signedAction`. These two shapes have to be reconciled.
 
    This must be resolved before anyone but the operator places a real order. It
    is not a display problem and not a copy problem: either the venue must
