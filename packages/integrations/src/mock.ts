@@ -248,6 +248,18 @@ export class MockX implements XPort {
     };
   }
 
+  async getAuthenticatedUser(accessToken: string): Promise<XUser> {
+    // Mock mode must never contact X, so this derives from the token the same
+    // way resolveIdentity derives from a handle. It is only reachable while
+    // X_MODE=mock; the live callback path uses LiveX.
+    return {
+      xUserId: `x_mock_${accessToken.slice(-8) || "anon"}`,
+      handle: "mockuser",
+      displayName: "Mock User",
+      avatarUrl: null,
+    };
+  }
+
   async createPost(accessToken: string, text: string): Promise<XPostResult> {
     const id = `mock_post_${text.length}_${Date.now().toString(36)}`;
     void accessToken;

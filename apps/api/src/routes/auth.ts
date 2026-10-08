@@ -310,27 +310,45 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
       scope?: string;
     };
 
-    const meRes = await fetch(
-      "https://api.x.com/2/users/me?user.fields=profile_image_url",
-      { headers: { Authorization: `Bearer ${tokens.access_token ?? ""}` } },
-    );
-    if (!meRes.ok) {
-      throw new AppError("IDENTITY_NOT_CONNECTED", "Could not resolve the X profile.");
+    /**
+     * Identity resolution goes through the provider adapter, not a bare fetch
+     * here. AGENTS.md requires provider-specific calls to live behind an
+     * integration module, and the inline version that used to be here was the
+     * reason this step failed invisibly: it discarded X's status code and body,
+     * so a 401 (bad token) and a 403 (missing users.read) were indistinguishable.
+     *
+     * `/2/users/me` with the USER access token — not `/2/users/by/username/...`,
+     * which needs a handle we do not have after an exchange, and not the app
+     * bearer token, which X answers 403 for a user-context endpoint.
+     */
+    let profile;
+    try {
+      profile = await ctx.adapters.x.getAuthenticatedUser(tokens.access_token ?? "");
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      // Logged so it is visible in the deploy logs, and returned in the error
+      // detail so the operator can see exactly what X said. The adapter has
+      // already redacted tokens from this text.
+      ctx.log.error("X identity resolution failed", {
+        path: req.url,
+        status: (err as { status?: number }).status ?? null,
+        reason,
+      });
+      throw new AppError(
+        "IDENTITY_NOT_CONNECTED",
+        `Could not resolve the X profile. ${reason}`.slice(0, 400),
+      );
     }
-    const me = (await meRes.json()) as {
-      data?: { id: string; username: string; name?: string; profile_image_url?: string };
-    };
-    if (!me.data) throw new AppError("IDENTITY_NOT_CONNECTED", "X profile not returned.");
 
     await upsertXIdentity(ctx, userId, {
-      xUserId: me.data.id,
-      handle: me.data.username,
-      displayName: me.data.name ?? null,
-      avatarUrl: me.data.profile_image_url ?? null,
+      xUserId: profile.xUserId,
+      handle: profile.handle,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
     });
     await upsertXConnection(ctx, userId, {
-      xUserId: me.data.id,
-      xHandle: me.data.username,
+      xUserId: profile.xUserId,
+      xHandle: profile.handle,
       accessToken: tokens.access_token ?? null,
       refreshToken: tokens.refresh_token ?? null,
       expiresAt: tokens.expires_in

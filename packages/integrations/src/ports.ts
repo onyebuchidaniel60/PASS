@@ -66,6 +66,19 @@ export interface XPort {
   readonly mode: RunMode;
   /** Display-only identity resolution. Requires no stored token. */
   resolveIdentity(handle: string): Promise<XUser | null>;
+  /**
+   * Resolves the profile of whoever the supplied USER access token was issued
+   * to.
+   *
+   * Distinct from `resolveIdentity`, which is a public, token-free lookup by
+   * handle. After a token exchange there is no handle to look up — the whole
+   * point of `/2/users/me` is that the token IS the subject, so no username
+   * round trip is needed and none is possible.
+   *
+   * Requires the USER access token and the `users.read` scope. The app bearer
+   * token will not work here and returns 403.
+   */
+  getAuthenticatedUser(accessToken: string): Promise<XUser>;
   /** Native post creation. Never required for sharing. */
   createPost(accessToken: string, text: string): Promise<XPostResult>;
   buildAuthorizationUrl(opts: {

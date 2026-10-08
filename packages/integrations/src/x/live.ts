@@ -3,6 +3,26 @@ import type { XPort } from "../ports.js";
 import { ProviderError, ProviderUnavailableError } from "../ports.js";
 
 /**
+ * Strips anything token-shaped out of an X error body before it is logged or
+ * returned to a client.
+ *
+ * The failure text is echoed to the operator precisely so it is diagnosable,
+ * which is also how a credential would leak if X ever echoed the Authorization
+ * header back. So this is applied to EVERY body we surface, not just the ones
+ * we expect to be safe, and it fails closed on the long opaque strings that
+ * bearer tokens are made of.
+ */
+function redactX(body: string): string {
+  if (!body) return "";
+  return body
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, "$1[redacted]")
+    .replace(/("(?:access_token|refresh_token|id_token|code|code_verifier)"\s*:\s*")[^"]*"/gi, '$1[redacted]"')
+    // Catch-all for any other long opaque credential-shaped value.
+    .replace(/\b[A-Za-z0-9_-]{40,}\b/g, "[redacted]")
+    .slice(0, 300);
+}
+
+/**
  * Live X adapter.
  * Reference: https://docs.x.com/x-api/posts/create-post
  *
@@ -30,6 +50,79 @@ export class LiveX implements XPort {
       data?: { id: string; username: string; name?: string; profile_image_url?: string };
     };
     if (!json.data) return null;
+    return {
+      xUserId: json.data.id,
+      handle: json.data.username,
+      displayName: json.data.name ?? null,
+      avatarUrl: json.data.profile_image_url ?? null,
+    };
+  }
+
+  /**
+   * Resolves the authenticated user via `GET /2/users/me`.
+   *
+   * Why `/2/users/me` and not `/2/users/by/username/{handle}`: after a token
+   * exchange there is no handle to look up. The user access token IS the
+   * subject, so `/2/users/me` needs no username round trip. `/2/users/by/...`
+   * is for looking somebody else up and is the wrong endpoint here.
+   *
+   * Token: the USER access token from the exchange, as `Authorization: Bearer`.
+   * The app bearer token is NOT interchangeable — X answers 403 for a
+   * user-context endpoint called with app-only auth.
+   *
+   * DIAGNOSABILITY. This used to fail as a bare
+   * `IDENTITY_NOT_CONNECTED: Could not resolve the X profile`, which threw away
+   * the only useful information: whether X said 401 (bad/expired token), 403
+   * (missing `users.read` or app not permitted), or 429, and what it said.
+   * The status and a redacted body now ride along on the error so an operator
+   * can tell those apart without reproducing it with curl.
+   */
+  async getAuthenticatedUser(accessToken: string): Promise<XUser> {
+    if (!accessToken) {
+      throw new ProviderError(
+        "No X access token available for identity resolution",
+        "x",
+        false,
+      );
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(
+        "https://api.x.com/2/users/me?user.fields=profile_image_url",
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+    } catch (err) {
+      throw new ProviderUnavailableError("x", String(err));
+    }
+
+    if (!res.ok) {
+      // Read the body ONCE, then include a redacted, truncated copy.
+      const raw = await res.text().catch(() => "");
+      const detail = redactX(raw);
+      throw new ProviderError(
+        `X /2/users/me returned ${res.status}${detail ? `: ${detail}` : ""}`,
+        "x",
+        res.status === 429 || res.status >= 500,
+      );
+    }
+
+    const json = (await res.json()) as {
+      data?: {
+        id: string;
+        username: string;
+        name?: string;
+        profile_image_url?: string;
+      };
+    };
+    if (!json.data?.id) {
+      throw new ProviderError(
+        `X /2/users/me returned no profile data: ${redactX(JSON.stringify(json))}`,
+        "x",
+        false,
+      );
+    }
+
     return {
       xUserId: json.data.id,
       handle: json.data.username,
