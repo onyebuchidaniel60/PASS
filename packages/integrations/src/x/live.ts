@@ -68,6 +68,22 @@ export class LiveX implements XPort {
     };
   }
 
+  /**
+   * Builds the OAuth 2.0 Authorization Code + PKCE URL.
+   *
+   * `code_challenge_method=S256` and `state` are both mandatory for PKCE, and
+   * neither is optional in practice: without `state` there is no CSRF
+   * protection on the callback, and without S256 the verifier is transmitted
+   * in a way that defeats the point of PKCE.
+   *
+   * Host is `x.com`, which is the current canonical authorize host and the one
+   * that must appear in the app's X developer settings. `twitter.com/i/oauth2`
+   * redirects, but relying on a redirect for the authorization endpoint makes
+   * the mismatch harder to diagnose when a client is misconfigured.
+   *
+   * `client_secret` is deliberately NOT included here. It must not appear in a
+   * URL: URLs are logged by browsers, proxies and the referrer chain.
+   */
   buildAuthorizationUrl(opts: {
     clientId: string;
     redirectUri: string;
@@ -84,6 +100,6 @@ export class LiveX implements XPort {
       code_challenge: opts.codeChallenge,
       code_challenge_method: "S256",
     });
-    return `https://twitter.com/i/oauth2/authorize?${p.toString()}`;
+    return `https://x.com/i/oauth2/authorize?${p.toString()}`;
   }
 }

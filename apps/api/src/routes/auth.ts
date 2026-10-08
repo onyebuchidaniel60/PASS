@@ -226,17 +226,39 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
     const userId = req.sessionUserId;
     if (!userId) throw new AppError("AUTH_REQUIRED");
 
-    const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code: query.code,
-        grant_type: "authorization_code",
-        client_id: ctx.env.X_CLIENT_ID ?? "",
-        redirect_uri: ctx.env.X_REDIRECT_URI ?? "",
-        code_verifier: stored.codeVerifier ?? "",
-      }),
-    });
+// Token exchange. Authorization Code + PKCE.
+//
+// The client secret IS required here even though PKCE already proves the
+// caller is the one who started the flow: X treats an app registered with a
+// secret as a CONFIDENT client and rejects a token request that omits it with
+// `unauthorized_client`. It is sent as HTTP Basic, which is X's documented
+// method and keeps it out of the request body where it is more likely to be
+// captured by logging middleware.
+const clientId = ctx.env.X_CLIENT_ID ?? "";
+const clientSecret = ctx.env.X_CLIENT_SECRET ?? "";
+if (!clientId || !clientSecret) {
+  throw new AppError(
+    "IDENTITY_NOT_CONNECTED",
+    "X OAuth is not configured: X_CLIENT_ID and X_CLIENT_SECRET must both be set.",
+  );
+}
+
+const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded",
+    Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+  },
+  body: new URLSearchParams({
+    code: query.code,
+    grant_type: "authorization_code",
+    client_id: clientId,
+    redirect_uri: ctx.env.X_REDIRECT_URI ?? "",
+    // The PKCE verifier minted at /auth/x/start. Without it the exchange fails
+    // even with a valid code.
+    code_verifier: stored.codeVerifier ?? "",
+  }),
+});
     if (!tokenRes.ok) {
       throw new AppError("IDENTITY_NOT_CONNECTED", "X token exchange failed.");
     }
