@@ -165,7 +165,10 @@ export function MetricCard({ label, value, unit, sub, className }: MetricCardPro
     <div className={["pass-metric-card", className].filter(Boolean).join(" ")}>
       <span className="pass-metric-card-label">{label}</span>
       <span className="pass-metric-card-value">
-        <span>{value}</span>
+        {/* The figure gets its own element so CSS can keep the FIGURE unbreakable
+  while letting the figure+unit PAIR wrap inside a narrow card. §14.5.4 wants
+   the unit on the same baseline, which it still is whenever both fit. */}
+ <span className="pass-metric-card-figure">{value}</span>
         {unit ? <span className="pass-metric-card-unit">{unit}</span> : null}
       </span>
       {sub ? <span className="pass-card-sub">{sub}</span> : null}

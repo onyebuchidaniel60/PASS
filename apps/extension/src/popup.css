@@ -98,6 +98,15 @@
 
   /* §7.1/§5.3 Interaction */
   --size-target-min: 44px;
+
+  /* Popup-local control height.
+     §5.3's 44px minimum is a TOUCH target for the mobile web app. A Chrome
+     popup is a pointer-operated desktop control panel that sits on top of a
+     page the user is already reading, so a 44px row of buttons makes the popup
+     taller than its content and reads as a page. This is the popup's own
+     value; the web app keeps --size-target-min untouched. */
+  --popup-control-height: 36px;
+
   --focus-ring: 2px solid var(--color-accent);
   --focus-ring-offset: 2px;
 
@@ -110,8 +119,12 @@
 
 body {
   margin: 0;
-  /* A popup has no content-max: the container IS the surface. */
-  inline-size: 360px;
+  /* A popup has no content-max: the container IS the surface.
+     320px, not 360px. The operator reported the popup had been widened
+   unnecessarily and that its buttons were oversized; at 360px the
+     content measured short of the edge and read as a page rather than a
+     compact utility panel. */
+  inline-size: 320px;
   font-family: var(--font-body);
   font-size: var(--type-body-m-size);
   line-height: var(--type-body-m-line);
@@ -276,7 +289,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-block-size: var(--size-target-min);
+  min-block-size: var(--popup-control-height);
   padding: var(--chip-pad-block) var(--chip-pad-inline);
   background: var(--color-accent);
   border: var(--border-width-hairline) solid var(--color-accent);
@@ -327,11 +340,11 @@ body {
 
 /* Reproduces `.pass-control` and the global input rule: --color-surface fill,
  * --border-strong border, --radius-sm radius, --space-2/--space-3 padding,
- * --size-target-min height. */
+ * --popup-control-height height (see the token note at the top). */
 .input {
   flex: 1;
   min-inline-size: 0;
-  min-block-size: var(--size-target-min);
+  min-block-size: var(--popup-control-height);
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface);
   border: var(--border-width-hairline) solid var(--color-line-strong);
@@ -354,7 +367,7 @@ body {
   background: none;
   border: 0;
   padding: 0;
-  min-block-size: var(--size-target-min);
+  min-block-size: var(--popup-control-height);
   color: var(--color-text-tertiary);
   font-family: var(--font-body);
   font-size: var(--type-body-s-size);

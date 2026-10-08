@@ -99,9 +99,29 @@ async function measure(page: Page) {
 
     const all = Array.from(document.querySelectorAll<HTMLElement>("body *"));
 
+    /**
+     * True when `el` lives inside a horizontally scrollable container.
+     *
+     * A ticker or a carousel is SUPPOSED to have children extending past the
+     * viewport — that is what makes it scrollable. Reporting them as page
+     * overflow produced 13 false positives on /discover alone (`.pass-ticker`
+     * is `overflow-x: auto` by design). Real page overflow is caught separately
+     * by the document `scrollWidth` check.
+     */
+    const insideScroller = (el: Element): boolean => {
+      let p: Element | null = el.parentElement;
+      while (p && p !== document.body) {
+        const ox = getComputedStyle(p).overflowX;
+        if (ox === "auto" || ox === "scroll") return true;
+        p = p.parentElement;
+      }
+      return false;
+    };
+
     // 1. overflow
     const overflow = all
       .filter(visible)
+      .filter((el) => !insideScroller(el))
       .map((el) => ({ el, r: el.getBoundingClientRect() }))
       .filter(({ r }) => r.right > vw + 1 || r.left < -1)
       .slice(0, 12)

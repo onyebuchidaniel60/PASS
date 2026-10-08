@@ -259,6 +259,9 @@
   letter-spacing: var(--type-label-track);
   text-transform: uppercase;
   color: var(--color-text-tertiary);
+  /* Safety net for any label longer than its track. A single tracked uppercase
+     word cannot wrap on its own, so without this it clips rather than breaks. */
+  overflow-wrap: anywhere;
 }
 
 .pass-coordinate-pair-value {
@@ -288,7 +291,12 @@
    colour-coded good/bad. A reached level is shown by the status chip. */
 .pass-coordinate-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  /* `minmax(0, 1fr)` let the tracks collapse to whatever the container was,
+     and a 375px Take-flow row gave each label 47px — narrower than the word
+     "LEVERAGE" set in tracked uppercase. Playwright measured it clipped at
+     scrollWidth 63 / clientWidth 47. An 5rem floor lets `auto-fit` drop to
+     three columns instead of squeezing five, so labels and prices both fit. */
+  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
   gap: var(--rhythm-block);
   min-width: 0;
 }
@@ -319,6 +327,14 @@
   cursor: pointer;
   border: var(--border-strong);
   border-radius: var(--radius-md);
+  /* 8.5 / WCAG 2.5.8: 44px is a floor on the BASE class, not on the size
+     variants.
+     The `data-size` rules below also set it, but a link styled as a button
+     (`<Link className="pass-btn">`) never receives `data-size`, so it rendered
+     at its natural 24px. Playwright measured `a.pass-btn "Create a Pass"` at
+     94x24px and `a.pass-btn "Connect X"` at 73x24px. Declaring it here fixes
+     every such button at once, and the variants still size upward. */
+  min-height: var(--size-target-min);
   transition: background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
@@ -436,8 +452,16 @@
   color: var(--color-text-primary);
   text-decoration: none;
   min-height: var(--size-target-min);
+  /* 8.5 / WCAG 2.5.8 applies to WIDTH as well as height. `min-height` alone
+     leaves a two-character link at 9px wide — Playwright measured
+     `a.pass-link-btn "X"` at 9x44px on /u/{slug} — which is not a target
+     anyone can hit. A short inline-min so the box stays 44x44 while the label
+     stays intrinsic. */
+  min-width: var(--size-target-min);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-2);
 }
 
 .pass-link-btn:hover {
@@ -648,9 +672,24 @@
  * every side and the hero reads as a cropped slab. The padding also gives the
  * hero its own vertical breathing room, which it had none of. */
 .pass-landing-shell {
+  /* One source of truth for the hero's gutter. The shell's own padding uses it,
+     the negative margin pulls the shell back out to the section gutter, and the
+     watermark below uses it again so the faded wordmark starts exactly on the
+     content-box edge instead of the padding edge.
+     Previously the watermark used `inset-inline: 0`, which resolves against the
+     POSITIONING ancestor's padding box, so it began 20-40px left of the headline
+     — the misalignment the operator reported. */
+  --shell-gutter: var(--layout-margin-mobile);
   padding-block: var(--space-8);
-  padding-inline: var(--layout-margin-mobile);
-  margin-inline: calc(var(--layout-margin-mobile) * -1);
+  padding-inline: var(--shell-gutter);
+  margin-inline: calc(var(--shell-gutter) * -1);
+}
+
+.pass-landing-shell .pass-watermark {
+  /* Align to the content box, not the padding box. Padding (not inset) is used
+     because `inset-*` on an absolutely positioned child resolves against the
+     padding box and would move the watermark back out to the gutter. */
+  padding-inline: var(--shell-gutter);
 }
 
 /* §14.2 the bracket frame sits INSIDE the padded shell, so the corner marks are
@@ -700,15 +739,15 @@
 
 @media (min-width: 768px) {
   .pass-landing-shell {
-    padding-inline: var(--layout-margin-tablet);
-    margin-inline: calc(var(--layout-margin-tablet) * -1);
+    /* Only the gutter value changes; padding and the negative margin both read
+       it, so they cannot drift apart at a breakpoint. */
+    --shell-gutter: var(--layout-margin-tablet);
   }
 }
 
 @media (min-width: 1024px) {
   .pass-landing-shell {
-    padding-inline: var(--layout-margin-desktop);
-    margin-inline: calc(var(--layout-margin-desktop) * -1);
+    --shell-gutter: var(--layout-margin-desktop);
   }
 }
 
@@ -819,8 +858,15 @@
   color: var(--color-text-secondary);
   text-decoration: none;
   min-height: var(--size-target-min);
+  /* 8.5 / WCAG 2.5.8 measures width too. Playwright measured the topbar nav
+     at "Help" 26-30px and "FAQs" 29-34px wide: 44px tall, but a fraction of
+   44px across. The min-width makes every destination equally hittable; the
+     padding is what actually supplies the extra pixels. */
+  min-width: var(--size-target-min);
+  justify-content: center;
   display: inline-flex;
   align-items: center;
+  padding-inline: var(--space-2);
 }
 
 .pass-nav-link:hover {
@@ -1958,10 +2004,20 @@ li[data-ghost="true"] {
 }
 
 .pass-card-action {
-  display: flex;
+  /* Intrinsic width, not container width.
+     `display: flex` on a block-level element made every card action span the
+     card's full width, which is what the operator reported as buttons "too
+     long" on /discover and "extending the full width of their container" on
+     /help. `inline-flex` shrinks the box to its content; `margin-block-start:
+     auto` still pins it to the bottom of the card body, and the arrow sits
+     beside the label rather than being pushed to opposite edges of a
+     now-narrow box. Start-aligned, which is what the card anatomy reads with
+     (its text is start-aligned). */
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--space-2);
+  align-self: flex-start;
   min-block-size: var(--size-target-min);
   margin-block-start: auto;
   padding: var(--space-2) var(--space-4);
@@ -2025,9 +2081,22 @@ li[data-ghost="true"] {
   letter-spacing: var(--type-data-l-track);
   font-variant-numeric: var(--numeric-tabular);
   color: var(--color-text-primary);
+  /* 14.5.4 wants the unit on the SAME baseline as the figure, and it stays on
+     it whenever the pair fits. But the figure alone must never be clipped: at
+   375px the grid gives two ~161px tracks, and "113,400 per ETH" is wider than
+     one, so `nowrap` pushed the unit 17px past the viewport edge.
+     `nowrap` therefore moves from this element to its children: the figure and
+     the unit each stay unbreakable, and the PAIR wraps to a second line inside
+     the card rather than escaping it. No information is lost either way. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-1);
+  min-width: 0;
+}
+
+.pass-metric-card-value > .pass-metric-card-figure {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Â§14.5.4 the unit suffix, on the SAME baseline as the value. A unit on its
