@@ -22,6 +22,7 @@ import {
   upsertXConnection,
   upsertXIdentity,
 } from "../services/profile-service.js";
+import { redactX } from "@pass/integrations";
 import { AppError } from "../errors.js";
 import { pkceChallenge, randomToken } from "../crypto.js";
 
@@ -294,21 +295,68 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
     code: query.code,
     grant_type: "authorization_code",
     client_id: clientId,
+    // Sent in the BODY as well as via Basic. X's own validation rejects a
+    // request carrying only Basic auth with `Missing required parameter
+    // [client_secret]` (verified against the live token endpoint), and repeating
+    // it in the body costs nothing while making the request valid on both of
+    // X's documented authentication styles.
+    client_secret: clientSecret,
     redirect_uri: ctx.env.X_REDIRECT_URI ?? "",
     // The PKCE verifier minted at /auth/x/start. Without it the exchange fails
     // even with a valid code.
     code_verifier: stored.codeVerifier ?? "",
   }),
 });
+    const tokenText = await tokenRes.text();
     if (!tokenRes.ok) {
-      throw new AppError("IDENTITY_NOT_CONNECTED", "X token exchange failed.");
+      throw new AppError(
+        "IDENTITY_NOT_CONNECTED",
+        `X token exchange failed (${tokenRes.status}): ${redactX(tokenText)}`.slice(0, 400),
+      );
     }
-    const tokens = (await tokenRes.json()) as {
+
+    /**
+     * Validate the BODY, not just the status.
+     *
+     * An OAuth server is allowed to answer 200 with `{"error": ...}`, and this
+     * endpoint demonstrably validates parameters strictly. Trusting `res.ok`
+     * alone meant a 200-with-an-error body flowed straight through, leaving
+     * `tokens.access_token` undefined — and the next call then went out as
+     * `Authorization: Bearer ` with an EMPTY token, which X answers 401. The
+     * symptom was an identity-resolution failure several steps away from the
+     * real cause.
+     */
+    let tokens: {
       access_token?: string;
       refresh_token?: string;
       expires_in?: number;
       scope?: string;
+      error?: string;
+      error_description?: string;
     };
+    try {
+      tokens = JSON.parse(tokenText) as typeof tokens;
+    } catch {
+      throw new AppError(
+        "IDENTITY_NOT_CONNECTED",
+        `X token response was not JSON: ${redactX(tokenText)}`.slice(0, 400),
+      );
+    }
+    if (tokens.error) {
+      throw new AppError(
+        "IDENTITY_NOT_CONNECTED",
+        `X token exchange returned an error: ${tokens.error} ${tokens.error_description ?? ""}`.slice(
+          0,
+          400,
+        ),
+      );
+    }
+    if (!tokens.access_token) {
+      throw new AppError(
+        "IDENTITY_NOT_CONNECTED",
+        `X token response contained no access_token: ${redactX(tokenText)}`.slice(0, 400),
+      );
+    }
 
     /**
      * Identity resolution goes through the provider adapter, not a bare fetch

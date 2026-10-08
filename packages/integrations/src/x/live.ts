@@ -12,7 +12,7 @@ import { ProviderError, ProviderUnavailableError } from "../ports.js";
  * we expect to be safe, and it fails closed on the long opaque strings that
  * bearer tokens are made of.
  */
-function redactX(body: string): string {
+export function redactX(body: string): string {
   if (!body) return "";
   return body
     .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, "$1[redacted]")

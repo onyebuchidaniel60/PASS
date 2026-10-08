@@ -20,7 +20,7 @@ export { LiveHyperliquid, SplitHyperliquid } from "./hyperliquid/live.js";
 export { HyperliquidInfoClient } from "./hyperliquid/info.js";
 export { HyperliquidExchangeClient } from "./hyperliquid/exchange.js";
 export { LiveEthos } from "./ethos/live.js";
-export { LiveX } from "./x/live.js";
+export { LiveX, redactX } from "./x/live.js";
 
 export interface Adapters {
   hyperliquid: HyperliquidPort;
