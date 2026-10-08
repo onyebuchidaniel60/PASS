@@ -7,105 +7,118 @@ routes: 14
 ROUTE / @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /discover @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.visually-hidden "Open BTC long Pass" 1x1px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /p/UvvuxpWPZ4 @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
-  above-fold: status=span.pass-badge "Expired" visible@348px | asset=h1.pass-display "BTCLONG" visible@189px | metrics=div.pass-metric-cards "Entry113,400per ETHTake profit116,000per" visible@608px | cta=button.pass-btn "Take Pass" below-fold@2927px
+  above-fold: status=span.pass-badge "Expired" visible@348px | asset=h1.pass-display "BTCLONG" visible@189px | metrics=div.pass-metric-cards "Entry113,400per ETHTake profit116,000per" visible@608px | cta=button.pass-btn "Take Pass" below-fold@2944px
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /u/turnttfup99 @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-link-btn "X" 9x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /passes/UvvuxpWPZ4/take @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /help @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /faqs @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /how-it-works @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /contact @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
 ROUTE /me/passes @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-btn "Create a Pass" 94x24px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
-  network: 1 failures (401 pass-api-production.up.railway.app/api/v1/me)
+  network: 0 failures
 
 ROUTE /me/executions @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
-  network: 1 failures (401 pass-api-production.up.railway.app/api/v1/me)
+  network: 0 failures
 
 ROUTE /settings @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
-  network: 1 failures (401 pass-api-production.up.railway.app/api/v1/me)
+  network: 0 failures
 
 ROUTE /onboarding @ desktop 1280x800  [http 200]
   overflow: 0
   overlap: 0
-  target-size: a.pass-nav-link "Profile" 40x44px | button.pass-btn "Connect X" 73x24px | a.pass-nav-link "Profile" 40x44px | a.pass-nav-link "FAQs" 34x44px | a.pass-nav-link "Help" 30x44px
+  target-size: 0
   clipped-text: 0
+  full-width-actions: 0
   console: 0 errors
   network: 0 failures
 
@@ -113,7 +126,5 @@ ROUTE /gallery @ desktop 1280x800  [http 404]
   expected-404: ok
 
 === SUMMARY ===
-total findings: 72
+total findings: 3
   console: 3
-  network: 3
-  target-size: 66

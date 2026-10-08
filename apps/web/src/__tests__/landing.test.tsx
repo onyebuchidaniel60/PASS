@@ -432,9 +432,24 @@ describe("Footer and hero shell layout regression (14.15)", () => {
   });
 
   it("widens the hero shell gutter at the same breakpoints", () => {
-    expect(mediaBlocksFor(".pass-landing-shell")).toMatch(
-      /\.pass-landing-shell \{[\s\S]{0,300}padding-inline/,
-    );
+    // The gutter is now ONE custom property. The shell's padding, its negative
+    // margin and the watermark's padding all read it, so the three cannot
+    // drift apart at a breakpoint — which is exactly what the old
+    // padding-inline-per-breakpoint arrangement allowed.
+    const blocks = mediaBlocksFor(".pass-landing-shell");
+    expect(blocks).not.toBe("");
+    expect(blocks).toMatch(/--shell-gutter/);
+    // The base rule declares it and uses it for both padding and margin.
+    const base = ruleFor(".pass-landing-shell");
+    expect(base).toMatch(/--shell-gutter:/);
+    expect(base).toContain("padding-inline: var(--shell-gutter)");
+    expect(base).toContain("margin-inline: calc(var(--shell-gutter) * -1)");
+    // And the watermark reads the same property, not a literal margin token.
+    const at = css.indexOf(".pass-landing-shell .pass-watermark");
+    expect(at).toBeGreaterThan(-1);
+    const open = css.indexOf("{", at);
+    const body = css.slice(open + 1, css.indexOf("}", open));
+    expect(body).toContain("padding-inline: var(--shell-gutter)");
   });
 
   it("gives the clipped hero shell padding, so the clip has something to spare", () => {

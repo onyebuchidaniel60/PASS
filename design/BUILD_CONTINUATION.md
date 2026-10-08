@@ -321,7 +321,79 @@ than throwing was recorded as a real execution with an empty `provider_order_id`
 Everything visual, and unchanged: no browser automation. The §4 operator
 checklist still applies. `pnpm run check` is green at **578 tests**.
 
-## 11. Standing constraints
+## 11. Playwright verification is live — measure, do not guess
+
+The "no browser" period is over. `pnpm --filter @pass/web verify` runs 14 routes
+at 375x812 and 1280x800 and writes
+[`design/verify/latest-mobile.txt`](./verify/latest-mobile.txt) and
+[`latest-desktop.txt`](./verify/latest-desktop.txt).
+
+It measures overflow, overlap, target size, clipped text, full-width card
+actions, above-fold landmarks on Pass detail, console errors and non-2xx API
+responses. Findings are collected as DATA, not thrown, so one broken route
+cannot hide the other thirteen. It is deliberately NOT in `pnpm check` — it needs
+a running server.
+
+### Run it against production, not `next dev`
+
+`E2E_BASE_URL=https://pass-web-dun.vercel.app pnpm --filter @pass/web verify`
+
+Against `next dev` every API call is **CORS-blocked** (origin
+`http://localhost:3000` is not in `CORS_ORIGINS`), so every data-driven screen
+renders its error state and the whole report is meaningless. It is also ~12x
+slower: 20 minutes per viewport cold versus 1.6 minutes.
+
+### Three harness false positives, learned by running it
+
+The first run reported 86 mobile findings. Most were the harness's fault, and
+fixing them was as important as fixing the app:
+
+- **Decorative layers counted as overlaps.** `.pass-wash-layer`, `.pass-grain`
+  and `.pass-watermark` sit behind content by design (14.1) and were reported as
+  colliding with everything. Now excluded structurally: inert
+  (`pointer-events: none`) AND behind content (negative z-index, or a known
+  decorative class).
+- **`.visually-hidden` links counted as targets.** They are 1x1 on purpose and
+  were 14 findings on /discover alone.
+- **Ticker children counted as overflow.** `.pass-ticker` is `overflow-x: auto`
+  by design; 13 findings. Elements inside a horizontally scrollable ancestor are
+  now excluded, and real page overflow is caught separately by the document
+  `scrollWidth` check.
+
+Also: `channel: "chromium"` because the headless-shell download fails on DNS
+here; `waitUntil: "load"` because `networkidle` never settles against a dev
+server's HMR websocket; and 401 on `/api/v1/me` is allowlisted because the
+harness runs signed out and that is the auth gate working.
+
+### Result: 86 findings down to 3
+
+Overflow, overlap, target size, clipped text and full-width card actions are now
+**0 on all 14 routes at both viewports**. The 3 remaining are the browser's own
+automatic console log for the signed-out `401` on `/api/v1/me`.
+
+Real defects found and fixed, each traced to a measurement — see the
+`fix(design)` commit. The root cause behind three of them was `.pass-btn` having
+no `min-height` on its base class, so every link-styled-as-button rendered at
+24px instead of 44px.
+
+### The finding this harness could not fix
+
+**The Pass detail "Take Pass" CTA sits at y=2944px on a 1280x800 viewport and
+y=3169px on 375x812** — roughly four viewports down, on the screen whose entire
+job is converting a reader into a Taker.
+
+This is **recorded, not fixed**, because `DESIGN.md` does not cover it. §8.4
+sanctions a fixed bottom *navigation* bar on mobile and §10.3 puts the CTA after
+the thesis, but nothing authorises a sticky or pinned CTA bar. AGENTS.md is
+explicit: if a screen needs a visual decision `DESIGN.md` does not cover, stop
+and record the gap rather than invent visual language.
+
+Options for whoever decides this: a sticky mobile action bar (needs a §8.4-style
+reserved-clearance token so content is never occluded), a floating Take button,
+or moving the CTA above the long sections. All three are design decisions with
+conversion consequences.
+
+## 12. Standing constraints
 
 - No browser automation. Nothing here is visually verified. Stage K.2 stays open.
 - No UI framework, no component library, no animation library.

@@ -229,6 +229,30 @@ async function measure(page: Page) {
       cta: findLandmark(['a[href*="/take"] button', ".pass-landing-cta-primary"]),
     };
 
+    // 7. card actions must be intrinsic width, not container width.
+    // This is the specific regression the operator reported on /help ("Read more"
+    // spanning the card) and /discover (card action spanning the card), and it
+    // is invisible to the overflow check because a full-width button does not
+    // overflow — it just looks wrong.
+    const fullWidthActions = Array.from(
+      document.querySelectorAll<HTMLElement>(".pass-card-action"),
+    )
+      .filter(visible)
+      .filter((el) => {
+        const parent = el.parentElement;
+        if (!parent) return false;
+        const pr = parent.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        // Within 4px of the container it is being stretched, not sized.
+        return r.width > pr.width - 4;
+      })
+      .slice(0, 6)
+      .map((el) => {
+        const pr = el.parentElement!.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        return `${describe(el)} ${Math.round(r.width)}px in a ${Math.round(pr.width)}px container`;
+      });
+
     return {
       viewport: `${vw}x${vh}`,
       documentScrollWidth: document.documentElement.scrollWidth,
@@ -236,6 +260,7 @@ async function measure(page: Page) {
       overlap,
       targets,
       clipped,
+      fullWidthActions,
       aboveFold,
     };
   }, MIN_TARGET);
@@ -331,6 +356,7 @@ test.describe("PASS screen verification", () => {
           }`,
         );
       }
+      report.push(`  full-width-actions: ${m.fullWidthActions.length === 0 ? "0" : m.fullWidthActions.join(" | ")}`);
       report.push(`  console: ${consoleErrors.length} errors${
         consoleErrors.length ? ` (${[...new Set(consoleErrors)].slice(0, 3).join(" ; ")})` : ""
       }`);
