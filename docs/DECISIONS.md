@@ -308,3 +308,63 @@ requirement to split the worker out before real load or production SLA.
 
 **Expiry:** D-020 is MVP-only. It must be revisited before any real traffic,
 any paying user, or any production SLA.
+
+## D-021 - Hyperliquid reads and execution are gated by separate flags
+
+**Date:** 2026-10-07
+**Status:** Accepted. In force.
+
+### Context
+
+`HYPERLIQUID_MODE` controlled one `LiveHyperliquid` object that implemented the
+whole `HyperliquidPort`: Info API reads (`allMids`, `l2Book`, `clearinghouseState`,
+`userFills`) *and* Exchange API writes (`relaySignedAction`,
+`relayApproveAgent`). `relaySignedAction` submits a real signed order to
+Hyperliquid mainnet.
+
+That made "give me live market data" and "allow real orders" the same switch.
+The operator asked for live reads with execution explicitly withheld, and there
+was no way to express that state: setting the flag for the first thing armed the
+second. The configuration in which PASS can accidentally trade real money was one
+environment variable away.
+
+### Decision
+
+Split the gate.
+
+- `HYPERLIQUID_READS_MODE` - Info API reads. Needs `HYPERLIQUID_INFO_URL` only,
+  which is public and credential-free (D-018.9).
+- `HYPERLIQUID_MODE` - Exchange API writes. Retained as the single switch for a
+  fully live venue. Still requires **both** flags, so the read-only flag cannot
+  arm an order by itself.
+- `SplitHyperliquid` implements both halves independently and rejects, at
+  construction, the one combination that must never run: **live writes with mock
+  reads**. Real orders against simulated prices is the single state capable of
+  convincing a Taker to trade on a number that is not the market's.
+- With writes gated off, `relaySignedAction` and `relayApproveAgent` return an
+  explicit rejection and make **no network call**.
+- `getOrderStatus` follows the reads flag, because it is an Info API call.
+- `/health` and the UI report `hyperliquidReads` and `hyperliquidExecution`
+  separately. The combined `hyperliquid` mode is `live` only when both halves
+  are, so any consumer not yet updated still gets the conservative answer.
+- The demo banner names only the surfaces that are simulated, and states
+  explicitly that orders cannot be placed while execution is mock.
+
+### Consequences
+
+- "Live reads, no execution" is representable, and the deployed state is
+  exactly that: `hyperliquidReads: live`, `hyperliquidExecution: mock`.
+- A Taker can see real prices on a deployment that cannot trade. That is honest
+  and it is the point; the banner has to say so in words, which it does.
+- Two flags instead of one is one more thing to set. Accepted: the cost of
+  misconfiguring this particular pair is an unfunded trader's real order.
+- `execution-service.ts` now treats a **returned** rejection as a rejection. It
+  previously only handled a thrown one, so a rejected relay would have been
+  recorded as a real execution with an empty `provider_order_id`.
+
+### Related
+
+`docs/EXECUTION_READINESS.md` records the current execution posture. It is not
+ready: a Take today sends a single entry order with no take-profit or stop-loss
+leg. That is unrelated to this decision and must be fixed before anyone but the
+operator places a real order.
