@@ -541,3 +541,54 @@ Stage C — verify the Create Pass flow in the browser. That gate is
 currently API-only per the stage-gate audit. Run it after the operator
 completes the Stage B browser verification above, since authoring a Pass
 requires the session this section just repaired.
+
+## 15. Stage B fix — callback signs into the owning user (2026-10-09)
+
+Deployed at `63748cb` (`fix(auth): sign session-less X callback into the
+owning user`). API redeploy `43187b96` SUCCESS; `/health` modes unchanged
+(`hyperliquidReads: live`, `hyperliquidExecution: mock`, `ethos: live`,
+`x: live`).
+
+### The bug
+
+With consent working, the callback threw `INTERNAL_ERROR` on every
+sign-in: `duplicate key value violates unique constraint
+"x_connections_x_user_id_key"` (API log, 08:14 UTC). The session-less
+callback created a fresh user *before* X had identified them; the
+`x_connections` insert then collided with the row the same X account
+already owned under its original user (bound pre-proxy). The `x_user_id`
+unique index proves the conflicting row belonged to a different user —
+the `onConflictDoUpdate({target: userId})` arbiter would otherwise have
+handled it silently.
+
+### The fix
+
+`getIdentityByProviderSubject` (`profile-service.ts`) resolves
+`(provider, provider_subject_id)` → owning user (`DATA_MODEL.md` §2).
+The callback now defers user creation until after `/2/users/me`: known
+identity → session for the owning user with the existing upserts (no new
+rows); unknown identity → previous create-then-attach behaviour. The
+signed-in (reconnect) path is unchanged. No binding is reassigned, no
+rows deleted, no migration. `CREDENTIALS_SWAP.md` §X corrected to the
+proxied callback URL.
+
+### Tests
+
+`apps/api/src/routes/auth-callback.test.ts` (2 tests, PGlite + stubbed
+token endpoint): pre-fix run failed with the byte-identical
+`INTERNAL_ERROR` body; post-fix both pass. Full `pnpm test` (102 + 535)
+and `pnpm run check` green.
+
+### Residual (recorded, not fixed)
+
+A signed-in user linking an X account bound to *another* user still hits
+the same unique violation (loud 500, no silent reassignment). Changing
+that path would be a behaviour decision beyond the brief; it is left
+exactly as specified.
+
+### Still operator-side
+
+Fresh-incognito X sign-in against the deployed URL (topbar chip, cookie
+scope, refresh persistence) — no browser in this environment. Task 0's
+prod row counts were also unobtainable from here (no public DB proxy, no
+SSH keys); the prod log line is the evidence of record.
