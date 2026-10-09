@@ -39,7 +39,6 @@ import Link from "next/link";
 
 import { Button } from "@/components/wave2/controls";
 import { clientGet, clientPost } from "@/lib/client";
-import { API_URL } from "@/lib/api";
 
 /** The slice of `GET /api/v1/me` this control needs. */
 interface MeIdentity {
@@ -127,8 +126,12 @@ export function XIdentityControl() {
             // Full navigation, not a client-side fetch. The backend 302s to X,
             // and PKCE + state are minted server-side, so there is nothing to do
             // in JS — and a router.push would not follow the 302.
+            // Stage B: same-origin so the whole OAuth round trip stays on the
+            // Vercel domain via the Next rewrite proxy (see next.config.mjs).
+            // The previous cross-origin call left the session cookie
+            // Railway-scoped and invisible to /me.
             if (typeof window !== "undefined") {
-              window.location.assign(`${API_URL}/api/v1/auth/x/start`);
+              window.location.assign("/api/v1/auth/x/start");
             }
           }}
         >

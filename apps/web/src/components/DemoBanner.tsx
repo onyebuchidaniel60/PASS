@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { API_URL } from "@/lib/api";
-
 /**
  * Demo-mode banner — accurate about WHICH surfaces are simulated.
  *
@@ -70,7 +68,10 @@ export function DemoBanner() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_URL}/health`, { cache: "no-store" })
+    // Stage B: same-origin via the Next rewrite proxy (see next.config.mjs).
+    // /health carries no session, but a relative fetch keeps one code path
+    // and avoids a second CORS origin.
+    fetch("/health", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((body: Health) => {
         if (!cancelled) setHealth(body);

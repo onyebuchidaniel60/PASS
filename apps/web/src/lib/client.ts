@@ -1,17 +1,22 @@
 "use client";
 
-import { API_URL } from "./api";
-
 /**
  * Browser-side API calls. Same-origin session cookies are included so the
  * server can resolve the user. Never sends key material
  * (docs/DECISIONS.md D-018.9).
+ *
+ * Stage B: same-origin ONLY. The path is fetched as-is (e.g. "/api/v1/me"),
+ * which Next rewrites to the API (see next.config.mjs). A previous version
+ * prefixed every path with NEXT_PUBLIC_API_URL, which made the browser call
+ * the Railway domain cross-origin — and a SameSite=Lax session cookie is
+ * never sent on cross-site fetch, so /me could never see the session the
+ * OAuth callback had just written. Do not reintroduce the prefix.
  */
 export async function clientApi<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {
     credentials: "include",
     ...init,
     headers: {

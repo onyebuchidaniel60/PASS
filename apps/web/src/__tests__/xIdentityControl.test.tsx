@@ -23,7 +23,6 @@ vi.mock("@/lib/client", () => ({
   clientGet: (...a: unknown[]) => mockGet(...a),
   clientPost: (...a: unknown[]) => mockPost(...a),
 }));
-vi.mock("@/lib/api", () => ({ API_URL: "https://api.test" }));
 
 const CONNECTED = {
   x: {

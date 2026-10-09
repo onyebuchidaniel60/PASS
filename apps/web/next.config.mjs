@@ -28,12 +28,41 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  */
 const isProduction = process.env.NODE_ENV === "production";
 
+// Stage B: same-origin session via Next rewrite proxy.
+//
+// The browser must never call the Railway API domain directly. A
+// SameSite=Lax session cookie is not sent on cross-site fetch, so a
+// cross-origin /me can never see the session the OAuth callback wrote.
+// All browser traffic goes to same-origin /api/v1/* (and /health), which
+// Next proxies to the API. The Set-Cookie then comes back via the Vercel
+// domain, so the cookie is Vercel-scoped and Lax is correct (it stays Lax;
+// relaxing to None would weaken the spec to make the bug pass, which
+// AGENTS.md forbids). Server components keep using NEXT_PUBLIC_API_URL
+// directly (see src/lib/api.ts); only browser fetches go through here.
+const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000").replace(
+  /\/$/,
+  "",
+);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   // Workspace packages ship TypeScript source directly.
   transpilePackages: ["@pass/contracts", "@pass/ui"],
   eslint: { ignoreDuringBuilds: true },
+
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${apiBase}/api/v1/:path*`,
+      },
+      {
+        source: "/health",
+        destination: `${apiBase}/health`,
+      },
+    ];
+  },
 
 webpack(config) {
     if (isProduction) {
