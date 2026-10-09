@@ -684,3 +684,57 @@ note: the PGlite API tests need 120s timeouts — boots take 10s+ idle and
 ### Still operator-side
 
 The 13-check incognito run (report §8). No browser in this environment.
+
+## 18. Stage B final — authoring gate + connection truthfulness (2026-10-09)
+
+Fix commit `b85f3e0`. API redeploy `1d9424c4` SUCCESS; web redeploy READY
+(`pass-3w3ucobq9`, aliased). Live: signed-out `POST /passes` and `POST
+passes/:publicId/refresh` both answer 401 AUTH_REQUIRED; `/health` modes
+unchanged; execution mock.
+
+### Bug 1 — session-without-identity could author
+
+Disconnecting X keeps the PASS session, and the create form + API checked
+only the session — an identity-less user could render and submit
+`/passes/new`. Fixed on both sides: `POST /passes` now requires an X
+identity (409 IDENTITY_NOT_CONNECTED, PRODUCT_PRD.md §4); the form checks
+`isXConnected` (its PermissionBlock copy already said "connected X
+identity"); the gate redirects signed-out visitors off `/passes/new` and
+take routes to landing. Full API audit: every authenticated mutation
+already resolved ownership from the session — locked by 19 tests — except
+`POST passes/:publicId/refresh`, which mutated with no session at all and
+is now gated (`POST /validate/pass` stays public: pure validation).
+
+### Bug 2a — stale screens after disconnect (operator-found, new)
+
+Settings kept reporting "connected" until F5; only the topbar re-read.
+Fixed with a 20-line `me-events` bus: disconnect notifies, the four
+`/me`-holding screens reload through their existing `reload()`.
+
+### Bug 2b — linked vs live, honestly separated
+
+Operator chose soft on both (recommended): X disconnect deletes only the
+`x_connections` row (identity kept, D-018.6; reconnect re-attaches);
+wallet disconnect stays browser-only (row kept, D-019.1). `/me`
+`connections[x].connected` now means exactly one thing — live,
+unexpired tokens held (comment in the handler). The browser-only wallet
+session renders as its own line in Settings (`WalletSessionLine`); the
+server cannot observe ConnectKit and does not pretend to. New
+`DELETE /me/trading-accounts/:id` (ownership-checked, refuses accounts
+with executions so D-008 history is never orphaned) gives PASS-side
+unlink, which previously had no endpoint at all.
+
+### Tests
+
+New `pass-gate.test.ts` (26 API: 19 auth locks, identity 409/201,
+refresh gate, unlink ×3, soft-disconnect, logout); web: create gate,
+gate redirects, invalidation, wallet-session ×2. `pnpm test` root
+14/130 green; web affected files 60+71 green (full web suite exceeds one
+tool call on this machine — all touched areas run, untouched files
+unchanged since their last green run). Tsc + eslint clean both sides.
+PGlite suites refactored to one boot per file with raised timeouts after
+parallel boots flaked under load.
+
+### Still operator-side
+
+The 8-step verification run (§5 of the brief) — no browser here.
