@@ -592,3 +592,50 @@ Fresh-incognito X sign-in against the deployed URL (topbar chip, cookie
 scope, refresh persistence) — no browser in this environment. Task 0's
 prod row counts were also unobtainable from here (no public DB proxy, no
 SSH keys); the prod log line is the evidence of record.
+
+## 16. Stage B fix — flat `/me` shape crash (2026-10-09)
+
+Fix commit `fce6fe2`. API redeploy `50992b71` SUCCESS; web redeploy Ready
+(Production). `/health` modes unchanged; `/` serves 200, `/api/v1/me`
+answers 401 signed out.
+
+### The bug
+
+First successful sign-in crashed every page: `Uncaught TypeError: Cannot
+read properties of undefined (reading 'connected')` in the root-layout
+bundle (operator console paste). `XIdentityControl` (mounted in the root
+layout, so global) read `me.x.connected`, but `GET /api/v1/me` returns a
+FLAT payload (`userId, profileSlug, displayName, connections[],
+tradingAccounts[], demoMode`) — the nested `x` object never existed on
+the wire. It compiled because `clientGet<T>` is an unchecked cast, and
+every one of the 16 control tests mocked the invented nested shape. The
+`try/catch` in `load()` could not save it: the 200 response stored fine
+and the throw happened during render. `XConnectedNotice` had the same
+latent read (`state.data.x.handle`).
+
+### The fix
+
+Canonical shape is the flat `connections[]` array: `API_CONTRACTS.md`
+§2/§5 are silent on `/me` fields (recorded gap — the contract should pin
+them), while the flat shape is what the API returns and what
+`SettingsClient` and the guards already consume. Pure client-side mapping
+was impossible without parsing the display `label`, so the API gained one
+ADDITIVE field — `handle` on the x `connections[]` entry (connection
+handle, else identity username, else null). Both nested readers now
+derive through the total `xConnection()` selector (`apps/web/src/lib/me.ts`);
+unknown shapes map to signed out, never throw. The dead `avatarUrl` /
+`displayName` fields (declared, never rendered) were dropped from the
+control's view-model.
+
+### Tests
+
+16 control mocks rewritten to flat payloads plus a literal-payload
+regression test; new `me.test.ts` (selector totality); new API contract
+test pinning the `handle` field (connected / display-only paths). `pnpm
+test` (104 + 539) and `pnpm run check` green.
+
+### Still operator-side
+
+The 6-check browser re-run (signed-out load, sign-in, landing without
+error boundary, chip, clean console, refresh persistence) — no browser
+in this environment.
