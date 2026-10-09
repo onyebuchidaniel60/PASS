@@ -464,3 +464,80 @@ The Pass detail "Take Pass" CTA remains ~3000px down (§11). Recorded, not fixed
 - `NEXT_PUBLIC_API_URL` must be set to build locally.
 - §14 is an addition sourced from the references. It is not permission to
   retro-fit whatever was already built.
+
+## 14. Stage B closure — same-origin session via Next rewrite (2026-10-09)
+
+Deployed at `1757bee` (`fix(auth): same-origin session via Next rewrite`).
+Live: `https://pass-web-dun.vercel.app`.
+
+### The bug
+
+The X OAuth round trip completed and the identity was written, but the
+session was invisible to the web app: the browser called the Railway API
+domain cross-origin (`NEXT_PUBLIC_API_URL` prefix in `client.ts`), and a
+`SameSite=Lax` session cookie is never sent on cross-site fetch — so `/me`
+always answered 401, onboarding never recognised the connection, and the
+topbar never showed the handle. The callback's `Set-Cookie` was also
+Railway-scoped (`X_REDIRECT_URI` pointed at the Railway domain), so the
+Vercel domain never held a session at all.
+
+### The fix — Option A (rewrite proxy)
+
+1. `apps/web/next.config.mjs` — `rewrites()`: `/api/v1/:path*` and
+   `/health` proxy to `NEXT_PUBLIC_API_URL`. Server components
+   (`src/lib/api.ts`) still call the API directly; only browser traffic
+   goes through the proxy.
+2. `src/lib/client.ts` — same-origin `fetch(path)`; the `API_URL` prefix
+   is removed and must not be reintroduced.
+3. `XIdentityControl` — start navigates to `/api/v1/auth/x/start`
+   (same-origin), so the whole round trip stays on the Vercel domain.
+4. `DemoBanner` — `/health` same-origin; no second CORS origin.
+5. Railway `X_REDIRECT_URI` →
+   `https://pass-web-dun.vercel.app/api/v1/auth/x/callback`, so the
+   callback's `Set-Cookie` is Vercel-scoped via the proxy.
+
+The cookie is unchanged (`HttpOnly`, `SameSite=Lax`, `Secure` in
+production, `Path=/`, no `Domain`) — Lax is correct for same-origin and
+satisfies `SECURITY_SPEC.md` §8 and `API_CONTRACTS.md` §2. Relaxing to
+`None` to make the cross-site call pass was rejected: fix the
+architecture, not the spec. No `NEXT_PUBLIC_*` variable carries a secret
+(URLs only, per `DEPLOYMENT_OPERATIONS.md` §5).
+
+### Verified from here (HTTP layer, no browser in this environment)
+
+- `GET /health` via the Vercel domain → 200, live modes
+  (`hyperliquidReads: live`, `hyperliquidExecution: mock`, `ethos: live`,
+  `x: live`).
+- `GET /api/v1/me` via the Vercel domain → 401 with `X-Railway-*`
+  headers: the proxy reaches the API and the auth gate answers.
+- `GET /api/v1/auth/x/start` via the Vercel domain → 302 to
+  `x.com/i/oauth2/authorize` with `redirect_uri` set to the proxied
+  Vercel callback URL: the round trip is same-origin and the API picked
+  up the new `X_REDIRECT_URI`.
+- `tsc --noEmit` clean; web suite 535 passed (pre-deploy run).
+
+### Stage B status: code-complete, operator verification outstanding
+
+The mechanism is deployed, but steps 4–8 of the session brief (incognito
+sign-in, `?x=connected` landing, cookie scoped to `pass-web-dun.vercel.app`,
+refresh persistence, disconnect, re-connect without looping) need a real
+browser with X consent and are **not verified**. Two operator actions are
+required first:
+
+1. **X developer portal:** the app's OAuth callback URL must be updated to
+   `https://pass-web-dun.vercel.app/api/v1/auth/x/callback`. X rejects a
+   `redirect_uri` that is not registered, so sign-in fails until this is
+   done.
+2. **Incognito run** of brief steps 1–8 against the deployed URL, checking
+   DevTools → Application → Cookies for a `pass_session` cookie scoped to
+   `pass-web-dun.vercel.app`.
+
+If the proxied `Set-Cookie` is ever observed stripped (Vercel behaviour
+change), fall back to Option B (one-time token handoff) per the brief.
+
+### Next task
+
+Stage C — verify the Create Pass flow in the browser. That gate is
+currently API-only per the stage-gate audit. Run it after the operator
+completes the Stage B browser verification above, since authoring a Pass
+requires the session this section just repaired.
