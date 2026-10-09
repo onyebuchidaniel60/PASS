@@ -116,6 +116,30 @@ export async function getXIdentity(ctx: AppContext, userId: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * Resolves an external identity back to its owning PASS user
+ * (`docs/DATA_MODEL.md` §2, `UNIQUE(provider, provider_subject_id)`).
+ *
+ * The X callback uses this on the session-less sign-in path: an X account
+ * that already belongs to a PASS user must sign into THAT user, never mint
+ * a second user whose `x_connections` insert then collides on the unique
+ * `x_user_id` index.
+ */
+export async function getIdentityByProviderSubject(
+  ctx: AppContext,
+  provider: "x" | "ethos",
+  subject: string,
+) {
+  const rows = await ctx.db
+    .select()
+    .from(identities)
+    .where(
+      and(eq(identities.provider, provider), eq(identities.providerSubjectId, subject)),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getEthosProfile(ctx: AppContext, userId: string) {
   const rows = await ctx.db
     .select()

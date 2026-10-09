@@ -14,6 +14,7 @@ import {
 import {
   createProfile,
   getEthosProfile,
+  getIdentityByProviderSubject,
   getProfileByUserId,
   getTradingAccounts,
   getXConnection,
@@ -254,19 +255,20 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
      *  1. a live session exists  -> attach X to that user (reconnect);
      *  2. the state row recorded a userId at /start -> same, across the redirect
      *     where the cookie may not have survived;
-     *  3. neither -> CREATE a PASS user. This is the first-time path, and it is
-     *     the reason the callback must not call requireUser: X has now told us
-     *     who the user is, which is strictly more information than a session
-     *     cookie we would have required before starting.
+     *  3. neither -> the owning user is resolved AFTER X tells us who the user
+     *     is (see below): a known X identity signs into its existing user, and
+     *     a new PASS user is created only for a genuinely new identity.
+     *
+     * User creation deliberately does NOT happen here. Creating the user
+     * before the identity is known minted a second user on every session-less
+     * sign-in, whose `x_connections` insert then collided with the row the X
+     * account already owned (`INTERNAL_ERROR`, unique `x_user_id`). This is
+     * also the reason the callback must not call requireUser: X has now told
+     * us who the user is, which is strictly more information than a session
+     * cookie we would have required before starting.
      */
     const boundUserId = req.sessionUserId ?? stored.userId ?? null;
-    let userId = boundUserId;
-    if (!userId) {
-      const inserted = await ctx.db.insert(users).values({}).returning();
-      const created = inserted[0];
-      if (!created) throw new AppError("INTERNAL_ERROR", "Could not create the user.");
-      userId = created.id;
-    }
+    let userId: string | null = boundUserId;
 
 // Token exchange. Authorization Code + PKCE.
 //
@@ -386,6 +388,30 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
         "IDENTITY_NOT_CONNECTED",
         `Could not resolve the X profile. ${reason}`.slice(0, 400),
       );
+    }
+
+    /**
+     * Resolve the owning user NOW that X has identified them.
+     *
+     * A session-less sign-in for a KNOWN X identity must land on the user
+     * that already owns the identity — minting a fresh user here is the
+     * defect that collided on the unique `x_connections.x_user_id` index.
+     * A new PASS user is created only when no identity row exists for this
+     * X subject, i.e. a genuinely first-time identity.
+     *
+     * The signed-in path (boundUserId set) is unchanged: X attaches to the
+     * current session's user.
+     */
+    if (!userId) {
+      const existing = await getIdentityByProviderSubject(ctx, "x", profile.xUserId);
+      if (existing) {
+        userId = existing.userId;
+      } else {
+        const inserted = await ctx.db.insert(users).values({}).returning();
+        const created = inserted[0];
+        if (!created) throw new AppError("INTERNAL_ERROR", "Could not create the user.");
+        userId = created.id;
+      }
     }
 
     await upsertXIdentity(ctx, userId, {

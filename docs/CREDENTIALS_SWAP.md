@@ -130,7 +130,12 @@ railway up --service pass-api
 | Where | API |
 | Obtain | Create an app in the X developer portal with OAuth 2.0 + PKCE. Enable the scopes `tweet.read tweet.write users.read offline.access` |
 
-Set `X_REDIRECT_URI` to `https://pass-api-production.up.railway.app/api/v1/auth/x/callback`.
+Set `X_REDIRECT_URI` to `https://pass-web-dun.vercel.app/api/v1/auth/x/callback`.
+
+The callback must be same-origin with the web app: the browser calls the API
+through the Next rewrite proxy (see `apps/web/next.config.mjs`), so the
+session cookie the callback sets is Vercel-scoped. A Railway-scoped callback
+URL leaves the session invisible to the web app (Stage B).
 
 **Swap step**
 
@@ -139,7 +144,7 @@ railway variables set --service pass-api \
   X_MODE=live \
   X_CLIENT_ID=<id> \
   X_CLIENT_SECRET=<secret> \
-  X_REDIRECT_URI=https://pass-api-production.up.railway.app/api/v1/auth/x/callback
+  X_REDIRECT_URI=https://pass-web-dun.vercel.app/api/v1/auth/x/callback
 railway up --service pass-api
 ```
 
