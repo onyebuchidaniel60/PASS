@@ -18,6 +18,8 @@ export const UpdateProfileRequest = z
     bio: z.string().max(500).nullable().optional(),
     handle: z.string().max(40).nullable().optional(),
     avatarUrl: z.string().url().nullable().optional(),
+    /** First-time tour completion (D-022). Null re-opens the tour. */
+    tourCompletedAt: IsoDateTime.nullable().optional(),
   })
   .strict();
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequest>;

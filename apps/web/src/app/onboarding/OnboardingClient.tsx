@@ -24,7 +24,7 @@
  * no seed phrase or private key is ever requested, echoed or displayed (AGENTS.md).
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { PermissionBlock, UnavailableBlock } from "@/components/wave3/data";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
@@ -63,7 +63,7 @@ export const STEPS: Step[] = [
   {
     id: "hyperliquid",
     question: "Associate your Hyperliquid account.",
-    action: "Generate agent wallet",
+    action: "Link wallet account",
     why: "Takers authorize against your plan, you fill against your own account.",
     optional: false,
   },
@@ -91,6 +91,8 @@ export function OnboardingClient({
   probe,
   onAction,
   onSkip,
+  onBack,
+  stepBody,
 }: {
   step?: number;
   progress?: StepProgress[];
@@ -98,6 +100,10 @@ export function OnboardingClient({
   probe?: () => Promise<boolean>;
   onAction?: (id: StepId) => Promise<void>;
   onSkip?: (id: StepId) => void;
+  /** Previous-step navigation. Absent on the first step: no Back renders. */
+  onBack?: () => void;
+  /** Step-specific content (forms, provider state) rendered above the action. */
+  stepBody?: ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -174,6 +180,8 @@ export function OnboardingClient({
               <h1>{current.question}</h1>
               <p className="pass-stale">{current.why}</p>
 
+              {stepBody ?? null}
+
               <Inline gap="3">
                 <button
                   type="button"
@@ -192,6 +200,16 @@ export function OnboardingClient({
                     onClick={() => onSkip?.(current.id)}
                   >
                     Skip for now
+                  </button>
+                ) : null}
+                {onBack ? (
+                  <button
+                    type="button"
+                    className="pass-btn"
+                    data-variant="ghost"
+                    onClick={onBack}
+                  >
+                    Back
                   </button>
                 ) : null}
               </Inline>

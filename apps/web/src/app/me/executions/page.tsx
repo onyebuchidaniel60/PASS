@@ -1,15 +1,13 @@
-import { OnboardingRedirectGuard } from "@/components/OnboardingRedirectGuard";
 import { ExecutionsClient } from "./ExecutionsClient";
 
 export const dynamic = "force-dynamic";
 
-/** §10.9: every state is a value from `useAuthenticatedResource`. */
+/**
+ * §10.9: every state is a value from `useAuthenticatedResource`.
+ *
+ * First-visit routing is owned by the single `OnboardingGate` in the root
+ * layout, not by per-page guards.
+ */
 export default function ExecutionsPage() {
-  return (
-    <>
-      {/* Layer 2: an authenticated user with no profile belongs in onboarding. */}
-      <OnboardingRedirectGuard />
-      <ExecutionsClient />
-    </>
-  );
+  return <ExecutionsClient />;
 }

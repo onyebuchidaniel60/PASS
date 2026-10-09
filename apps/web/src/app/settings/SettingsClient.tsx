@@ -93,6 +93,8 @@ export function SettingsClient({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [busy, setBusy] = useState<string | null>(null);
   const [connError, setConnError] = useState<Record<string, string>>({});
+  // Tour replay (D-022): resetting completion re-opens the one-time tour.
+  const [tourState, setTourState] = useState<"idle" | "working" | "done" | "error">("idle");
   // §10.10.2 exposure toggle, opt-in: the Hyperliquid identity is hidden unless
   // the Trader turns it on.
   const [expose, setExpose] = useState(false);
@@ -286,6 +288,40 @@ export function SettingsClient({
                 checked={expose}
                 onChange={setExpose}
               />
+            </Panel>
+
+            {/* D-022: the one-time tour can be re-opened from here. */}
+            <Panel>
+              <Inline gap="3" align="center">
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="ghost"
+                  disabled={tourState === "working"}
+                  onClick={() => {
+                    setTourState("working");
+                    import("@/lib/client")
+                      .then(({ clientPatch }) =>
+                        clientPatch("/api/v1/profiles/me", { tourCompletedAt: null }),
+                      )
+                      .then(() => {
+                        setTourState("done");
+                        reload();
+                      })
+                      .catch(() => setTourState("error"));
+                  }}
+                >
+                  {tourState === "working" ? "Opening" : "Replay the tour"}
+                </button>
+                {tourState === "done" ? (
+                  <span className="pass-stale">The tour will show again.</span>
+                ) : null}
+                {tourState === "error" ? (
+                  <span className="pass-validation" role="alert">
+                    Could not re-open the tour.
+                  </span>
+                ) : null}
+              </Inline>
             </Panel>
           </Stack>
         )}

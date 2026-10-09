@@ -3,6 +3,8 @@ import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Providers } from "@/components/Providers";
+import { OnboardingGate } from "@/components/OnboardingGate";
+import { TourGate } from "@/components/TourGate";
 import { ConnectWalletEntry } from "@/components/ApproveAgentControl";
 import { XIdentityControl } from "@/components/XIdentityControl";
 import { Logo } from "@/components/reference/logo";
@@ -40,6 +42,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Providers>
+          {/* Single first-visit gate: profile-less sessions belong in
+              onboarding, signed-out visitors never leave public routes. */}
+          <OnboardingGate />
+          {/* One-time tour (D-022): profile complete, never completed. */}
+          <TourGate />
           <DemoBanner />
           <header className="pass-topbar">
             <nav className="pass-topbar-inner" aria-label="Primary">

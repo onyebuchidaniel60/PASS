@@ -368,3 +368,39 @@ Split the gate.
 ready: a Take today sends a single entry order with no take-profit or stop-loss
 leg. That is unrelated to this decision and must be fixed before anyone but the
 operator places a real order.
+
+## D-022 — First-time user tour
+
+**Date:** 2026-10-09
+**Status:** Accepted. In force.
+
+### Decision
+
+PASS ships a dismissable, one-time tour for users who complete onboarding.
+The tour is a short sequence of overlay cards introducing the four primary
+surfaces (Discover, My Passes, Executions, Profile) and the Take flow.
+
+### Scope
+
+Text and a Next/Back/Skip control. No video, no animation beyond the
+existing motion helpers (`design/DESIGN.md` §14), no per-screen hotspots in
+this version. Five steps: Discover, Take flow, My Passes, Executions,
+Profile. Each step is one heading, one short paragraph, one CTA.
+
+### Shown once
+
+Completion is stored on the profile as `profiles.tour_completed_at`
+(`timestamptz`, null means never completed), set via the existing
+`PATCH /api/v1/profiles/me`. Reload does not re-show. A returning user can
+re-open it from Profile settings, which resets the column to null. Onboarding
+completion itself needs no new column: the profile row is the record.
+
+### Storage note
+
+The column is added by migration `0002_profile_tour_completed_at.sql`. A new
+table was rejected: tour state is a single nullable scalar per user with no
+relations of its own.
+
+### Not a Stage B gate
+
+Stage B closes on the onboarding flow; the tour ships alongside.

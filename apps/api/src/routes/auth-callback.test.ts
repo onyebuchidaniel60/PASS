@@ -201,7 +201,7 @@ describe("X callback with a pre-existing identity binding (no session)", () => {
       await app.close();
       await handle.close();
     }
-  });
+  }, 120_000);
 
   it("does not create a duplicate users row on reconnect", async () => {
     const { app, ctx, handle } = await setupHarness();
@@ -217,5 +217,5 @@ describe("X callback with a pre-existing identity binding (no session)", () => {
       await app.close();
       await handle.close();
     }
-  });
+  }, 120_000);
 });

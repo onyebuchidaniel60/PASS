@@ -102,6 +102,9 @@ describe("GET /api/v1/me x-entry handle", () => {
     }
   });
 
+  // PGlite boots plus migrations take 10s+ on modest hardware and far more
+  // under parallel load; the default 30s timeout flakes. These are
+  // integration tests and may take up to two minutes.
   it("exposes the connection handle when X is connected", async () => {
     harness = await setupHarness();
     const { app, handle } = harness;
@@ -141,7 +144,7 @@ describe("GET /api/v1/me x-entry handle", () => {
     };
     const x = body.connections.find((c) => c.provider === "x");
     expect(x).toMatchObject({ connected: true, displayOnly: false, handle: "newhandle" });
-  });
+  }, 120_000);
 
   it("exposes the identity username when display-only, null when unconnected", async () => {
     harness = await setupHarness();
@@ -172,5 +175,5 @@ describe("GET /api/v1/me x-entry handle", () => {
     };
     const x = body.connections.find((c) => c.provider === "x");
     expect(x).toMatchObject({ displayOnly: true, handle: "displayhandle" });
-  });
+  }, 120_000);
 });

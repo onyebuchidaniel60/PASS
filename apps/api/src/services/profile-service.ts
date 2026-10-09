@@ -81,6 +81,12 @@ export async function updateProfile(
       ...(input.bio !== undefined ? { bio: input.bio } : {}),
       ...(input.handle !== undefined ? { handle: input.handle } : {}),
       ...(input.avatarUrl !== undefined ? { avatarUrl: input.avatarUrl } : {}),
+      ...(input.tourCompletedAt !== undefined
+        ? {
+            tourCompletedAt:
+              input.tourCompletedAt === null ? null : new Date(input.tourCompletedAt),
+          }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(profiles.userId, userId));

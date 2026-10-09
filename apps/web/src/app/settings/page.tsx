@@ -1,18 +1,14 @@
-import { OnboardingRedirectGuard } from "@/components/OnboardingRedirectGuard";
 import { SettingsClient } from "./SettingsClient";
 
 export const dynamic = "force-dynamic";
 
-/** §10.10: every state is a value from `useAuthenticatedResource`. */
+/**
+ * §10.10: every state is a value from `useAuthenticatedResource`.
+ *
+ * First-visit routing is owned by the single `OnboardingGate` in the root
+ * layout, not by per-page guards. The `?x=connected` notice lives inside
+ * `SettingsClient`, which is where the return leg of OAuth is acknowledged.
+ */
 export default function SettingsPage() {
-  return (
-    <>
-      {/* Layer 2 of the onboarding routing. `/settings` IS the onboarding entry
-          for a signed-in user with no profile, so the guard and the
-          `?x=connected` notice both belong on this page rather than on
-          `/onboarding` — which must never redirect to itself. */}
-      <OnboardingRedirectGuard />
-      <SettingsClient />
-    </>
-  );
+  return <SettingsClient />;
 }

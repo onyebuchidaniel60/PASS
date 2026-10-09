@@ -68,6 +68,8 @@ export const profiles = pgTable(
     name: text("name").notNull(),
     bio: text("bio"),
     avatarUrl: text("avatar_url"),
+    /** First-time tour completion (D-022). Null means never completed. */
+    tourCompletedAt: timestamp("tour_completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
