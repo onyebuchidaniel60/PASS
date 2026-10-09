@@ -869,6 +869,88 @@
   padding-inline: var(--space-2);
 }
 
+/* --- §14.9 X identity control ------------------------------------------
+ *
+ * Sits in the §8.4 actions track, immediately LEFT of the wallet control.
+ *
+ * Shares `.pass-wallet-chip` and `.pass-wallet-dropdown` deliberately: the two
+ * controls are siblings in the same slot and must read as one system. A second,
+ * subtly-different chip style next to the first would be a visible seam, and
+ * the reason to keep this in one file is so they cannot drift apart later.
+ *
+ * `.pass-x` is a flex row so the X slot and the wallet slot sit on one baseline
+ * and the actions track does not grow taller than the taller of the two.
+ */
+.pass-x {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pass-x-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.pass-x-handle {
+  font-family: var(--font-data);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+/* §14.15 rule 3: the handle truncates rather than wrapping or growing the
+ * actions track. An unbreakable "@verylonghandle" in an `auto` grid track is
+ * exactly what pushes the right-hand region toward the centre of the topbar,
+ * which is the fault §8.4 exists to prevent. */
+.pass-x-chip {
+  max-inline-size: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pass-x-dropdown {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  z-index: 20;
+  min-inline-size: 14rem;
+}
+
+.pass-x-dropdown-note {
+  margin: 0;
+  padding: var(--space-3);
+  border-block-end: var(--border-hairline);
+  font-size: var(--type-body-s-size);
+  color: var(--color-text-tertiary);
+}
+
+/* The return leg of the X OAuth round trip (`?x=connected`).
+ *
+ * Inline and persistent rather than a toast: the app has no toast system, and
+ * introducing one to carry a single message would be a framework decision this
+ * screen should not make. `role="status"` announces it on mount so the
+ * confirmation reaches a screen-reader user without hunting for the chip.
+ *
+ * The tone is carried by TEXT, not colour alone — "connected" vs "declined" is
+ * a distinction colour cannot be trusted to make, and the copy states it.
+ */
+.pass-notice {
+  margin-block-end: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+}
+
+.pass-notice[data-tone="ok"] {
+  border-inline-start: var(--border-width-selected) solid var(--color-data-positive);
+}
+
+.pass-notice[data-tone="bad"] {
+  border-inline-start: var(--border-width-selected) solid var(--color-data-negative);
+}
+
 .pass-nav-link:hover {
   color: var(--color-text-primary);
   text-decoration: underline;

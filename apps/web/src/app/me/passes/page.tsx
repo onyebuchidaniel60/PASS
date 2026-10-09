@@ -1,3 +1,4 @@
+import { OnboardingRedirectGuard } from "@/components/OnboardingRedirectGuard";
 import { MyPassesClient } from "./MyPassesClient";
 
 export const dynamic = "force-dynamic";
@@ -8,5 +9,11 @@ export const dynamic = "force-dynamic";
  * The route itself is a thin shell — see the refactor that made this possible.
  */
 export default function MyPassesPage() {
-  return <MyPassesClient />;
+  return (
+    <>
+      {/* Layer 2: an authenticated user with no profile belongs in onboarding. */}
+      <OnboardingRedirectGuard />
+      <MyPassesClient />
+    </>
+  );
 }

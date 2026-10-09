@@ -26,6 +26,7 @@
 import { useState } from "react";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { Field, Textarea, TextInput, Toggle } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip, type ConnectionTone } from "@/components/wave3/identity";
 import { EmptyBlock } from "@/components/wave3/data";
@@ -138,6 +139,11 @@ export function SettingsClient({
         <h1>Profile</h1>
         <p className="pass-stale">Your public identity and the accounts it is bound to.</p>
       </Section>
+
+      {/* The return leg of the X OAuth round trip. Sits above the profile
+          fields because the confirmation is about the account, not the
+          profile. */}
+      <XConnectedNotice />
 
       <AuthenticatedView
         state={state}

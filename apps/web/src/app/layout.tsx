@@ -4,6 +4,7 @@ import "./globals.css";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Providers } from "@/components/Providers";
 import { ConnectWalletEntry } from "@/components/ApproveAgentControl";
+import { XIdentityControl } from "@/components/XIdentityControl";
 import { Logo } from "@/components/reference/logo";
 import { INFO, NAV } from "@/lib/nav";
 
@@ -60,7 +61,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </ul>
               </div>
 
+              {/* §8.4 the actions track holds TWO controls: X identity first,
+                  wallet second. PASS is identity-first — the handle is who a
+                  Trader is, the wallet is only what they can sign with, and a
+                  trader with one but not the other is still a trader. */}
               <div className="pass-topbar-actions">
+                <XIdentityControl />
                 <ConnectWalletEntry />
               </div>
             </nav>

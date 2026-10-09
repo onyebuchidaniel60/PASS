@@ -411,7 +411,23 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
     const sessionId = await createSession(ctx, userId);
     setSessionCookie(reply, sessionId, secure);
 
-    return reply.redirect(`${ctx.env.APP_URL}/settings?x=connected`);
+    /**
+     * Redirect target (PRD 8.1).
+     *
+     * A user with no PASS profile has never completed onboarding, so onboarding
+     * is the only useful next screen. A user who already has one is reconnecting
+     * an identity and belongs back on settings.
+     *
+     * The check is a read AFTER the identity is attached, so a profile created
+     * while the user was off at X is respected. `x=connected` is carried on
+     * BOTH branches: the new user needs the confirmation too, otherwise their
+     * successful sign-in is indistinguishable from a no-op.
+     */
+    const existingProfile = await getProfileByUserId(ctx, userId);
+    const target = existingProfile
+      ? "/settings?x=connected"
+      : "/onboarding?x=connected";
+    return reply.redirect(`${ctx.env.APP_URL}${target}`);
   });
 
   app.post("/api/v1/auth/x/disconnect", async (req) => {

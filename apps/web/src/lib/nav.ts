@@ -33,4 +33,9 @@ export const INFO: NavLink[] = [
   { href: "/faqs", label: "FAQs" },
   { href: "/help", label: "Help" },
   { href: "/contact", label: "Contact" },
+  // `/settings` is already the fourth item of NAV ("Profile"), so adding it
+  // here would render the same destination twice in the footer. `/onboarding`
+  // is deliberately NOT linked from the footer: it is the target of a redirect
+  // for users who have no profile, and a link would offer it as a place to
+  // browse, which it is not.
 ];
