@@ -38,10 +38,10 @@ const PROFILE = {
 
 beforeEach(() => mockGet.mockReset());
 
-async function renderProfile(passes: unknown[] = []) {
+async function renderProfile(passes: unknown[] = [], profile: unknown = PROFILE) {
   mockGet.mockImplementation((url?: unknown) =>
     Promise.resolve(
-      typeof url === "string" && url.includes("/passes") ? { passes } : PROFILE,
+      typeof url === "string" && url.includes("/passes") ? { passes } : profile,
     ),
   );
   // The async act boundary is required: the screen resolves its data in an
@@ -350,5 +350,33 @@ it("renders the Active Passes list on the 14.8 grid, not as rows", async () => {
     expect(status.textContent).toMatch(/does not mean the trader lacks a reputation/i);
     // And the block is still there, with the rule still in place.
     expect(screen.getByRole("separator")).toBeInTheDocument();
+  });
+});
+
+const DISCONNECTED = {
+  ...PROFILE,
+  connections: [
+    { provider: "x", connected: false, label: "X not connected" },
+    { provider: "hyperliquid", connected: false, label: "Hyperliquid not linked" },
+    { provider: "ethos", connected: false, label: "Ethos reputation not resolved" },
+  ],
+};
+
+describe("Trader profile — disconnected author (single-state rule)", () => {
+  it("hides handle link, address and reputation but keeps everything published", async () => {
+    await renderProfile(
+      [{ publicId: "UvvuxpWPZ4", asset: "BTC", direction: "long", status: "active" }],
+      DISCONNECTED,
+    );
+    await screen.findByRole("heading", { level: 1 });
+    // No X link, no connection chips, no Hyperliquid line, no Ethos block.
+    expect(screen.queryByRole("link", { name: "X" })).toBeNull();
+    expect(screen.queryByText("X connected")).toBeNull();
+    expect(screen.queryByText("Hyperliquid")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Reputation" })).toBeNull();
+    // Published identity and passes stay: display name, bio, pass card.
+    expect(screen.getByText("Demo Trader")).toBeInTheDocument();
+    expect(screen.getByText("BTC / ETH perpetual trader.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /BTC/ })).toBeInTheDocument();
   });
 });

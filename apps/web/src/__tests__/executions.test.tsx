@@ -1,10 +1,59 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ExecutionsClient, type Execution } from "@/app/me/executions/ExecutionsClient";
 import { PERIODS, inWindow, periodWindow } from "@/lib/period";
 
 /** §10.9. No rejected promise anywhere — states are injected resolvers. */
+
+// Fail-open default for the connection snapshot: the /me read rejects, so
+// existing tests observe the lists exactly as before (see use-me.ts).
+const { mockMeGet } = vi.hoisted(() => ({ mockMeGet: vi.fn() }));
+
+vi.mock("@/lib/client", () => ({
+  clientGet: (...a: unknown[]) => mockMeGet(...a),
+  clientPost: vi.fn(),
+  clientPatch: vi.fn(),
+}));
+
+let wallet: { address?: string; isConnected: boolean } = { isConnected: false };
+
+vi.mock("wagmi", () => ({
+  useAccount: () => wallet,
+  useDisconnect: () => ({ disconnect: vi.fn() }),
+}));
+
+vi.mock("connectkit", () => ({
+  ConnectKitButton: Object.assign(
+    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
+      children({ show: () => {} }),
+    {
+      Custom: ({
+        children,
+      }: {
+        children: (p: { show: () => void }) => React.ReactNode;
+      }) => children({ show: () => {} }),
+    },
+  ),
+}));
+
+const ME_OFF = {
+  userId: "u1",
+  profileSlug: "t",
+  displayName: "T",
+  connections: [
+    { provider: "x", connected: false, label: "X not connected", displayOnly: false },
+    { provider: "hyperliquid", connected: false, label: "no", displayOnly: false },
+    { provider: "ethos", connected: false, label: "no", displayOnly: true },
+  ],
+  tradingAccounts: [],
+};
+
+beforeEach(() => {
+  wallet = { isConnected: false };
+  mockMeGet.mockReset();
+  mockMeGet.mockRejectedValue(new Error("no session snapshot"));
+});
 
 /** Minutes before real now, so the default 7D window contains it. */
 const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
@@ -165,5 +214,16 @@ describe("Executions (§10.9)", () => {
     const future: Execution = { ...EXEC, createdAt: ago(60 * 24 * 40) };
     render(<ExecutionsClient probe={authed} load={async () => [future]} />);
     expect(await screen.findByText("Nothing in this period")).toBeInTheDocument();
+  });
+});
+
+describe("Executions — single-state rule", () => {
+  it("hides the history and shows the CTA when both accounts are disconnected", async () => {
+    mockMeGet.mockResolvedValue(ME_OFF);
+    render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);
+    expect(
+      await screen.findByText("Connect an account to see your executions."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("hl-order-99881")).toBeNull();
   });
 });

@@ -43,6 +43,7 @@ import {
 } from "@/components/reference";
 
 import { clientGet } from "@/lib/client";
+import { connectionByName } from "@/lib/me";
 
 interface Connection {
   provider: string;
@@ -177,6 +178,19 @@ export function TraderProfileClient({ slug }: { slug: string }) {
   const hasReputation =
     profile.reputation != null && profile.reputation.credibilityScore != null;
 
+  // Single-state rule, AUTHOR side (lib/me.ts): this is a public view, so
+  // nothing gates on the VIEWER. X-attributed UI renders only while the
+  // AUTHOR is connected; a disconnected author's handle, address and
+  // reputation hide while everything they published stays.
+  const authorXLive =
+    connectionByName(profile.connections, "x")?.connected === true;
+  const authorHyperlinked =
+    connectionByName(profile.connections, "hyperliquid")?.connected === true;
+  const authorEthosResolved =
+    authorXLive &&
+    connectionByName(profile.connections, "ethos")?.connected === true;
+  const authorEthosVisible = authorEthosResolved && hasReputation;
+
   return (
     <div className="pass-page">
       <main className="pass-shell">
@@ -223,25 +237,30 @@ export function TraderProfileClient({ slug }: { slug: string }) {
               <HandleBlock
                 handle={profile.handle}
                 xUrl={
-                  profile.xHandle ? `https://x.com/${profile.xHandle}` : null
+                  authorXLive && profile.xHandle ? `https://x.com/${profile.xHandle}` : null
                 }
               />
+              {/* Only live connections render. A disconnected entry is
+                  hidden, not shown as "not connected" — on someone else's
+                  public profile a dead chip is noise, not information. */}
               {profile.connections?.length
-                ? profile.connections.map((c) => (
-                    <span
-                      key={c.provider}
-                      className="pass-chip"
-                      data-state={c.connected ? "active" : "draft"}
-                    >
-                      {c.label}
-                    </span>
-                  ))
+                ? profile.connections
+                    .filter((c) => c.connected)
+                    .map((c) => (
+                      <span
+                        key={c.provider}
+                        className="pass-chip"
+                        data-state="active"
+                      >
+                        {c.label}
+                      </span>
+                    ))
                 : null}
             </div>
 
             {profile.bio ? <p className="pass-thesis">{profile.bio}</p> : null}
 
-            {profile.hyperliquidAccountAddress ? (
+            {authorHyperlinked && profile.hyperliquidAccountAddress ? (
               <p className="pass-stale">
                 Hyperliquid <Address value={profile.hyperliquidAccountAddress} />
               </p>
@@ -259,9 +278,17 @@ export function TraderProfileClient({ slug }: { slug: string }) {
               `ReputationBlock`. Filling the slot with the score would print it
               twice on one card, which is the §11.4 merge; filling it with
               anything else would set a sentence at 2.5rem. A `Panel` gives the
-              same hairline frame with no figure slot to misuse. */}
+              same hairline frame with no figure slot to misuse.
+
+              Single-state rule: the card renders only while the AUTHOR's
+              Ethos is resolved (X live AND Ethos connected). A disconnected
+              author's reputation hides with the rule that divided it —
+              published passes and PASS-owned counters below stay. Resolved
+              but scoreless keeps the existing UnavailableBlock: no response
+              is not the same claim as no reputation. */}
+          {authorEthosResolved ? (
           <Panel className="pass-data-card">
-            {hasReputation ? (
+            {authorEthosVisible ? (
               <ReputationBlock
                 score={profile.reputation?.credibilityScore ?? null}
                 reviewsCount={profile.reputation?.reviewsCount}
@@ -269,20 +296,19 @@ export function TraderProfileClient({ slug }: { slug: string }) {
                 humanVerified={profile.reputation?.humanVerified}
               />
             ) : (
-              /* No Ethos data is a STATE, not a reason to remove the block.
-                 Dropping the card would let a missing external response read
-                 as "this trader has no reputation", which is a different and
-                 much stronger claim. */
               <UnavailableBlock
                 provider="Ethos"
                 detail="No Ethos profile resolved for this handle. This does not mean the trader lacks a reputation."
               />
             )}
           </Panel>
+          ) : null}
 
-          {/* MANDATORY. D-007 / PRD §12 make adjacency without a rule
-              between these two blocks wrong. */}
+          {/* MANDATORY when both blocks render. D-007 / PRD §12 make adjacency
+              without a rule between these two blocks wrong. */}
+          {authorEthosResolved ? (
           <Rule label="End of PASS performance" />
+          ) : null}
 
           {/* ── §14.4 PASS performance card ──────────────────────────
               PASS-owned counters only. Nothing here is derived from the

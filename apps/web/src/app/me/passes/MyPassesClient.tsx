@@ -20,9 +20,13 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { useAccount } from "wagmi";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { onMeChanged } from "@/lib/me-events";
+import { isWalletConnected, isXLive } from "@/lib/me";
+import { useMePayload } from "@/lib/use-me";
+import { WalletControl } from "@/components/WalletControl";
 import {
   EmptyBlock,
   LIFECYCLE_LABEL,
@@ -132,6 +136,12 @@ export function MyPassesClient({
   });
   // Re-read when another surface mutates connection state (Bug 2a).
   useEffect(() => onMeChanged(reload), [reload]);
+  // Single-state rule (lib/me.ts): the lists belong to the session's user,
+  // but nothing account-attributed displays while both accounts are
+  // disconnected. `me` null is fail-open — the probe already proved the
+  // session, so an unreadable snapshot must not hide the user's passes.
+  const { me } = useMePayload();
+  const { isConnected: walletSession } = useAccount();
 
   return (
     <PageShell>
@@ -166,7 +176,27 @@ export function MyPassesClient({
         }
         onRetry={reload}
       >
-        {(passes) => (
+        {(passes) => {
+          const gated = me !== null && !isXLive(me) && !isWalletConnected(me, walletSession);
+          if (gated) {
+            return (
+              <Panel>
+                <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
+                  Connect an account to see your passes.
+                </h2>
+                <p className="pass-stale">
+                  Your Passes are safe — link an identity to read them.
+                </p>
+                <Inline gap="3">
+                  <Link className="pass-btn" data-variant="primary" href="/onboarding">
+                    Connect an account
+                  </Link>
+                  <WalletControl linked={false} />
+                </Inline>
+              </Panel>
+            );
+          }
+          return (
           <Stack gap="6">
             {/* §10.8.1 counts are mono and carry no colour coding. */}
             <StatRow>
@@ -189,7 +219,8 @@ export function MyPassesClient({
               />
             </Panel>
           </Stack>
-        )}
+          );
+        }}
       </AuthenticatedView>
     </PageShell>
   );

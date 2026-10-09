@@ -60,6 +60,11 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
         bio: profile.profile.bio,
         avatarUrl: profile.profile.avatarUrl,
         xHandle: profile.xHandle,
+        // Author liveness for the handle fallback: when the author has X
+        // disconnected, public pages show displayName instead of the live
+        // handle. The pass itself and its history are never hidden.
+        xConnected:
+          profile.connections.find((c) => c.provider === "x")?.connected ?? false,
         hyperliquidAccountAddress: profile.accountAddress,
       },
       reputation: profile.reputation,

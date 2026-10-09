@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MyPassesClient, type MyPass } from "@/app/me/passes/MyPassesClient";
 
@@ -45,6 +45,71 @@ const PASSES: MyPass[] = [
 
 const authed = async () => true;
 const unauthed = async () => false;
+
+// Single-state rule: the lists need the connection snapshot (`useMePayload`)
+// and the browser wallet session (wagmi). Fail-open by default — the /me
+// read rejects, so existing tests observe the lists exactly as before.
+const { mockMeGet } = vi.hoisted(() => ({ mockMeGet: vi.fn() }));
+
+vi.mock("@/lib/client", () => ({
+  clientGet: (...a: unknown[]) => mockMeGet(...a),
+  clientPost: vi.fn(),
+  clientPatch: vi.fn(),
+}));
+
+let wallet: { address?: string; isConnected: boolean } = { isConnected: false };
+
+vi.mock("wagmi", () => ({
+  useAccount: () => wallet,
+  useDisconnect: () => ({ disconnect: vi.fn() }),
+}));
+
+vi.mock("connectkit", () => ({
+  ConnectKitButton: Object.assign(
+    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
+      children({ show: () => {} }),
+    {
+      Custom: ({
+        children,
+      }: {
+        children: (p: { show: () => void }) => React.ReactNode;
+      }) => children({ show: () => {} }),
+    },
+  ),
+}));
+
+const ME_OFF = {
+  userId: "u1",
+  profileSlug: "t",
+  displayName: "T",
+  connections: [
+    { provider: "x", connected: false, label: "X not connected", displayOnly: false },
+    { provider: "hyperliquid", connected: false, label: "no", displayOnly: false },
+    { provider: "ethos", connected: false, label: "no", displayOnly: true },
+  ],
+  tradingAccounts: [],
+};
+
+const ME_X_ON = {
+  ...ME_OFF,
+  connections: [
+    {
+      provider: "x",
+      connected: true,
+      label: "X connected · @t",
+      displayOnly: false,
+      handle: "turnttfup99",
+    },
+    { provider: "hyperliquid", connected: false, label: "no", displayOnly: false },
+    { provider: "ethos", connected: false, label: "no", displayOnly: true },
+  ],
+};
+
+beforeEach(() => {
+  wallet = { isConnected: false };
+  mockMeGet.mockReset();
+  mockMeGet.mockRejectedValue(new Error("no session snapshot"));
+});
 
 const renderWith = (opts: { probe?: () => Promise<boolean>; load?: () => Promise<MyPass[]> }) =>
   render(<MyPassesClient probe={opts.probe ?? authed} load={opts.load ?? (async () => PASSES)} />);
@@ -116,6 +181,24 @@ describe("My Passes (§10.8)", () => {
   it("offers Create a Pass from the header", () => {
     renderWith({});
     expect(screen.getAllByRole("link", { name: "Create a Pass" }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("My Passes — single-state rule", () => {
+  it("hides the lists and shows the CTA when both accounts are disconnected", async () => {
+    mockMeGet.mockResolvedValue(ME_OFF);
+    renderWith({});
+    expect(
+      await screen.findByText("Connect an account to see your passes."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("BTC")).toBeNull();
+    expect(screen.queryByText("ETH")).toBeNull();
+  });
+
+  it("renders the lists when X is connected, wallet or not", async () => {
+    mockMeGet.mockResolvedValue(ME_X_ON);
+    renderWith({});
+    expect((await screen.findAllByText("BTC")).length).toBeGreaterThan(0);
   });
 });
 

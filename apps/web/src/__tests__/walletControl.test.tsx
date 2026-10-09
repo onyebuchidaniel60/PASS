@@ -294,3 +294,27 @@ describe("WalletControl — robustness", () => {
     );
   });
 });
+
+describe("WalletControl — linked prop (single-state rule)", () => {
+  it("shows the launcher when the wallet holds no linked PASS account", () => {
+    // A connected browser wallet with nothing linked behind it is not a
+    // connected account: no address may display.
+    account = { isConnected: true, address: ADDRESS, chainId: EXPECTED_CHAIN };
+    const { container } = render(<WalletControl linked={false} />);
+    expect(container.querySelector(".pass-wallet")?.getAttribute("data-state")).toBe(
+      "disconnected",
+    );
+    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
+    expect(screen.queryByText(/0x1234/)).toBeNull();
+  });
+
+  it("defaults to linked, preserving the topbar behavior", async () => {
+    account = { isConnected: true, address: ADDRESS, chainId: EXPECTED_CHAIN };
+    const { container } = render(<WalletControl />);
+    await waitFor(() =>
+      expect(container.querySelector(".pass-wallet")?.getAttribute("data-state")).toBe(
+        "connected",
+      ),
+    );
+  });
+});

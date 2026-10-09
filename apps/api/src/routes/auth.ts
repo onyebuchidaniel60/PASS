@@ -19,6 +19,7 @@ import {
   getTradingAccounts,
   getXConnection,
   getXIdentity,
+  isXConnectionLive,
   updateProfile,
   upsertXConnection,
   upsertXIdentity,
@@ -70,9 +71,7 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
     ]);
 
     // See the connections[x] comment below for the full definition.
-    const tokenExpired =
-      xConn?.tokenExpiresAt != null && xConn.tokenExpiresAt.getTime() < Date.now();
-    const xLive = Boolean(xConn) && !tokenExpired;
+    const xLive = isXConnectionLive(xConn);
 
     return {
       userId,

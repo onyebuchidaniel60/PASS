@@ -1,16 +1,34 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient, type Me } from "@/app/settings/SettingsClient";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { notifyMeChanged } from "@/lib/me-events";
 
-// SettingsClient reads the browser wallet session (wagmi) to distinguish a
-// linked account from a live wallet session (Bug 2b). Disconnected here.
+// Single-state rule: the hyperliquid section needs the browser session too.
+// Mutable so tests cover both halves of the wallet state.
+let wallet: { address?: string; isConnected: boolean } = { isConnected: false };
+
 vi.mock("wagmi", () => ({
-  useAccount: () => ({ address: undefined, isConnected: false }),
+  useAccount: () => wallet,
   useDisconnect: () => ({ disconnect: vi.fn() }),
 }));
+
+vi.mock("connectkit", () => ({
+  ConnectKitButton: Object.assign(
+    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
+      children({ show: () => {} }),
+    {
+      Custom: ({
+        children,
+      }: {
+        children: (p: { show: () => void }) => React.ReactNode;
+      }) => children({ show: () => {} }),
+    },
+  ),
+}));
+
+const ADDR = "0x1234567890abcdef1234567890abcdef12345678";
 
 const ME: Me = {
   userId: "u1",
@@ -37,7 +55,10 @@ const ME: Me = {
 const authed = async () => true;
 const unauthed = async () => false;
 const withMe = (me: Partial<Me> = {}) => async () => ({ ...ME, ...me });
-const withLoad = (load: () => Promise<Me>) => load;
+
+beforeEach(() => {
+  wallet = { isConnected: false };
+});
 
 describe("§10.10 Profile and connections", () => {
   it("states the SPECIFIC reason when unauthorized", async () => {
@@ -78,40 +99,59 @@ describe("§10.10 Profile and connections", () => {
     expect(save.getAttribute("data-variant")).toBe("primary");
   });
 
-  it("renders one chip per provider, each with its own state (§10.10.1)", async () => {
+  it("renders chips only for connected accounts (§10.10.1, single-state)", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
-    await screen.findByText("Hyperliquid");
-    // State is in the label, not in colour alone (§9.4).
+    await screen.findByText("X");
+    // X is connected: its chip states Connected. Ethos is read-only: Read only.
     expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByText("Read only")).toBeInTheDocument();
-    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    // Hyperliquid's row exists but the browser wallet is off: no chip, no
+    // address, no "Not connected" line — the launcher stands in instead.
+    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
+    expect(screen.queryByText(ADDR)).toBeNull();
   });
 
-  it("gives a read-only connection no action rather than a disabled one", async () => {
-    render(<SettingsClient probe={authed} load={withMe()} />);
-    await screen.findByText("Ethos");
-    // Read-only Ethos offers nothing; the other two each offer their own action.
-    expect(screen.queryByRole("button", { name: /Ethos/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Connect X" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Link Hyperliquid" })).toBeInTheDocument();
+  it("shows Connect X instead of a chip when X is disconnected", async () => {
+    const off: Me = {
+      ...ME,
+      connections: ME.connections.map((c) =>
+        c.provider.toLowerCase() === "x"
+          ? { ...c, connected: false, label: "X not connected" }
+          : c,
+      ),
+    };
+    render(<SettingsClient probe={authed} load={withMe(off)} />);
+    expect(await screen.findByRole("button", { name: "Connect X" })).toBeInTheDocument();
+    expect(screen.queryByText("X not connected")).toBeNull();
   });
 
-  it("keeps a per-connection failure local instead of blanking the screen", async () => {
-    const onConnect = vi.fn().mockRejectedValue(new Error("X rejected the handshake"));
-    render(
-      <SettingsClient
-        probe={authed}
-        load={withLoad(withMe())}
-        onConnect={onConnect}
-      />,
-    );
-    await screen.findByText("Hyperliquid");
-    fireEvent.click(screen.getByRole("button", { name: "Connect X" }));
-    // The failure is reported on the chip that failed...
-    expect(await screen.findByText("X rejected the handshake")).toBeInTheDocument();
-    // ...and the rest of the screen survives it.
-    expect(screen.getByText("Hyperliquid")).toBeInTheDocument();
-    expect(screen.getByText("pass.to/turnttfup99")).toBeInTheDocument();
+  it("navigates the Connect X CTA to the OAuth entry", async () => {
+    const off: Me = {
+      ...ME,
+      connections: ME.connections.map((c) =>
+        c.provider.toLowerCase() === "x"
+          ? { ...c, connected: false, label: "X not connected" }
+          : c,
+      ),
+    };
+    const onNavigate = vi.fn();
+    render(<SettingsClient probe={authed} load={withMe(off)} onNavigate={onNavigate} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Connect X" }));
+    expect(onNavigate).toHaveBeenCalledWith("/api/v1/auth/x/start");
+  });
+
+  it("shows the single connect CTA when neither account is connected", async () => {
+    const bare: Me = {
+      ...ME,
+      connections: ME.connections.map((c) => ({ ...c, connected: false })),
+      tradingAccounts: [],
+    };
+    render(<SettingsClient probe={authed} load={withMe(bare)} />);
+    expect(
+      await screen.findByText("Connect an account to activate your profile"),
+    ).toBeInTheDocument();
+    // Basics stay — display identity is PASS attribution, not account.
+    expect(screen.getByText("turnttfup99")).toBeInTheDocument();
   });
 
   it("edits the display name and bio, then saves", async () => {
@@ -138,7 +178,8 @@ describe("§10.10 Profile and connections", () => {
     expect(toggle).toHaveAttribute("aria-checked", "true");
   });
 
-  it("lists trading accounts by address", async () => {
+  it("lists trading accounts by address when the wallet is connected", async () => {
+    wallet = { isConnected: true, address: ADDR };
     render(<SettingsClient probe={authed} load={withMe()} />);
     expect(
       await screen.findByText(/0x1234567890abcdef1234567890abcdef12345678/),
@@ -148,7 +189,7 @@ describe("§10.10 Profile and connections", () => {
   // §10.10 + AGENTS.md: no key material is requested or displayed, ever.
   it("contains no field that would accept key material", async () => {
     const { container } = render(<SettingsClient probe={authed} load={withMe()} />);
-    await screen.findByText("Hyperliquid");
+    await screen.findByText("turnttfup99");
     fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
     expect(container.querySelector('input[type="password"]')).toBeNull();
     const html = container.innerHTML.toLowerCase();
@@ -171,20 +212,30 @@ describe("§10.10 Profile and connections", () => {
     let current: Me = ME;
     render(<SettingsClient probe={authed} load={async () => current} />);
     await screen.findByText("X");
-    expect(screen.queryByText("X not connected")).toBeNull();
+    expect(
+      screen.queryByText("Connect an account to activate your profile"),
+    ).toBeNull();
     current = disconnected;
     const { act } = await import("@testing-library/react");
     await act(async () => {
       notifyMeChanged();
     });
-    expect(await screen.findByText("X not connected")).toBeInTheDocument();
+    // X off + wallet off in the mock: the single CTA panel replaces the chips.
+    expect(
+      await screen.findByText("Connect an account to activate your profile"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("X not connected")).toBeNull();
   });
 
-  // Bug 2b: a linked account and a live wallet session are two states.
-  it("shows the wallet session inactive while the account stays linked", async () => {
+  // Bug 2b, single-state rule: a linked row with no live browser session
+  // hides the address and shows the launcher instead. No "linked but
+  // inactive" line exists anywhere.
+  it("hides the address while the wallet session is off", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
-    await screen.findByText(/0x1234567890abcdef1234567890abcdef12345678/);
-    expect(screen.getByText(/session inactive/)).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Connect wallet" });
+    expect(screen.queryByText(ADDR)).toBeNull();
+    expect(screen.queryByText(/session inactive/)).toBeNull();
+    expect(screen.queryByText(/session active/)).toBeNull();
   });
 });
 

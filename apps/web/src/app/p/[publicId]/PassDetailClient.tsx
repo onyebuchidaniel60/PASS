@@ -88,6 +88,8 @@ interface PassDetail {
     displayName: string;
     bio?: string | null;
     xHandle?: string | null;
+    /** Author X liveness. Absent on old payloads: fail open, show the handle. */
+    xConnected?: boolean | null;
     hyperliquidAccountAddress?: string | null;
   };
   reputation?: {
@@ -348,11 +350,27 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
 
               <DataCard
                 as="section"
-                id={`@${data.trader.handle}`}
+                // Single-state rule, AUTHOR side: the live handle renders
+                // only while the author's X is connected. A disconnected
+                // author's card falls back to the profile display name —
+                // the pass itself and its history are never hidden.
+                id={
+                  data.trader.xConnected === false
+                    ? data.trader.displayName
+                    : `@${data.trader.handle}`
+                }
                 sub={data.trader.displayName}
                 value={
                   <>
-                    <Avatar handle={data.trader.handle} size="md" className="pass-detail-avatar" />
+                    <Avatar
+                      handle={
+                        data.trader.xConnected === false
+                          ? data.trader.displayName
+                          : data.trader.handle
+                      }
+                      size="md"
+                      className="pass-detail-avatar"
+                    />
                   </>
                 }
                 /* §2.5 rations the accent to ONE thing per viewport, and the

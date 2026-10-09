@@ -60,7 +60,7 @@ const SIGNED_OUT: MeIdentity = { connected: false, handle: null, displayOnly: fa
 function toViewModel(data: unknown): MeIdentity {
   const entry = xConnection(data as MePayload | null | undefined);
   if (entry?.connected && entry.handle) {
-    return { connected: true, handle: entry.handle, displayOnly: entry.displayOnly };
+    return { connected: true, handle: entry.handle, displayOnly: entry.displayOnly ?? false };
   }
   return SIGNED_OUT;
 }

@@ -350,6 +350,61 @@ describe("X soft disconnect keeps the identity, drops the tokens", () => {
   });
 }, 180_000);
 
+describe("public surfaces report author liveness honestly", () => {
+  it("profile x.connected follows live tokens, not the surviving identity", async () => {
+    const userId = await mkUser({ identity: true, profile: true });
+    const slugRows = await db.select().from(profiles).where(eq(profiles.userId, userId));
+    const slug = slugRows[0]!.slug;
+    const jar = await cookie(userId);
+
+    const live = await app.inject({ method: "GET", url: `/api/v1/profiles/${slug}` });
+    const liveConns = (JSON.parse(live.body) as { connections: Array<{ provider: string; connected: boolean }> }).connections;
+    expect(liveConns.find((c) => c.provider === "x")?.connected).toBe(true);
+
+    // Soft disconnect: tokens row gone, identity row kept.
+    await app.inject({ method: "POST", url: "/api/v1/auth/x/disconnect", headers: { cookie: jar } });
+    const after = await app.inject({ method: "GET", url: `/api/v1/profiles/${slug}` });
+    const afterConns = (JSON.parse(after.body) as { connections: Array<{ provider: string; connected: boolean }> }).connections;
+    expect(afterConns.find((c) => c.provider === "x")?.connected).toBe(false);
+  });
+
+  it("pass trader carries xConnected for the handle fallback", async () => {
+    const userId = await mkUser({ identity: true, profile: true });
+    const [pass] = await db
+      .insert(passes)
+      .values({
+        publicId: "xconftest1",
+        traderId: userId,
+        slug: "xconftest-btc-long",
+        version: 1,
+        asset: "BTC",
+        direction: "long",
+        entryType: "market",
+        thesis: "Honesty fixture.",
+        status: "active",
+        publishedAt: new Date(),
+      })
+      .returning();
+    void pass;
+    const slugRows = await db.select().from(profiles).where(eq(profiles.userId, userId));
+    const slug = slugRows[0]!.slug;
+    void slug;
+
+    const live = await app.inject({ method: "GET", url: "/api/v1/passes/xconftest1" });
+    expect(live.statusCode).toBe(200);
+    expect((JSON.parse(live.body) as { trader: { xConnected: boolean } }).trader.xConnected).toBe(true);
+
+    await db.delete(xConnections).where(eq(xConnections.userId, userId));
+    const after = await app.inject({ method: "GET", url: "/api/v1/passes/xconftest1" });
+    const trader = (JSON.parse(after.body) as {
+      trader: { xConnected: boolean; xHandle: string | null; displayName: string };
+    }).trader;
+    expect(trader.xConnected).toBe(false);
+    // Attribution survives for the fallback; the pass itself still renders.
+    expect(trader.displayName).toBeTruthy();
+  });
+}, 180_000);
+
 describe("sign-out clears the cookie only", () => {
   it("rows untouched, cookieless /me rejected", async () => {
     const userId = await mkUser({ identity: true });

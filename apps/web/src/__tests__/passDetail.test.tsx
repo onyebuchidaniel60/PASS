@@ -481,3 +481,25 @@ describe("Pass detail reference language (14)", () => {
     expect(chip.getAttribute("data-selected")).toBeNull();
   });
 });
+
+describe("Pass detail — disconnected author (single-state rule)", () => {
+  it("falls back to displayName and still renders the pass", async () => {
+    renderPass({ trader: { ...PASS.trader, xConnected: false } });
+    // Thesis proves the pass itself renders.
+    await screen.findByText(/reclaiming the 113.4k range top/);
+    // No live handle anywhere; the display name stands in.
+    expect(screen.queryByText("@turnttfup99")).toBeNull();
+    expect(screen.getAllByText("Demo Trader").length).toBeGreaterThan(0);
+    // History and profile handoff survive the fallback.
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/u/turnttfup99",
+    );
+  });
+
+  it("shows the live handle when the author is connected", async () => {
+    renderPass({ trader: { ...PASS.trader, xConnected: true } });
+    await screen.findByText(/reclaiming the 113.4k range top/);
+    expect(screen.getByText("@turnttfup99")).toBeInTheDocument();
+  });
+});

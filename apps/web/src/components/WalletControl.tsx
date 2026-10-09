@@ -62,9 +62,17 @@ export interface WalletControlProps {
    *  onboarding copy, and in the topbar it sized the actions grid track to
    *  max-content, which is what pushed the control toward the middle. */
   showNote?: boolean;
+  /**
+   * Whether a PASS trading account is linked for this user. The single-state
+   * rule (lib/me.ts): an address with no linked account behind it is not a
+   * connected account, so the launcher renders even when the browser wallet
+   * holds a session. Defaults true so the topbar — which shows the browser
+   * wallet itself — keeps its verified behavior.
+   */
+  linked?: boolean;
 }
 
-export function WalletControl({ showNote = false }: WalletControlProps) {
+export function WalletControl({ showNote = false, linked = true }: WalletControlProps) {
   const { address, isConnected, isConnecting, isReconnecting, chainId } = useAccount();
   const { disconnect } = useDisconnect();
   const [open, setOpen] = useState(false);
@@ -97,7 +105,9 @@ export function WalletControl({ showNote = false }: WalletControlProps) {
   // window in wagmi's lifecycle, and letting it fall through would call
   // `truncateAddress(undefined)` and crash the whole shell rather than showing a
   // launcher. The address is the only thing the chip actually needs.
-  if (busy || !isConnected || !address) {
+  // `!linked` forces the launcher: a connected browser wallet with no PASS
+  // account is not a connected account, so no address may display.
+  if (busy || !isConnected || !address || !linked) {
     return (
       <span className="pass-wallet" data-state={busy ? "connecting" : "disconnected"}>
         {/* §2.5: the accent is rationed to ONE thing per viewport, so the primary

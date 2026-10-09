@@ -123,6 +123,17 @@ export async function getXIdentity(ctx: AppContext, userId: string) {
 }
 
 /**
+ * Single definition of a LIVE X connection, shared by `/me` and the public
+ * profile (see the `/me` handler comment for the full statement): a held
+ * `x_connections` row whose tokens are not expired. The `identities` row
+ * alone never counts — it survives soft disconnects by design (D-018.6).
+ */
+export function isXConnectionLive(xConn: { tokenExpiresAt: Date | null } | null | undefined): boolean {
+  if (!xConn) return false;
+  return xConn.tokenExpiresAt == null || xConn.tokenExpiresAt.getTime() >= Date.now();
+}
+
+/**
  * Resolves an external identity back to its owning PASS user
  * (`docs/DATA_MODEL.md` §2, `UNIQUE(provider, provider_subject_id)`).
  *
@@ -397,16 +408,18 @@ export async function buildPublicProfile(ctx: AppContext, slug: string) {
 
   const primaryAccount = accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
 
+  // Same single definition as `/me`: liveness, never row existence.
+  const xLive = isXConnectionLive(xConn);
   const connections = [
     {
       provider: "x" as const,
-      connected: Boolean(xIdentity),
-      label: xConn
+      connected: xLive,
+      label: xLive && xConn
         ? `X connected · @${xConn.xHandle}`
         : xIdentity
           ? `X linked · @${xIdentity.username} (display only)`
           : "X not connected",
-      displayOnly: Boolean(xIdentity && !xConn),
+      displayOnly: Boolean(xIdentity && !xLive),
     },
     {
       provider: "hyperliquid" as const,
