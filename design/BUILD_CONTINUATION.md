@@ -738,3 +738,45 @@ parallel boots flaked under load.
 ### Still operator-side
 
 The 8-step verification run (§5 of the brief) — no browser here.
+
+## 19. Single connection state per account (2026-10-09)
+
+Fix commit `693d2ac`. API redeploy `5ca6a025` SUCCESS; web redeploy READY,
+aliased. `/health` modes unchanged; execution mock.
+
+### The rule, stated once
+
+An account's UI renders only while that account is connected — X live
+(server `connections[x].connected`, which folds tokens/expiry/disconnect),
+wallet = linked row AND live ConnectKit session, Ethos = X live AND Ethos
+connected. Documented in `lib/me.ts` and the `/me` handler. The prior
+session's two-line model (`WalletSessionLine`) is deleted.
+
+### What changed
+
+- Server: `buildPublicProfile` adopts the live-tokens definition (it read
+  identity-row existence, which survives soft disconnect); pass trader
+  gains additive `xConnected`.
+- `SettingsClient`: sections gate per account; neither connected → single
+  CTA panel; `onConnect` chip-action machinery removed with the rejected
+  model. `WalletControl` gains `linked` (default true, topbar unchanged).
+- `TraderProfileClient` (/u, author-side): X link/chips/address/Ethos gate
+  on author liveness; passes, performance and basics stay. Pass detail:
+  disconnected author falls back to displayName, pass and history stay.
+- `MyPasses`/`Executions`: both-disconnected → CTA, no lists (fail-open on
+  unreadable snapshot); rows carry no handle/address attribution (verified).
+- `OnboardingGate` unchanged in behavior for its routes; topbar controls
+  verified as-is (disconnect already hides).
+
+### Tests
+
+pass-gate +2 (public honesty, xConnected); settings/gate/wallet rewritten
+to the new model; new: wallet-session folded into settings,
+walletControl linked, myPasses/executions gating, traderProfile
+disconnected-author, passDetail fallback, me selector additions. Root
+14/132 green; all touched web files green; tsc + eslint clean. PGlite
+suites share one boot per file (parallel boots flaked under load).
+
+### Still operator-side
+
+The 8-step run with screenshots + `/me` bodies — no browser here.
