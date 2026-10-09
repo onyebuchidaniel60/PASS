@@ -31,10 +31,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
-
-interface MeResponse {
-  x: { connected: boolean; handle: string | null };
-}
+import { xConnection, type MePayload } from "@/lib/me";
 
 type Notice = { tone: "ok" | "bad"; text: string } | null;
 
@@ -47,8 +44,8 @@ export function XConnectedNotice() {
    * message still has to render — "X connected" is true regardless of whether
    * we can spell out which account — so the catch is deliberately non-fatal.
    */
-  const { state } = useAuthenticatedResource<MeResponse>({
-    load: async () => (await import("@/lib/client")).clientGet<MeResponse>("/api/v1/me"),
+  const { state } = useAuthenticatedResource<MePayload>({
+    load: async () => (await import("@/lib/client")).clientGet<MePayload>("/api/v1/me"),
   });
 
   const status = params?.get("x") ?? null;
@@ -58,8 +55,11 @@ export function XConnectedNotice() {
 
     void (async () => {
       if (status === "connected") {
+        // The handle is a nicety, not the confirmation: if /me is still
+        // loading or the entry is absent, "X connected." is honest on its
+        // own. `xConnection` is total, so this read can never throw.
         const handle =
-          state.status === "ready" ? (state.data.x.handle ?? null) : null;
+          state.status === "ready" ? (xConnection(state.data)?.handle ?? null) : null;
         setNotice({
           tone: "ok",
           text: handle ? `X connected as @${handle}.` : "X connected.",

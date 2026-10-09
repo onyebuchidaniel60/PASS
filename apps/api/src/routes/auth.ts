@@ -83,6 +83,9 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
               ? `X linked · @${xIdentity.username} (display only)`
               : "X not connected",
           displayOnly: Boolean(xIdentity && !xConn),
+          // Machine-readable handle for the web client's identity control.
+          // The label above is display copy and must never be parsed.
+          handle: xConn?.xHandle ?? xIdentity?.username ?? null,
         },
         {
           provider: "hyperliquid",

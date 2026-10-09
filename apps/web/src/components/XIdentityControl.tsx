@@ -39,16 +39,30 @@ import Link from "next/link";
 
 import { Button } from "@/components/wave2/controls";
 import { clientGet, clientPost } from "@/lib/client";
+import { xConnection, type MePayload } from "@/lib/me";
 
-/** The slice of `GET /api/v1/me` this control needs. */
+/**
+ * The slice of `GET /api/v1/me` this control needs, derived from the FLAT
+ * `connections[]` payload (see `@/lib/me`). There is no nested `x` object
+ * on the wire: reading `me.x.connected` crashed every signed-in page
+ * (TypeError on `undefined`), because `clientGet<T>` is an unchecked cast
+ * and nothing validated the assumption. This view-model is built by
+ * `toViewModel`, which is total — unknown shapes map to signed out.
+ */
 interface MeIdentity {
-  x: {
-    connected: boolean;
-    handle: string | null;
-    displayName: string | null;
-    avatarUrl: string | null;
-    displayOnly: boolean;
-  };
+  connected: boolean;
+  handle: string | null;
+  displayOnly: boolean;
+}
+
+const SIGNED_OUT: MeIdentity = { connected: false, handle: null, displayOnly: false };
+
+function toViewModel(data: unknown): MeIdentity {
+  const entry = xConnection(data as MePayload | null | undefined);
+  if (entry?.connected && entry.handle) {
+    return { connected: true, handle: entry.handle, displayOnly: entry.displayOnly };
+  }
+  return SIGNED_OUT;
 }
 
 export function XIdentityControl() {
@@ -61,12 +75,12 @@ export function XIdentityControl() {
 
   const load = useCallback(async () => {
     try {
-      const data = await clientGet<MeIdentity>("/api/v1/me");
-      setMe(data);
+      const data = await clientGet<MePayload>("/api/v1/me");
+      setMe(toViewModel(data));
     } catch {
       // A signed-out visitor gets 401. That is the common case, not an error,
       // so it maps to "signed out" rather than to an error banner in the topbar.
-      setMe({ x: { connected: false, handle: null, displayName: null, avatarUrl: null, displayOnly: false } });
+      setMe(SIGNED_OUT);
     }
   }, []);
 
@@ -116,7 +130,7 @@ export function XIdentityControl() {
   // UNKNOWN: render nothing. See the state table above.
   if (me === null) return null;
 
-  if (!me.x.connected || !me.x.handle) {
+  if (!me.connected || !me.handle) {
     return (
       <span className="pass-x" data-state="signed-out">
           <Button
@@ -152,7 +166,7 @@ export function XIdentityControl() {
     );
   }
 
-  const handle = me.x.handle;
+  const handle = me.handle;
 
   return (
     <span className="pass-x" data-state="connected">
@@ -177,7 +191,7 @@ export function XIdentityControl() {
           <div className="pass-x-dropdown" role="menu" aria-label="X account">
             <p className="pass-x-dropdown-note">
               Connected as <span className="pass-x-handle">@{handle}</span>
-              {me.x.displayOnly ? " (display only)" : null}
+              {me.displayOnly ? " (display only)" : null}
             </p>
 
             {/* §14.9 the Trader profile route is /u/{handle} (D-019.3). */}

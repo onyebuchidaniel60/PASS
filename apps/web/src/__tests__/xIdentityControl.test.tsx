@@ -25,23 +25,71 @@ vi.mock("@/lib/client", () => ({
 }));
 
 const CONNECTED = {
-  x: {
-    connected: true,
-    handle: "turnttfup99",
-    displayName: "turntt",
-    avatarUrl: null,
-    displayOnly: false,
-  },
+  userId: "user-1",
+  profileSlug: null,
+  displayName: "Turntt",
+  connections: [
+    {
+      provider: "x",
+      connected: true,
+      label: "X connected · @turnttfup99",
+      displayOnly: false,
+      handle: "turnttfup99",
+    },
+  ],
 };
 
 const SIGNED_OUT = {
-  x: {
-    connected: false,
-    handle: null,
-    displayName: null,
-    avatarUrl: null,
-    displayOnly: false,
-  },
+  userId: "user-1",
+  profileSlug: null,
+  displayName: null,
+  connections: [
+    {
+      provider: "x",
+      connected: false,
+      label: "X not connected",
+      displayOnly: false,
+      handle: null,
+    },
+  ],
+};
+
+/**
+ * The literal flat shape `GET /api/v1/me` returns (see
+ * `apps/api/src/routes/auth.ts`). A previous version of this file mocked a
+ * nested `{ x: { … } }` object that never existed on the wire; the component
+ * read `me.x.connected`, which compiled (unchecked `clientGet<T>` cast) and
+ * crashed every signed-in page with `TypeError: Cannot read properties of
+ * undefined (reading 'connected')`. This fixture pins the real shape so
+ * that class of bug fails here instead of in production.
+ */
+const LITERAL_FLAT_ME = {
+  userId: "user-9",
+  profileSlug: null,
+  displayName: null,
+  connections: [
+    {
+      provider: "x",
+      connected: true,
+      label: "X connected · @turnttfup99",
+      displayOnly: false,
+      handle: "turnttfup99",
+    },
+    {
+      provider: "hyperliquid",
+      connected: false,
+      label: "Hyperliquid not linked",
+      displayOnly: false,
+    },
+    {
+      provider: "ethos",
+      connected: false,
+      label: "Ethos reputation not resolved",
+      displayOnly: true,
+    },
+  ],
+  tradingAccounts: [],
+  demoMode: true,
 };
 
 beforeEach(() => {
@@ -99,10 +147,31 @@ describe("XIdentityControl — connected", () => {
   it("treats connected-but-no-handle as signed out", async () => {
     // A connection with nothing to show is not a state a chip can represent.
     mockGet.mockResolvedValue({
-      x: { ...CONNECTED.x, handle: null },
+      userId: "user-1",
+      profileSlug: null,
+      displayName: null,
+      connections: [
+        {
+          provider: "x",
+          connected: true,
+          label: "X connected",
+          displayOnly: false,
+          handle: null,
+        },
+      ],
     });
     render(<XIdentityControl />);
     expect(await screen.findByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
+  });
+
+  it("renders the chip from the literal flat /me payload", async () => {
+    // Regression: the wire shape has no nested `x` object. This fixture is
+    // the exact flat payload from the API source; the component must derive
+    // the chip from `connections[]` without throwing.
+    mockGet.mockResolvedValue(LITERAL_FLAT_ME);
+    render(<XIdentityControl />);
+    await waitFor(() => expect(screen.getByRole("button")).toBeInTheDocument());
+    expect(screen.getByText("@turnttfup99")).toBeInTheDocument();
   });
 });
 
