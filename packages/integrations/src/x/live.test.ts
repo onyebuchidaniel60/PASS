@@ -129,34 +129,34 @@ describe("getAuthenticatedUser is diagnosable", () => {
 describe("getAuthenticatedUser never leaks a credential in its errors", () => {
   it("redacts the bearer token if X echoes it back", async () => {
     stubFetch({ detail: `bad token: Bearer ${TOKEN}` }, 401);
-    const err = await new LiveX().getAuthenticatedUser(TOKEN).catch((e: Error) => e);
+    const err = (await new LiveX().getAuthenticatedUser(TOKEN).catch((e) => e)) as Error;
     expect(err.message).not.toContain(TOKEN);
     expect(err.message).toContain("[redacted]");
   });
 
   it("redacts an access_token field in an error body", async () => {
     stubFetch({ detail: "bad", access_token: TOKEN }, 401);
-    const err = await new LiveX().getAuthenticatedUser(TOKEN).catch((e: Error) => e);
+    const err = (await new LiveX().getAuthenticatedUser(TOKEN).catch((e) => e)) as Error;
     expect(err.message).not.toContain(TOKEN);
   });
 
   it("redacts any other long opaque credential-shaped string", async () => {
     const secret = "z".repeat(64);
     stubFetch({ detail: `credential ${secret}` }, 403);
-    const err = await new LiveX().getAuthenticatedUser(TOKEN).catch((e: Error) => e);
+    const err = (await new LiveX().getAuthenticatedUser(TOKEN).catch((e) => e)) as Error;
     expect(err.message).not.toContain(secret);
   });
 
   it("truncates a very long body so the error stays readable", async () => {
     stubFetch({ detail: "x".repeat(5000) }, 400);
-    const err = await new LiveX().getAuthenticatedUser(TOKEN).catch((e: Error) => e);
+    const err = (await new LiveX().getAuthenticatedUser(TOKEN).catch((e) => e)) as Error;
     expect(err.message.length).toBeLessThan(500);
   });
 
   it("still keeps the status and a useful summary after redacting", async () => {
     // Redaction must not make the error useless.
     stubFetch({ detail: `token Bearer ${TOKEN} rejected` }, 401);
-    const err = await new LiveX().getAuthenticatedUser(TOKEN).catch((e: Error) => e);
+    const err = (await new LiveX().getAuthenticatedUser(TOKEN).catch((e) => e)) as Error;
     expect(err.message).toMatch(/401/);
     expect(err.message).toMatch(/rejected/);
   });

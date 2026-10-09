@@ -6,125 +6,126 @@ routes: 14
 
 ROUTE / @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /discover @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /p/UvvuxpWPZ4 @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
-  above-fold: status=span.pass-badge "Expired" visible@337px | asset=h1.pass-display "BTCLONG" visible@258px | metrics=div.pass-metric-cards "Entry113,400per ETHTake profit116,000per" visible@559px | cta=button.pass-btn "Take Pass" below-fold@3169px
+  above-fold: status=span.pass-badge "Expired" visible@316px | asset=h1.pass-display "BTCLONG" visible@238px | metrics=div.pass-metric-cards "Entry113,400per ETHTake profit116,000per" visible@538px | cta=button.pass-btn "Take Pass" below-fold@3149px
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /u/turnttfup99 @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /passes/UvvuxpWPZ4/take @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /help @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /faqs @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /how-it-works @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /contact @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /me/passes @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
+  console: 3 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /me/executions @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
+  console: 3 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /settings @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
+  console: 4 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /onboarding @ mobile 375x812  [http 200]
   overflow: 0
-  overlap: 0
+  overlap: a.pass-wordmark overlaps div.pass-topbar-actions "Sign in with XConnect wallet" by 38x44px
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 1 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /gallery @ mobile 375x812  [http 404]
   expected-404: ok
 
 === SUMMARY ===
-total findings: 3
-  console: 3
+total findings: 33
+  console: 20
+  overlap: 13

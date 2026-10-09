@@ -2633,6 +2633,50 @@ li[data-ghost="true"] {
   gap: var(--space-2);
   max-inline-size: max-content;
   min-inline-size: 0;
+  /* Two controls now live here (X identity, then the wallet), so the track is
+     wide enough for both. Playwright measured `.pass-wordmark` overlapping
+     `.pass-topbar-actions` by 38x44px at 375px: the `max-content` track grew
+     past the space the brand and the `1fr` nav could yield, and with no way to
+     shrink, the grid let the actions sit on top of the wordmark.
+     `min-inline-size: 0` on a flex item plus `flex-shrink` below lets the
+     controls compress instead of overlapping. The labels themselves are
+     shortened rather than hidden — see `.pass-x-label` and the wallet
+     connect label — so nothing is lost, only re-worded. */
+}
+
+/* Below the mobile breakpoint the two controls cannot both keep their full
+   labels in one row. The label text shortens; the controls stay visible and
+   stay hittable, which §8.5 and WCAG 2.5.8 care about far more than a word
+   count.
+   `overflow-wrap: anywhere` is what makes the shortened form possible at all:
+   without a break opportunity the long forms would push out of the track rather
+   than wrapping, which is the overflow the harness reported. */
+@media (max-width: 479px) {
+  .pass-topbar-inner {
+    gap: var(--space-2);
+  }
+
+  .pass-topbar-actions {
+    gap: var(--space-1);
+  }
+
+  .pass-x-label {
+    font-size: 0;
+  }
+
+  .pass-x-label::after {
+    content: "Sign in";
+    font-size: var(--type-label-size);
+  }
+
+  .pass-wallet-connect-label {
+    font-size: 0;
+  }
+
+  .pass-wallet-connect-label::after {
+    content: "Connect";
+    font-size: var(--type-label-size);
+  }
 }
 
 @media (min-width: 768px) {

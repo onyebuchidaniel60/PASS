@@ -113,7 +113,21 @@ export function WalletControl({ showNote = false }: WalletControlProps) {
               onClick={show}
               className="pass-wallet-connect"
             >
-              {busy ? "Connecting…" : "Connect wallet"}
+              {/* Same reasoning as the X button: "Connect wallet" is the widest
+                  label in the actions track. `.pass-wallet-connect-label`
+                  shortens it below the mobile breakpoint so both topbar controls fit at 375
+                  without wrapping.
+
+                  ONE span, not two. The earlier version paired an aria-hidden
+                  visible label with a visually-hidden copy of the same words,
+                  which made the button's text content "Connect walletConnect
+                  wallet" and broke the assertion that the launcher says what it
+                  says. The CSS shortens this span via `::after`; the span
+                  itself still contains the full words, so both the accessible
+                  name and the text content are unchanged. */}
+              <span className="pass-wallet-connect-label">
+                {busy ? "Connecting…" : "Connect wallet"}
+              </span>
             </Button>
           )}
         </ConnectKitButton.Custom>

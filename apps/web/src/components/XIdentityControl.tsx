@@ -120,7 +120,7 @@ export function XIdentityControl() {
   if (!me.x.connected || !me.x.handle) {
     return (
       <span className="pass-x" data-state="signed-out">
-        <Button
+          <Button
           variant="secondary"
           size="md"
           onClick={() => {
@@ -132,7 +132,18 @@ export function XIdentityControl() {
             }
           }}
         >
-          Sign in with X
+          {/* The long label is the one thing in the actions track that does not
+              fit beside the wallet control on a phone. `.pass-x-label` swaps to
+              "Sign in" under the mobile breakpoint rather than wrapping, because a two-line
+              button is worse than a shorter one and `nowrap` would overflow
+              instead.
+
+              ONE span, not an aria-hidden/visually-hidden pair: two spans
+              holding the same words doubled the button's text content. This span
+              keeps the full wording, so the accessible name and the text
+              content are both exactly "Sign in with X", and only the rendered
+              glyphs shorten. */}
+          <span className="pass-x-label">Sign in with X</span>
         </Button>
       </span>
     );
