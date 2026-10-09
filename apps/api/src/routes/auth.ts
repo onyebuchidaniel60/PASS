@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { CreateProfileRequest, UpdateProfileRequest } from "@pass/contracts";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { users } from "@pass/db";
 import {
+  SESSION_COOKIE,
   clearSessionCookie,
   createSession,
+  destroySession,
   requireUser,
   setSessionCookie,
 } from "../plugins/session.js";
@@ -36,6 +38,21 @@ import { pkceChallenge, randomToken } from "../crypto.js";
  * (Stage H). No secret ever leaves the server, and no key material is ever
  * accepted by any route.
  */
+/**
+ * The ONE way a session ends (D-024): destroy the server row and clear the
+ * cookie. Shared by POST /auth/logout and POST /auth/x/disconnect so the
+ * two can never drift apart again.
+ */
+async function endSession(
+  ctx: AppContext,
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const id = req.cookies?.[SESSION_COOKIE];
+  if (id) await destroySession(ctx, id);
+  clearSessionCookie(reply);
+}
+
 export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) {
   const secure = ctx.env.NODE_ENV === "production";
 
@@ -128,7 +145,7 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
   });
 
   app.post("/api/v1/auth/logout", async (req, reply) => {
-    clearSessionCookie(reply);
+    await endSession(ctx, req, reply);
     return { ok: true };
   });
 
@@ -471,17 +488,23 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
   });
 
   /**
-   * Soft disconnect (operator-chosen, D-018.6): revokes the held OAuth token
-   * material by deleting the `x_connections` row, and KEEPS the `identities`
-   * row so display bindings and historical Pass authorship survive. After
-   * this, `/me` reports `connections[x]` as disconnected/display-only.
-   * Reconnecting re-attaches tokens to the same user; nothing is reassigned.
-   * Session sign-out never touches either table — it clears the cookie only.
+   * Soft disconnect (D-024): revokes the held OAuth token material by
+   * deleting the `x_connections` row, KEEPS the `identities` row so display
+   * bindings and historical Pass authorship survive — and TERMINATES the
+   * session. X connection and PASS session are the same thing: there is no
+   * session-without-identity state, so ending one ends both. Users,
+   * profiles, identities, passes and trading_accounts rows are untouched
+   * (only the x_connections tokens row and the sessions row go);
+   * reconnecting signs back into the same user_id. Session sign-out clears
+   * the cookie and destroys the server row, nothing else.
+   *
+   * One way to end a session: POST /auth/logout shares `endSession`.
    */
-  app.post("/api/v1/auth/x/disconnect", async (req) => {
+  app.post("/api/v1/auth/x/disconnect", async (req, reply) => {
     const userId = await requireUser(req);
     const { xConnections } = await import("@pass/db");
     await ctx.db.delete(xConnections).where(eq(xConnections.userId, userId));
+    await endSession(ctx, req, reply);
     return { ok: true };
   });
 

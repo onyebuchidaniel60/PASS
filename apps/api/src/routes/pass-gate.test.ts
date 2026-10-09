@@ -323,6 +323,22 @@ describe("PASS-side trading-account unlink", () => {
 describe("X soft disconnect keeps the identity, drops the tokens", () => {
   it("connections[x].connected false, identity row present, history intact", async () => {
     const userId = await mkUser({ identity: true, profile: true });
+    await db.insert(tradingAccounts).values({
+      userId,
+      provider: "hyperliquid",
+      accountAddress: "0x4444444444444444444444444444444444444444",
+    });
+    await db.insert(passes).values({
+      publicId: "sofdisc1",
+      traderId: userId,
+      slug: "sofdisc-btc-long",
+      version: 1,
+      asset: "BTC",
+      direction: "long",
+      entryType: "market",
+      thesis: "Soft disconnect fixture.",
+      status: "active",
+    });
     const jar = await cookie(userId);
     const res = await app.inject({
       method: "POST",
@@ -330,7 +346,7 @@ describe("X soft disconnect keeps the identity, drops the tokens", () => {
       headers: { cookie: jar },
     });
     expect(res.statusCode).toBe(200);
-
+    // Tokens row gone, everything else intact.
     const idRows = await db.select().from(identities).where(eq(identities.userId, userId));
     expect(idRows.length).toBe(1);
     const connRows = await db
@@ -338,15 +354,20 @@ describe("X soft disconnect keeps the identity, drops the tokens", () => {
       .from(xConnections)
       .where(eq(xConnections.userId, userId));
     expect(connRows.length).toBe(0);
+    expect(
+      (await db.select().from(profiles).where(eq(profiles.userId, userId))).length,
+    ).toBe(1);
+    expect(
+      (await db.select().from(passes).where(eq(passes.traderId, userId))).length,
+    ).toBe(1);
+    expect(
+      (await db.select().from(tradingAccounts).where(eq(tradingAccounts.userId, userId))).length,
+    ).toBe(1);
 
+    // D-024: the session is terminated too — the old cookie authenticates
+    // nothing anymore.
     const me = await app.inject({ method: "GET", url: "/api/v1/me", headers: { cookie: jar } });
-    const body = JSON.parse(me.body) as {
-      connections: Array<{ provider: string; connected: boolean; handle: string | null }>;
-    };
-    expect(body.connections.find((c) => c.provider === "x")).toMatchObject({
-      connected: false,
-      handle: "fixturehandle",
-    });
+    expect(me.statusCode).toBe(401);
   });
 }, 180_000);
 
@@ -405,8 +426,8 @@ describe("public surfaces report author liveness honestly", () => {
   });
 }, 180_000);
 
-describe("sign-out clears the cookie only", () => {
-  it("rows untouched, cookieless /me rejected", async () => {
+describe("sign-out ends the session, keeps every row", () => {
+  it("old cookie rejected, rows untouched", async () => {
     const userId = await mkUser({ identity: true });
     const jar = await cookie(userId);
     const out = await app.inject({
@@ -419,6 +440,14 @@ describe("sign-out clears the cookie only", () => {
 
     const idRows = await db.select().from(identities).where(eq(identities.userId, userId));
     expect(idRows.length).toBe(1);
+    const connRows = await db
+      .select()
+      .from(xConnections)
+      .where(eq(xConnections.userId, userId));
+    expect(connRows.length).toBe(1);
+    // The server row is destroyed: replaying the old cookie 401s.
+    const stale = await app.inject({ method: "GET", url: "/api/v1/me", headers: { cookie: jar } });
+    expect(stale.statusCode).toBe(401);
     const naked = await app.inject({ method: "GET", url: "/api/v1/me" });
     expect(naked.statusCode).toBe(401);
   });

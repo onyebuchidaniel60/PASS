@@ -96,6 +96,15 @@ describe("Executions (§10.9)", () => {
     ).toBeInTheDocument();
   });
 
+  it("signed-out Executions is a connect CTA with no rows (D-024)", async () => {
+    render(<ExecutionsClient probe={unauthed} load={async () => [EXEC]} />);
+    expect(
+      await screen.findByText("Your execution history belongs to a connected account."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
+    expect(screen.queryByText("hl-order-99881")).toBeNull();
+  });
+
   it("renders a busy loading state", () => {
     render(
       <ExecutionsClient probe={authed} load={() => new Promise<Execution[]>(() => {})} />,

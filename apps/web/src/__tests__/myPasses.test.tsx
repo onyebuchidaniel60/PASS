@@ -109,6 +109,15 @@ describe("My Passes (§10.8)", () => {
     ).toBeInTheDocument();
   });
 
+  it("signed-out My Passes is a connect CTA with no rows (D-024)", async () => {
+    renderWith({ probe: unauthed });
+    expect(
+      await screen.findByText("Your Passes belong to a connected X identity."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
+    expect(screen.queryByText("BTC")).toBeNull();
+  });
+
   it("renders a loading state that announces itself as busy", () => {
     renderWith({ load: () => new Promise<MyPass[]>(() => {}) });
     const status = screen.getByRole("status");

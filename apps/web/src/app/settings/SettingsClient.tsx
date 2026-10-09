@@ -29,6 +29,7 @@ import {
   isEthosVisible,
 } from "@/lib/me";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
+import { SignInXButton } from "@/components/SignInX";
 import { Field, Textarea, TextInput } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { EmptyBlock } from "@/components/wave3/data";
@@ -126,6 +127,7 @@ export function SettingsClient({
         state={state}
         loadingLabel="Loading your profile"
         unauthorizedReason="Your profile belongs to a connected X identity."
+        unauthorizedAction={<SignInXButton onNavigate={onNavigate} />}
         empty={<EmptyBlock title="No profile yet">Connect an identity to begin.</EmptyBlock>}
         onRetry={reload}
       >

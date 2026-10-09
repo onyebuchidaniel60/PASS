@@ -36,6 +36,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/wave2/controls";
 import { clientGet, clientPost } from "@/lib/client";
@@ -66,6 +67,7 @@ function toViewModel(data: unknown): MeIdentity {
 }
 
 export function XIdentityControl() {
+  const router = useRouter();
   // `null` = unknown (still loading). Deliberately not `false`, because
   // "not loaded" and "loaded and signed out" must not render the same thing.
   const [me, setMe] = useState<MeIdentity | null>(null);
@@ -108,6 +110,7 @@ export function XIdentityControl() {
   const disconnect = useCallback(async () => {
     setOpen(false);
     setBusy(true);
+    let ended = false;
     try {
       // Caught, not left to propagate. The control has no error surface of its
       // own — adding one for a single failure would be more machinery than the
@@ -117,7 +120,11 @@ export function XIdentityControl() {
       //
       // The outcome is still reported honestly: `load()` below re-reads /me, so
       // a failed delete leaves the chip connected, which is the truth.
-      await clientPost("/api/v1/auth/x/disconnect").catch(() => undefined);
+      await clientPost("/api/v1/auth/x/disconnect");
+      ended = true;
+    } catch {
+      // Stay put: the session is still alive, and navigating away would show
+      // a signed-out view that contradicts the live session.
     } finally {
       // Re-read from the server rather than optimistically flipping local state:
       // if the delete partially failed, an optimistic update would show
@@ -129,7 +136,11 @@ export function XIdentityControl() {
       notifyMeChanged();
       setBusy(false);
     }
-  }, [load]);
+    // D-024: disconnect ends the session, so the current route — which was
+    // rendered for a signed-in user — no longer applies. Landing shows no
+    // user data and never flashes a stale profile.
+    if (ended) router.replace("/");
+  }, [load, router]);
 
   // UNKNOWN: render nothing. See the state table above.
   if (me === null) return null;

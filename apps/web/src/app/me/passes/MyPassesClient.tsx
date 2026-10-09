@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { SignInXButton } from "@/components/SignInX";
 import { onMeChanged } from "@/lib/me-events";
 import { isXLive } from "@/lib/me";
 import { useMePayload } from "@/lib/use-me";
@@ -123,9 +124,12 @@ const COLUMNS: DataTableColumn<MyPass>[] = [
 export function MyPassesClient({
   probe,
   load = fetchPasses,
+  onNavigate,
 }: {
   probe?: () => Promise<boolean>;
   load?: () => Promise<MyPass[]>;
+  /** Injectable navigation for the signed-out CTA (jsdom has no navigation). */
+  onNavigate?: (url: string) => void;
 }) {
   const { state, reload } = useAuthenticatedResource<MyPass[]>({
     probe,
@@ -166,6 +170,7 @@ export function MyPassesClient({
         state={state}
         loadingLabel="Loading your Passes"
         unauthorizedReason="Your Passes belong to a connected X identity."
+        unauthorizedAction={<SignInXButton onNavigate={onNavigate} />}
         empty={
           <EmptyBlock title="No Passes yet" action="Create a Pass">
             Author one and it appears here with its live state.

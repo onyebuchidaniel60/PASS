@@ -14,14 +14,20 @@ import { XIdentityControl } from "../components/XIdentityControl";
  * trustworthy.
  */
 
-const { mockGet, mockPost } = vi.hoisted(() => ({
+const { mockGet, mockPost, mockReplace } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockPost: vi.fn(),
+  mockReplace: vi.fn(),
 }));
 
 vi.mock("@/lib/client", () => ({
   clientGet: (...a: unknown[]) => mockGet(...a),
   clientPost: (...a: unknown[]) => mockPost(...a),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
+  usePathname: () => "/settings",
 }));
 
 const CONNECTED = {
@@ -95,6 +101,7 @@ const LITERAL_FLAT_ME = {
 beforeEach(() => {
   mockGet.mockReset();
   mockPost.mockReset();
+  mockReplace.mockReset();
 });
 
 describe("XIdentityControl — signed out", () => {
@@ -298,5 +305,32 @@ describe("XIdentityControl — disconnect", () => {
 
     // No permanent stuck-open menu, and no unhandled rejection.
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  });
+
+  it("routes to / on a successful disconnect (D-024 ends the session)", async () => {
+    mockGet.mockResolvedValueOnce(CONNECTED).mockResolvedValueOnce(SIGNED_OUT);
+    mockPost.mockResolvedValue({ ok: true });
+
+    render(<XIdentityControl />);
+    const chip = await screen.findByRole("button");
+    await waitFor(() => chip.click());
+    const item = await screen.findByRole("menuitem", { name: "Disconnect X" });
+    await waitFor(() => item.click());
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+  });
+
+  it("stays put when the disconnect call fails (session still alive)", async () => {
+    mockGet.mockResolvedValue(CONNECTED);
+    mockPost.mockRejectedValue(new Error("network"));
+
+    render(<XIdentityControl />);
+    const chip = await screen.findByRole("button");
+    await waitFor(() => chip.click());
+    const item = await screen.findByRole("menuitem", { name: /Disconnect/ });
+    await waitFor(() => item.click());
+
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

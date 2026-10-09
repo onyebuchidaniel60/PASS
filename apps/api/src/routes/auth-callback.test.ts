@@ -20,6 +20,7 @@ import { buildApp } from "../app.js";
 import type { AppContext } from "../context.js";
 import { loadEnv, resetEnv } from "../env.js";
 import { createLogger } from "../logger.js";
+import { createSession } from "../plugins/session.js";
 
 /**
  * X callback — sign-in with a pre-existing identity binding.
@@ -217,5 +218,46 @@ describe("X callback with a pre-existing identity binding (no session)", () => {
     });
     expect(res.statusCode).toBe(302);
     expect(await count(users)).toBe(usersBefore);
+  }, 180_000);
+
+  it("reconnect after disconnect returns the same user, history intact (D-024)", async () => {
+    currentSubject = "x-subject-rejoin";
+    currentHandle = "fixturehandlerejoin";
+    const { userId, state } = await seedBinding("rejoin");
+    const sid = await createSession(ctx, userId);
+    const jar = `pass_session=${sid}`;
+
+    // Disconnect terminates the session (D-024).
+    const out = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/x/disconnect",
+      headers: { cookie: jar },
+    });
+    expect(out.statusCode).toBe(200);
+    const dead = await app.inject({
+      method: "GET",
+      url: "/api/v1/me",
+      headers: { cookie: jar },
+    });
+    expect(dead.statusCode).toBe(401);
+
+    // Reconnecting signs back into the SAME user — no new user, and the
+    // new session resolves the original userId.
+    const usersBefore = await count(users);
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/v1/auth/x/callback?state=${state}&code=test-code`,
+    });
+    expect(res.statusCode).toBe(302);
+    expect(await count(users)).toBe(usersBefore);
+    const match = /pass_session=([^;]+)/.exec(String(res.headers["set-cookie"] ?? ""));
+    expect(match?.[1]).toBeTruthy();
+    const me = await app.inject({
+      method: "GET",
+      url: "/api/v1/me",
+      headers: { cookie: `pass_session=${match![1]}` },
+    });
+    expect(me.statusCode).toBe(200);
+    expect((JSON.parse(me.body) as { userId: string }).userId).toBe(userId);
   }, 180_000);
 });

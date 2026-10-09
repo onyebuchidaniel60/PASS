@@ -42,6 +42,25 @@ describe("§10.10 Profile and connections", () => {
     ).toBeInTheDocument();
   });
 
+  it("signed-out settings is a connect CTA, not user data (D-024)", async () => {
+    const onNavigate = vi.fn();
+    const { container } = render(
+      <SettingsClient probe={unauthed} load={withMe()} onNavigate={onNavigate} />,
+    );
+    expect(
+      await screen.findByText("Your profile belongs to a connected X identity."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with X" }));
+    expect(onNavigate).toHaveBeenCalledWith("/api/v1/auth/x/start");
+    // No name, no slug, no bio, no Save, no avatar, no inputs.
+    expect(screen.queryByText("turnttfup99")).toBeNull();
+    expect(screen.queryByText("pass.to/turnttfup99")).toBeNull();
+    expect(screen.queryByText("BTC swings only.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(container.querySelector("svg")).toBeNull();
+    expect(container.querySelector("input, textarea")).toBeNull();
+  });
+
   it("renders a busy loading state", () => {
     render(<SettingsClient probe={authed} load={() => new Promise<Me>(() => {})} />);
     expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");

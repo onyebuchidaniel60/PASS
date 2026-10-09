@@ -25,6 +25,9 @@ export interface AuthenticatedViewProps<T> {
   empty?: ReactNode;
   /** Copy for `unauthorized`. A reason, not a generic "please sign in" (§9.7). */
   unauthorizedReason?: string;
+  /** Action for `unauthorized`, e.g. a Sign-in CTA (D-024: signed-out views
+   *  offer a way back in, never a dead end). */
+  unauthorizedAction?: ReactNode;
   /** Copy for `error`, shown beside the failure statement. */
   errorDetail?: string;
   /** Retry handler for `error`. */
@@ -38,6 +41,7 @@ export function AuthenticatedView<T>({
   children,
   empty,
   unauthorizedReason = "This surface belongs to a connected account.",
+  unauthorizedAction,
   errorDetail,
   onRetry,
   loadingLabel = "Loading",
@@ -46,7 +50,12 @@ export function AuthenticatedView<T>({
     case "loading":
       return <LoadingBlock label={loadingLabel} rows={4} />;
     case "unauthorized":
-      return <PermissionBlock reason={unauthorizedReason} />;
+      return (
+        <>
+          <PermissionBlock reason={unauthorizedReason} />
+          {unauthorizedAction ?? null}
+        </>
+      );
     case "error":
       return <ErrorBlock detail={errorDetail ?? state.error} onRetry={onRetry} />;
     case "empty":

@@ -433,3 +433,35 @@ authorizes their own execution).
 - Take flow owns wallet connect, address read, agent approval.
 - D-019.1 is unchanged (wagmi + viem + ConnectKit remain the stack);
   D-023 governs when the wallet is connected, not how.
+
+## D-024 — Sign-out is sign-out
+
+**Date:** 2026-10-09
+**Status:** Accepted. In force. Overrides the "soft disconnect keeps the
+session" behavior: there is no session-without-identity state anymore.
+
+**Decision:** The X connection and the PASS session are the same thing.
+Disconnecting X on PASS terminates the PASS session. The user is signed
+out. While signed out, no user-attributed data renders on any surface —
+not Profile, not Settings, not My Passes, not Executions. Those routes
+show a connect CTA or redirect to landing.
+
+**Rationale:** PASS identity is X-only (D-023). There is no separate PASS
+account that exists independently of an X connection in the user's mental
+model. A "signed-out topbar with signed-in profile" state is a bug, not
+a feature.
+
+**Consequences:**
+- POST /auth/x/disconnect clears the session cookie in addition to its
+  current work (and destroys the server session row).
+- /me returns 401 for a signed-out caller. It does not return a userId
+  for a disconnected user.
+- Any client route that renders user data gates on session presence,
+  not on "profile row exists".
+- Reconnecting X signs the user back into the same user_id and profile.
+  Their history is intact because rows were never deleted.
+- Public pass URLs (/p/{id}) and public trader profiles (/u/{slug})
+  still render — those are published artifacts, not viewer-bound data.
+- Historical pass attribution: a Pass authored by this user renders the
+  author's display name to the world. The author, when signed out, does
+  not see their own pass list.

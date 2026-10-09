@@ -25,6 +25,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { SignInXButton } from "@/components/SignInX";
 import { onMeChanged } from "@/lib/me-events";
 import { isXLive } from "@/lib/me";
 import { useMePayload } from "@/lib/use-me";
@@ -103,9 +104,12 @@ const COLUMNS: DataTableColumn<Execution>[] = [
 export function ExecutionsClient({
   probe,
   load = fetchExecutions,
+  onNavigate,
 }: {
   probe?: () => Promise<boolean>;
   load?: () => Promise<Execution[]>;
+  /** Injectable navigation for the signed-out CTA (jsdom has no navigation). */
+  onNavigate?: (url: string) => void;
 }) {
   const [period, setPeriod] = useState<PeriodId>("7d");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -144,6 +148,7 @@ export function ExecutionsClient({
         state={state}
         loadingLabel="Loading your executions"
         unauthorizedReason="Your execution history belongs to a connected account."
+        unauthorizedAction={<SignInXButton onNavigate={onNavigate} />}
         empty={
           <EmptyBlock title="No executions yet">
             Take a Pass to record an execution against your own Hyperliquid account.
