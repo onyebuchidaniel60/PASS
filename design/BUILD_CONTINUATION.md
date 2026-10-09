@@ -393,7 +393,64 @@ reserved-clearance token so content is never occluded), a floating Take button,
 or moving the CTA above the long sections. All three are design decisions with
 conversion consequences.
 
-## 12. Standing constraints
+## 12. X identity surface and onboarding routing
+
+X OAuth went live end to end. What it did not have was anywhere to show it.
+
+### The topbar actions track now holds two controls
+
+`XIdentityControl`, then the wallet. X first because PASS is identity-first:
+the handle is who a Trader **is**, the wallet is only what they can sign with,
+and a trader with one but not the other is still a trader.
+
+The fourth state is the one worth knowing about. While `/me` is in flight the
+control renders **nothing**. Rendering "Sign in with X" and hiding it a moment
+later flashes a button on every page load, and a user reaching for it is
+reaching for something about to move. An absent control beats one that lies
+about its own stability. That assertion is the load-bearing one in the 16 tests.
+
+No third-party widget, for the reason `WalletControl` already established: X
+OAuth needs no SDK to *begin* — it is a 302 to our own backend, which redirects
+to X — so the only foreign surface is X's own consent screen, which is where it
+belongs.
+
+### Onboarding routing, both layers
+
+Layer 1 is the callback: no profile → `/onboarding?x=connected`, profile →
+`/settings?x=connected`. `x=connected` rides on **both** branches, because a new
+user needs the confirmation too or their successful sign-in looks identical to a
+no-op.
+
+Layer 2 is `OnboardingRedirectGuard` on `/settings`, `/me/passes`,
+`/me/executions`. Layer 1 only helps users who connect X *after* it existed;
+anyone already holding a profile-less session — including the operator's own
+account — would otherwise land wherever they clicked. Deliberately a hook and not
+global middleware: a blanket redirect fights the callback's own redirect,
+intercepts `/onboarding` and loops, and fires on public routes where having no
+profile is correct.
+
+### One defect the harness caught, and one it caused
+
+The harness found the second topbar control overlapping the wordmark by 38x44px
+at 375px — the `max-content` actions track grew past what the brand and `1fr` nav
+could yield, and with no shrink the grid let them sit on top of each other.
+Fixed with a shortened label below the mobile breakpoint ("Sign in", "Connect"),
+because §8.5 and WCAG 2.5.8 care about both controls staying hittable far more
+than about a word count.
+
+Worth recording because it is a kind of bug that only tests catch: my first fix
+used an `aria-hidden` + `visually-hidden` pair of spans, which doubled the
+button's text content to "Connect walletConnect wallet" and broke a Stage K
+assertion. Invisible on screen, fatal to anything reading `textContent`. The
+shipped version is one span whose full wording is both the accessible name and
+the text content, with only the rendered glyphs shortened.
+
+### Still true
+
+The Pass detail "Take Pass" CTA remains ~3000px down (§11). Recorded, not fixed:
+`DESIGN.md` does not authorise a sticky CTA, and AGENTS.md forbids inventing one.
+
+## 13. Standing constraints
 
 - No browser automation. Nothing here is visually verified. Stage K.2 stays open.
 - No UI framework, no component library, no animation library.
