@@ -55,6 +55,7 @@ import {
 } from "@/components/wave3/data";
 
 import { clientGet, clientPost } from "@/lib/client";
+import { isXConnected, type MePayload } from "@/lib/me";
 
 interface Market {
   asset: string;
@@ -172,12 +173,14 @@ export function CreatePassClient() {
 
   const boot = useCallback(async () => {
     setBooting(true);
-    // The provisional form did not gate on auth; it let POST /api/v1/passes
-    // 401 after the form was filled. Checking first means an unauthenticated
-    // visitor is told WHY before they do any work (§9.7 PermissionBlock).
+    // Authoring requires a CONNECTED X identity (PRODUCT_PRD.md §4), not
+    // merely a session: disconnecting X keeps the PASS session, and the old
+    // session-only check rendered the full form to an identity-less user
+    // whose submit the API now refuses. The PermissionBlock copy below
+    // already said "connected X identity" — the check finally matches it.
     try {
-      await clientGet("/api/v1/me");
-      setAuth("in");
+      const me = await clientGet<MePayload>("/api/v1/me");
+      setAuth(isXConnected(me) ? "in" : "out");
     } catch {
       setAuth("out");
     }

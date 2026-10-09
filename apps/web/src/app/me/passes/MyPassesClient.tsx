@@ -19,8 +19,10 @@
  */
 
 import Link from "next/link";
+import { useEffect } from "react";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { onMeChanged } from "@/lib/me-events";
 import {
   EmptyBlock,
   LIFECYCLE_LABEL,
@@ -128,6 +130,8 @@ export function MyPassesClient({
     load,
     isEmpty: (d) => d.length === 0,
   });
+  // Re-read when another surface mutates connection state (Bug 2a).
+  useEffect(() => onMeChanged(reload), [reload]);
 
   return (
     <PageShell>

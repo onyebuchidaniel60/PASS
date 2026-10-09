@@ -108,11 +108,37 @@ beforeEach(() => {
   mockPost.mockReset();
 });
 
-async function renderForm({ authed = true } = {}) {
+async function renderForm({ authed = true, xConnected = true } = {}) {
   mockGet.mockImplementation((url?: unknown) => {
     const path = String(url ?? "");
     if (path.includes("/api/v1/me")) {
-      return authed ? Promise.resolve({ user: {} }) : rejected("401");
+      // The literal flat shape: authoring needs a CONNECTED X identity, not
+      // merely a session (Bug 1 — a session surviving an X disconnect must
+      // not author). The old `{ user: {} }` mock matched neither shape.
+      if (!authed) return rejected("401");
+      return Promise.resolve({
+        userId: "u1",
+        profileSlug: "t",
+        displayName: "T",
+        connections: [
+          xConnected
+            ? {
+                provider: "x",
+                connected: true,
+                label: "X connected · @t",
+                displayOnly: false,
+                handle: "turnttfup99",
+              }
+            : {
+                provider: "x",
+                connected: false,
+                label: "X not connected",
+                displayOnly: false,
+                handle: null,
+              },
+        ],
+        tradingAccounts: [],
+      });
     }
     return Promise.resolve({ assets: MARKETS });
   });
@@ -140,6 +166,14 @@ describe("Create Pass states (§10.5)", () => {
     await renderForm({ authed: false });
     // §9.7 PermissionBlock names the reason rather than a generic "sign in".
     expect(screen.getByText(/connected X identity/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Entry price/)).toBeNull();
+  });
+
+  it("withholds the form from a session without an X identity (Bug 1)", async () => {
+    // Disconnecting X keeps the PASS session: /me answers 200 with the x
+    // entry disconnected. Authoring needs the identity, not the session.
+    await renderForm({ authed: true, xConnected: false });
+    expect(await screen.findByText(/connected X identity/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Entry price/)).toBeNull();
   });
 

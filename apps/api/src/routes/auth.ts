@@ -69,6 +69,11 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
       getEthosProfile(ctx, userId),
     ]);
 
+    // See the connections[x] comment below for the full definition.
+    const tokenExpired =
+      xConn?.tokenExpiresAt != null && xConn.tokenExpiresAt.getTime() < Date.now();
+    const xLive = Boolean(xConn) && !tokenExpired;
+
     return {
       userId,
       profileSlug: profile?.slug ?? null,
@@ -79,17 +84,25 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
         : null,
       connections: [
         {
+          // THE definition of "X connected", and the only one the UI may
+          // use: an `x_connections` row exists for this user AND its tokens
+          // are not expired AND the user has not soft-disconnected (which
+          // deletes the row). Row existence alone is not enough — the
+          // identities row survives disconnects by design (D-018.6) and
+          // must never read as a live connection. Browser wallet state is
+          // not observable here and is reported client-side, never merged
+          // into this boolean.
           provider: "x",
-          connected: Boolean(xIdentity),
-          label: xConn
+          connected: xLive,
+          label: xLive && xConn
             ? `X connected · @${xConn.xHandle}`
             : xIdentity
               ? `X linked · @${xIdentity.username} (display only)`
               : "X not connected",
-          displayOnly: Boolean(xIdentity && !xConn),
+          displayOnly: Boolean(xIdentity && !xLive),
           // Machine-readable handle for the web client's identity control.
           // The label above is display copy and must never be parsed.
-          handle: xConn?.xHandle ?? xIdentity?.username ?? null,
+          handle: xLive && xConn ? xConn.xHandle : (xIdentity?.username ?? null),
         },
         {
           provider: "hyperliquid",
@@ -463,14 +476,18 @@ const tokenRes = await fetch("https://api.x.com/2/oauth2/token", {
     return reply.redirect(`${ctx.env.APP_URL}${target}`);
   });
 
+  /**
+   * Soft disconnect (operator-chosen, D-018.6): revokes the held OAuth token
+   * material by deleting the `x_connections` row, and KEEPS the `identities`
+   * row so display bindings and historical Pass authorship survive. After
+   * this, `/me` reports `connections[x]` as disconnected/display-only.
+   * Reconnecting re-attaches tokens to the same user; nothing is reassigned.
+   * Session sign-out never touches either table — it clears the cookie only.
+   */
   app.post("/api/v1/auth/x/disconnect", async (req) => {
     const userId = await requireUser(req);
-    const { xConnections, identities } = await import("@pass/db");
-    const { and } = await import("drizzle-orm");
+    const { xConnections } = await import("@pass/db");
     await ctx.db.delete(xConnections).where(eq(xConnections.userId, userId));
-    await ctx.db
-      .delete(identities)
-      .where(and(eq(identities.userId, userId), eq(identities.provider, "x")));
     return { ok: true };
   });
 

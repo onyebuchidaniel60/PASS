@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SettingsClient, type Me } from "@/app/settings/SettingsClient";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
+import { notifyMeChanged } from "@/lib/me-events";
+
+// SettingsClient reads the browser wallet session (wagmi) to distinguish a
+// linked account from a live wallet session (Bug 2b). Disconnected here.
+vi.mock("wagmi", () => ({
+  useAccount: () => ({ address: undefined, isConnected: false }),
+  useDisconnect: () => ({ disconnect: vi.fn() }),
+}));
 
 const ME: Me = {
   userId: "u1",
@@ -147,6 +155,36 @@ describe("§10.10 Profile and connections", () => {
     for (const forbidden of ["private key", "seed phrase", "mnemonic", "secret key"]) {
       expect(html).not.toContain(forbidden);
     }
+  });
+
+  // Bug 2a: a connection change elsewhere (topbar disconnect) must refresh
+  // this screen's snapshot, not leave it stale until F5.
+  it("re-reads /me when another surface mutates connection state", async () => {
+    const disconnected: Me = {
+      ...ME,
+      connections: ME.connections.map((c) =>
+        c.provider.toLowerCase() === "x"
+          ? { ...c, connected: false, label: "X not connected" }
+          : c,
+      ),
+    };
+    let current: Me = ME;
+    render(<SettingsClient probe={authed} load={async () => current} />);
+    await screen.findByText("X");
+    expect(screen.queryByText("X not connected")).toBeNull();
+    current = disconnected;
+    const { act } = await import("@testing-library/react");
+    await act(async () => {
+      notifyMeChanged();
+    });
+    expect(await screen.findByText("X not connected")).toBeInTheDocument();
+  });
+
+  // Bug 2b: a linked account and a live wallet session are two states.
+  it("shows the wallet session inactive while the account stays linked", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} />);
+    await screen.findByText(/0x1234567890abcdef1234567890abcdef12345678/);
+    expect(screen.getByText(/session inactive/)).toBeInTheDocument();
   });
 });
 

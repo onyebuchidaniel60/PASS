@@ -123,6 +123,10 @@ export function XIdentityControl() {
       // if the delete partially failed, an optimistic update would show
       // "signed out" while X is still connected.
       await load();
+      // Other open screens hold their own /me snapshot (Bug 2a). Tell them
+      // to re-read rather than leaving them stale until a manual refresh.
+      const { notifyMeChanged } = await import("@/lib/me-events");
+      notifyMeChanged();
       setBusy(false);
     }
   }, [load]);

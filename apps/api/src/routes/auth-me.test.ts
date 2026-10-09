@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import {
   createDb,
@@ -50,6 +50,11 @@ interface Harness {
   handle: DbHandle;
 }
 
+// One PGlite boot per FILE (beforeAll): boots cost 10s+ idle and minutes
+// under parallel load, so per-test boots flaked the suite. Tests stay
+// isolated through distinct fixture users.
+let harness: Harness | null = null;
+
 async function setupHarness(): Promise<Harness> {
   process.env.ENCRYPTION_KEY = "test-encryption-key-for-me-shape";
   resetEnv();
@@ -81,9 +86,12 @@ async function setupHarness(): Promise<Harness> {
   return { app: await buildApp(ctx), handle };
 }
 
-describe("GET /api/v1/me x-entry handle", () => {
-  let harness: Harness | null = null;
+async function boot(): Promise<Harness> {
+  if (!harness) harness = await setupHarness();
+  return harness;
+}
 
+describe("GET /api/v1/me x-entry handle", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
@@ -93,8 +101,11 @@ describe("GET /api/v1/me x-entry handle", () => {
     );
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  afterAll(async () => {
     if (harness) {
       await harness.app.close();
       await harness.handle.close();
@@ -106,7 +117,7 @@ describe("GET /api/v1/me x-entry handle", () => {
   // under parallel load; the default 30s timeout flakes. These are
   // integration tests and may take up to two minutes.
   it("exposes the connection handle when X is connected", async () => {
-    harness = await setupHarness();
+    harness = await boot();
     const { app, handle } = harness;
     const [user] = await handle.db.insert(users).values({}).returning();
     if (!user) throw new Error("fixture setup failed");
@@ -144,10 +155,10 @@ describe("GET /api/v1/me x-entry handle", () => {
     };
     const x = body.connections.find((c) => c.provider === "x");
     expect(x).toMatchObject({ connected: true, displayOnly: false, handle: "newhandle" });
-  }, 120_000);
+  }, 300_000);
 
   it("exposes the identity username when display-only, null when unconnected", async () => {
-    harness = await setupHarness();
+    harness = await boot();
     const { app, handle } = harness;
     const [user] = await handle.db.insert(users).values({}).returning();
     if (!user) throw new Error("fixture setup failed");

@@ -29,6 +29,23 @@ interface MeSlug {
   profileSlug: string | null;
 }
 
+/**
+ * Routes that author or execute and therefore require a session to render
+ * anything useful. A signed-out visitor is sent to landing rather than
+ * shown a form whose submit the API would refuse (Bug 1). Screens with
+ * their own unauthorized views (/settings, /me/*) are NOT listed: their
+ * PermissionBlock is the established handling, asserted by their tests.
+ */
+const SESSION_ROUTES: Array<(pathname: string) => boolean> = [
+  (p) => p === "/passes/new",
+  (p) => /^\/passes\/[^/]+\/take\/?$/.test(p),
+];
+
+function requiresSession(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return SESSION_ROUTES.some((match) => match(pathname));
+}
+
 export function OnboardingGate() {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,8 +63,9 @@ export function OnboardingGate() {
 
     if (state.status === "unauthorized") {
       // Signed-out visitors may read anything public, except the flow
-      // itself, which needs a session to do anything.
-      if (onOnboarding) router.replace("/");
+      // itself, which needs a session to do anything — and the authoring
+      // routes, whose forms would only fail at submit (Bug 1).
+      if (onOnboarding || requiresSession(pathname)) router.replace("/");
       return;
     }
 

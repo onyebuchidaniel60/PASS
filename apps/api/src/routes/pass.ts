@@ -33,6 +33,14 @@ export async function registerPassRoutes(app: FastifyInstance, ctx: AppContext) 
   // Authenticated mutations use the internal passes.id UUID (D-018.4).
   app.post("/api/v1/passes", async (req) => {
     const userId = await requireUser(req);
+    // A Trader is an identified user (PRODUCT_PRD.md §4). A bare session —
+    // e.g. surviving an X disconnect, which clears identity rows but never
+    // the session — must not author a Pass with no author attribution.
+    const { getXIdentity } = await import("../services/profile-service.js");
+    const identity = await getXIdentity(ctx, userId);
+    if (!identity) {
+      throw new AppError("IDENTITY_NOT_CONNECTED", "Connect an X identity before authoring a Pass.");
+    }
     const input = CreatePassRequest.parse(req.body);
     const row = await createPass(ctx, userId, input);
     return {
@@ -234,7 +242,10 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
   app.post<{ Params: { publicId: string } }>(
     "/api/v1/passes/:publicId/refresh",
     async (req) => {
-      // Refreshes provider order status for a Pass's executions.
+      // Refreshes provider order status for a Pass's executions. Reconciliation
+      // writes execution state, so it is an authenticated mutation even though
+      // the Pass itself is public. The scheduled job covers signed-out reads.
+      await requireUser(req);
       const { getPassByPublicId } = await import("../services/pass-service.js");
       const pass = await getPassByPublicId(ctx, req.params.publicId);
       const rows = await listPassExecutions(ctx, pass.id);

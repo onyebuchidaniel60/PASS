@@ -23,9 +23,11 @@
  * carries its own error and its own Retry.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { onMeChanged } from "@/lib/me-events";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { Field, Textarea, TextInput, Toggle } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip, type ConnectionTone } from "@/components/wave3/identity";
@@ -63,6 +65,28 @@ const ACTION_LABEL: Record<string, string> = {
   ethos: "Resolve Ethos",
 };
 
+/**
+ * Bug 2b: "account linked" (PASS server row) and "wallet session active"
+ * (this browser's ConnectKit session) are TWO states and render as two
+ * lines. Only the browser knows the second — the API cannot observe
+ * ConnectKit — so this is derived client-side from wagmi, never merged
+ * into the server's `connected` boolean.
+ */
+export function WalletSessionLine({ accountAddress }: { accountAddress: string }) {
+  const { address, isConnected } = useAccount();
+  const active =
+    isConnected &&
+    typeof address === "string" &&
+    address.toLowerCase() === accountAddress.toLowerCase();
+  return active ? (
+    <span className="pass-stale">Wallet session active — this browser can sign.</span>
+  ) : (
+    <span className="pass-stale">
+      Wallet session inactive — connect the holding wallet to sign.
+    </span>
+  );
+}
+
 function toneFor(c: Connection): ConnectionTone {
   if (c.connected && c.displayOnly) return "displayOnly";
   if (c.connected) return "connected";
@@ -87,6 +111,9 @@ export function SettingsClient({
   onConnect?: (provider: string) => Promise<void>;
 }) {
   const { state, reload } = useAuthenticatedResource<Me>({ probe, load });
+  // Re-read /me when another surface mutates connection state (topbar
+  // disconnect left this screen stale until a manual refresh — Bug 2a).
+  useEffect(() => onMeChanged(reload), [reload]);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [editing, setEditing] = useState(false);
@@ -263,7 +290,8 @@ export function SettingsClient({
               )}
             </Stack>
 
-            {/* Trading accounts are addressed, never keyed. */}
+            {/* Trading accounts are addressed, never keyed. Linked (server)
+             * and session-active (this browser) render as separate lines. */}
             <Panel>
               <h2 style={{ fontSize: "var(--type-title-s-size)" }}>Trading accounts</h2>
               {me.tradingAccounts.length === 0 ? (
@@ -271,8 +299,11 @@ export function SettingsClient({
               ) : (
                 <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
                   {me.tradingAccounts.map((a) => (
-                    <li key={a.id} className="pass-num" style={{ fontSize: "var(--type-data-s-size)" }}>
-                      {`${a.accountAddress}${a.isPrimary ? "  · primary" : ""}`}
+                    <li key={a.id} style={{ display: "grid", gap: 2 }}>
+                      <span className="pass-num" style={{ fontSize: "var(--type-data-s-size)" }}>
+                        {`${a.accountAddress}${a.isPrimary ? "  · primary" : ""}`}
+                      </span>
+                      <WalletSessionLine accountAddress={a.accountAddress} />
                     </li>
                   ))}
                 </ul>

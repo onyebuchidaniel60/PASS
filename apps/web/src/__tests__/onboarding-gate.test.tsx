@@ -88,4 +88,30 @@ describe("OnboardingGate", () => {
     await settled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
+
+  // Bug 1: authoring routes must not render their forms to signed-out
+  // visitors (whose submit the API would refuse).
+  it("redirects a signed-out visitor off /passes/new to landing", async () => {
+    mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
+    path = "/passes/new";
+    render(<OnboardingGate />);
+    await settled();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+  });
+
+  it("redirects a signed-out visitor off a take route to landing", async () => {
+    mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
+    path = "/passes/abc123/take";
+    render(<OnboardingGate />);
+    await settled();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+  });
+
+  it("redirects a profile-less session off /passes/new to onboarding", async () => {
+    mockGet.mockResolvedValue(withoutProfile);
+    path = "/passes/new";
+    render(<OnboardingGate />);
+    await settled();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/onboarding"));
+  });
 });

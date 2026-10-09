@@ -113,6 +113,45 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
   });
 
   /**
+   * PASS-side unlink of a Hyperliquid account (distinct from a ConnectKit
+   * browser disconnect, which never touches this row — D-019.1). Ownership
+   * is resolved server-side (SECURITY_SPEC.md §10). An unknown id and
+   * another user's id are deliberately indistinguishable. An account with
+   * executions on record cannot be unlinked: executions reference it and
+   * auditability (D-008) forbids orphaning them.
+   */
+  app.delete<{ Params: { id: string } }>(
+    "/api/v1/me/trading-accounts/:id",
+    async (req) => {
+      const userId = await requireUser(req);
+      const { tradingAccounts, executions } = await import("@pass/db");
+      const { and, eq } = await import("drizzle-orm");
+      const rows = await ctx.db
+        .select()
+        .from(tradingAccounts)
+        .where(
+          and(eq(tradingAccounts.id, req.params.id), eq(tradingAccounts.userId, userId)),
+        )
+        .limit(1);
+      const account = rows[0];
+      if (!account) throw new AppError("FORBIDDEN", "That trading account is not yours.");
+      const refs = await ctx.db
+        .select({ id: executions.id })
+        .from(executions)
+        .where(eq(executions.accountId, account.id))
+        .limit(1);
+      if (refs.length > 0) {
+        throw new AppError(
+          "FORBIDDEN",
+          "That account has executions on record and cannot be unlinked.",
+        );
+      }
+      await ctx.db.delete(tradingAccounts).where(eq(tradingAccounts.id, account.id));
+      return { ok: true };
+    },
+  );
+
+  /**
    * Approve an API/agent wallet (docs/DECISIONS.md D-019.1).
    *
    * The client signs the approveAgent EIP-712 payload with the MASTER wallet

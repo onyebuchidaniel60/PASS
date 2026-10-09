@@ -25,7 +25,7 @@
  * the user chooses where to go.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 
@@ -35,6 +35,7 @@ import { WalletControl } from "@/components/WalletControl";
 import { Field, Textarea, TextInput } from "@/components/wave2/controls";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
+import { onMeChanged } from "@/lib/me-events";
 import { clientGet, clientPost } from "@/lib/client";
 import { truncateAddress } from "@/lib/format";
 import {
@@ -99,6 +100,8 @@ function FlowInner({
   onNavigate?: (url: string) => void;
 }) {
   const { address } = useAccount();
+  // Re-read /me when another surface mutates connection state (Bug 2a).
+  useEffect(() => onMeChanged(reload), [reload]);
   const [manual, setManual] = useState<number | null>(null);
   const [skipped, setSkipped] = useState<Set<StepId>>(new Set());
   const [ethosAcked, setEthosAcked] = useState(false);

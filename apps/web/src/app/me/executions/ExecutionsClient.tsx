@@ -21,9 +21,10 @@
  * moving the filter server-side later is a change in one place.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { onMeChanged } from "@/lib/me-events";
 import { Address, EmptyBlock, Timestamp } from "@/components/wave3/data";
 import { DataCell, PnlCell, PriceCell, Tag } from "@/components/wave3/cells";
 import { DataTable, type DataTableColumn } from "@/components/wave3/table";
@@ -111,6 +112,8 @@ export function ExecutionsClient({
     load,
     isEmpty: (d) => d.length === 0,
   });
+  // Re-read when another surface mutates connection state (Bug 2a).
+  useEffect(() => onMeChanged(reload), [reload]);
 
   return (
     <PageShell>
