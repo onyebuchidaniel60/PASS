@@ -21,19 +21,15 @@
  */
 
 import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { onMeChanged } from "@/lib/me-events";
 import {
   connectionByName,
   isEthosVisible,
-  isWalletConnected,
-  isXLive,
 } from "@/lib/me";
-import { WalletControl } from "@/components/WalletControl";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
-import { Field, Textarea, TextInput, Toggle } from "@/components/wave2/controls";
+import { Field, Textarea, TextInput } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { EmptyBlock } from "@/components/wave3/data";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
@@ -87,18 +83,12 @@ export function SettingsClient({
   // Re-read /me when another surface mutates connection state (topbar
   // disconnect left this screen stale until a manual refresh — Bug 2a).
   useEffect(() => onMeChanged(reload), [reload]);
-  // Browser half of the single wallet state (the server half is the linked
-  // row). Only the browser knows the ConnectKit session.
-  const { isConnected: walletSession } = useAccount();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [editing, setEditing] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Tour replay (D-022): resetting completion re-opens the one-time tour.
   const [tourState, setTourState] = useState<"idle" | "working" | "done" | "error">("idle");
-  // §10.10.2 exposure toggle, opt-in: the Hyperliquid identity is hidden unless
-  // the Trader turns it on.
-  const [expose, setExpose] = useState(false);
 
   const startEdit = (me: Me) => {
     setDisplayName(me.displayName ?? "");
@@ -140,13 +130,11 @@ export function SettingsClient({
         onRetry={reload}
       >
         {(me) => {
-          // Single-state rule: each section renders only while its account
-          // is connected (lib/me.ts). Disconnected renders a connect CTA —
-          // never a "linked but inactive" line, never a stale chip.
+          // Single-state rule, D-023: identity is X-only. The X section
+          // renders while connected, otherwise its connect CTA renders.
+          // No wallet sections exist anywhere on this screen.
           const xEntry = connectionByName(me.connections, "x");
           const xLive = xEntry?.connected === true;
-          const hlEntry = connectionByName(me.connections, "hyperliquid");
-          const walletOn = isWalletConnected(me, walletSession);
           const ethosEntry = connectionByName(me.connections, "ethos");
           const ethosOn = isEthosVisible(me);
           const goX = () => {
@@ -234,16 +222,15 @@ export function SettingsClient({
               )}
             </Panel>
 
-            {!xLive && !walletOn ? (
-              /* Neither account connected: one CTA panel, not a wall of
-               * dead chips. Profile basics above stay — they are PASS
-               * identity, not account attribution. */
+            {!xLive ? (
+              /* No X identity: one CTA panel. Profile basics above stay —
+               * they are PASS identity, not account attribution. */
               <Panel>
                 <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
-                  Connect an account to activate your profile
+                  Connect X to activate your profile
                 </h2>
                 <p className="pass-stale">
-                  Link an X identity or a wallet to switch on your profile surfaces.
+                  Link an X identity to switch on your profile surfaces.
                 </p>
                 <Inline gap="3">
                   <button
@@ -254,7 +241,6 @@ export function SettingsClient({
                   >
                     {CONNECT_X_LABEL}
                   </button>
-                  <WalletControl linked={false} />
                 </Inline>
               </Panel>
             ) : (
@@ -262,27 +248,9 @@ export function SettingsClient({
                 {/* One line per connected account. Disconnected renders its
                  * CTA inline — the chip and the CTA never appear together. */}
                 <Stack gap="3">
-                  {xLive && xEntry ? (
+                  {xEntry ? (
                     <ConnectionChip provider="X" tone="connected" label={xEntry.label} />
-                  ) : (
-                    <button
-                      type="button"
-                      className="pass-btn"
-                      data-variant="secondary"
-                      onClick={goX}
-                    >
-                      {CONNECT_X_LABEL}
-                    </button>
-                  )}
-                  {walletOn ? (
-                    <ConnectionChip
-                      provider="hyperliquid"
-                      tone="connected"
-                      label={hlEntry?.label ?? "Hyperliquid"}
-                    />
-                  ) : (
-                    <WalletControl linked={false} />
-                  )}
+                  ) : null}
                   {ethosOn && ethosEntry ? (
                     <ConnectionChip
                       provider="Ethos"
@@ -291,36 +259,8 @@ export function SettingsClient({
                     />
                   ) : null}
                 </Stack>
-
-                {/* Trading accounts render only while the wallet is
-                 * connected (linked row AND live browser session). */}
-                {walletOn ? (
-                  <Panel>
-                    <h2 style={{ fontSize: "var(--type-title-s-size)" }}>Trading accounts</h2>
-                    <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
-                      {me.tradingAccounts.map((a) => (
-                        <li key={a.id} style={{ display: "grid", gap: 2 }}>
-                          <span className="pass-num" style={{ fontSize: "var(--type-data-s-size)" }}>
-                            {`${a.accountAddress}${a.isPrimary ? "  · primary" : ""}`}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </Panel>
-                ) : null}
               </>
             )}
-
-            {/* §10.10.2 exposure toggle: the Hyperliquid identity is shown on the
-             * public profile or it is not. It is opt-in. */}
-            <Panel>
-              <Toggle
-                id="exposeHyperliquid"
-                label="Show my Hyperliquid identity on my public profile"
-                checked={expose}
-                onChange={setExpose}
-              />
-            </Panel>
 
             {/* D-022: the one-time tour can be re-opened from here. */}
             <Panel>

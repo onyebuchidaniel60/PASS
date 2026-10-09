@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { OnboardingClient, STEPS, type StepId } from "@/app/onboarding/OnboardingClient";
 
-/** §10.11 / PRD §8.1. One step per screen, never a single four-field form. */
+/** §10.11 / PRD §8.1 / D-023. One step per screen, never a single form. */
 
 describe("Onboarding (§10.11)", () => {
-  it("declares exactly the four PRD §8.1 steps, in order", () => {
-    expect(STEPS.map((s) => s.id)).toEqual(["x", "profile", "hyperliquid", "ethos"]);
+  it("declares exactly the three D-023 steps, in order", () => {
+    expect(STEPS.map((s) => s.id)).toEqual(["x", "profile", "ethos"]);
   });
 
   it("marks only Ethos skippable, because only Ethos is 'if available'", () => {
@@ -22,9 +22,9 @@ describe("Onboarding (§10.11)", () => {
     expect(screen.queryByText("Resolve your Ethos reputation.")).toBeNull();
   });
 
-  it("renders progress as mono STEP n / 4 (§10.11)", () => {
+  it("renders progress as mono STEP n / 3 (§10.11)", () => {
     render(<OnboardingClient step={1} />);
-    expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument();
+    expect(screen.getByText("STEP 2 / 3")).toBeInTheDocument();
   });
 
   it("renders each step's question, action and single-sentence why", () => {
@@ -61,7 +61,7 @@ describe("Onboarding (§10.11)", () => {
 
   it("offers Skip on the optional step, and wires it up", () => {
     const onSkip = vi.fn();
-    render(<OnboardingClient step={3} onSkip={onSkip} />);
+    render(<OnboardingClient step={2} onSkip={onSkip} />);
     fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(onSkip).toHaveBeenCalledWith("ethos");
   });
@@ -69,7 +69,7 @@ describe("Onboarding (§10.11)", () => {
   it("shows UnavailableBlock when the provider cannot be reached, and still allows skipping", () => {
     render(
       <OnboardingClient
-        step={3}
+        step={2}
         progress={[{ step: "ethos", complete: false, unavailable: true }]}
       />,
     );
@@ -82,8 +82,8 @@ describe("Onboarding (§10.11)", () => {
   it("does not offer Skip when a REQUIRED provider is unavailable", () => {
     render(
       <OnboardingClient
-        step={2}
-        progress={[{ step: "hyperliquid", complete: false, unavailable: true }]}
+        step={1}
+        progress={[{ step: "profile", complete: false, unavailable: true }]}
       />,
     );
     expect(screen.getByText(/unavailable/i)).toBeInTheDocument();
@@ -105,21 +105,19 @@ describe("Onboarding (§10.11)", () => {
   it("surfaces a progress error on the matching step", () => {
     const errors: Record<StepId, string> = {
       x: "",
-      profile: "",
-      hyperliquid: "Account not found.",
+      profile: "Slug is taken.",
       ethos: "",
     };
     render(
       <OnboardingClient
-        step={2}
+        step={1}
         progress={[
           { step: "x", complete: true },
-          { step: "profile", complete: true },
-          { step: "hyperliquid", complete: false, error: errors.hyperliquid },
+          { step: "profile", complete: false, error: errors.profile },
         ]}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent("Account not found.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Slug is taken.");
   });
 });
 

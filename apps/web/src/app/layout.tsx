@@ -5,7 +5,6 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { Providers } from "@/components/Providers";
 import { OnboardingGate } from "@/components/OnboardingGate";
 import { TourGate } from "@/components/TourGate";
-import { ConnectWalletEntry } from "@/components/ApproveAgentControl";
 import { XIdentityControl } from "@/components/XIdentityControl";
 import { Logo } from "@/components/reference/logo";
 import { INFO, NAV } from "@/lib/nav";
@@ -33,9 +32,11 @@ export const metadata: Metadata = {
  * §8.4 three-region shell. The operator reported "connect wallet is at the
  * centre instead of on one side", which was a real layout fault: the nav sat in
  * the flex flow and the actions were pushed right with `margin-inline-start:
- * auto`, so at narrow widths the wallet button drifted toward the middle. The
- * three regions are now explicit grid tracks, so each is in its own column at
- * every width and the wallet button is always hard right.
+ * auto`, so at narrow widths the identity control drifted toward the middle.
+ * The three regions are now explicit grid tracks, so each is in its own column at
+ * every width and the identity control is always hard right. (D-023 removed
+ * the second actions-track control; the track keeps its non-shrinking column
+ * so the layout does not need re-verification if a control returns.)
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -68,13 +69,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </ul>
               </div>
 
-              {/* §8.4 the actions track holds TWO controls: X identity first,
-                  wallet second. PASS is identity-first — the handle is who a
-                  Trader is, the wallet is only what they can sign with, and a
-                  trader with one but not the other is still a trader. */}
+              {/* §8.4 the actions track holds ONE control: X identity. D-023:
+                  PASS identity is X-only — the handle is who a Trader IS.
+                  The wallet is execution-only and connects lazily at Take
+                  time, so it has no topbar presence. */}
               <div className="pass-topbar-actions">
                 <XIdentityControl />
-                <ConnectWalletEntry />
               </div>
             </nav>
           </header>

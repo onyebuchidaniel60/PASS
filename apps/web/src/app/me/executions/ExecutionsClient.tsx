@@ -23,13 +23,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { onMeChanged } from "@/lib/me-events";
-import { isWalletConnected, isXLive } from "@/lib/me";
+import { isXLive } from "@/lib/me";
 import { useMePayload } from "@/lib/use-me";
-import { WalletControl } from "@/components/WalletControl";
 import { Address, EmptyBlock, Timestamp } from "@/components/wave3/data";
 import { DataCell, PnlCell, PriceCell, Tag } from "@/components/wave3/cells";
 import { DataTable, type DataTableColumn } from "@/components/wave3/table";
@@ -119,10 +117,9 @@ export function ExecutionsClient({
   });
   // Re-read when another surface mutates connection state (Bug 2a).
   useEffect(() => onMeChanged(reload), [reload]);
-  // Single-state rule (lib/me.ts): same gating as My Passes. Null `me`
+  // Single-state rule, D-023: identity is X-only. Null `me`
   // is fail-open — the probe already proved the session.
   const { me } = useMePayload();
-  const { isConnected: walletSession } = useAccount();
 
   return (
     <PageShell>
@@ -157,7 +154,7 @@ export function ExecutionsClient({
         {(all) => {
           const window = periodWindow(period);
           const rows = all.filter((e) => inWindow(e.createdAt, window));
-          const gated = me !== null && !isXLive(me) && !isWalletConnected(me, walletSession);
+          const gated = me !== null && !isXLive(me);
           if (gated) {
             return (
               <Panel>
@@ -171,7 +168,6 @@ export function ExecutionsClient({
                   <Link className="pass-btn" data-variant="primary" href="/onboarding">
                     Connect an account
                   </Link>
-                  <WalletControl linked={false} />
                 </Inline>
               </Panel>
             );

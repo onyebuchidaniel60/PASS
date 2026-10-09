@@ -16,27 +16,6 @@ vi.mock("@/lib/client", () => ({
   clientPatch: vi.fn(),
 }));
 
-let wallet: { address?: string; isConnected: boolean } = { isConnected: false };
-
-vi.mock("wagmi", () => ({
-  useAccount: () => wallet,
-  useDisconnect: () => ({ disconnect: vi.fn() }),
-}));
-
-vi.mock("connectkit", () => ({
-  ConnectKitButton: Object.assign(
-    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
-      children({ show: () => {} }),
-    {
-      Custom: ({
-        children,
-      }: {
-        children: (p: { show: () => void }) => React.ReactNode;
-      }) => children({ show: () => {} }),
-    },
-  ),
-}));
-
 const ME_OFF = {
   userId: "u1",
   profileSlug: "t",
@@ -50,7 +29,6 @@ const ME_OFF = {
 };
 
 beforeEach(() => {
-  wallet = { isConnected: false };
   mockMeGet.mockReset();
   mockMeGet.mockRejectedValue(new Error("no session snapshot"));
 });
@@ -217,8 +195,8 @@ describe("Executions (§10.9)", () => {
   });
 });
 
-describe("Executions — single-state rule", () => {
-  it("hides the history and shows the CTA when both accounts are disconnected", async () => {
+describe("Executions — single-state rule (D-023, X-only)", () => {
+  it("hides the history and shows the CTA when X is disconnected", async () => {
     mockMeGet.mockResolvedValue(ME_OFF);
     render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);
     expect(

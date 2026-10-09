@@ -91,6 +91,10 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
           // must never read as a live connection. Browser wallet state is
           // not observable here and is reported client-side, never merged
           // into this boolean.
+          //
+          // D-023: no hyperliquid entry. The wallet is execution-only, not
+          // identity; `tradingAccounts[]` below stays for internal
+          // consumers (Take preview) but nothing renders it as identity.
           provider: "x",
           connected: xLive,
           label: xLive && xConn
@@ -102,15 +106,6 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
           // Machine-readable handle for the web client's identity control.
           // The label above is display copy and must never be parsed.
           handle: xLive && xConn ? xConn.xHandle : (xIdentity?.username ?? null),
-        },
-        {
-          provider: "hyperliquid",
-          connected: accounts.length > 0,
-          label:
-            accounts.length > 0
-              ? `Hyperliquid · ${accounts.length} account(s)`
-              : "Hyperliquid not linked",
-          displayOnly: false,
         },
         {
           provider: "ethos",

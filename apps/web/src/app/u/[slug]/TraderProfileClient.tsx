@@ -26,7 +26,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/wave2/controls";
 import { Panel, Rule } from "@/components/wave1/layout";
 import {
-  Address,
   EmptyBlock,
   ErrorBlock,
   HandleBlock,
@@ -184,8 +183,6 @@ export function TraderProfileClient({ slug }: { slug: string }) {
   // reputation hide while everything they published stays.
   const authorXLive =
     connectionByName(profile.connections, "x")?.connected === true;
-  const authorHyperlinked =
-    connectionByName(profile.connections, "hyperliquid")?.connected === true;
   const authorEthosResolved =
     authorXLive &&
     connectionByName(profile.connections, "ethos")?.connected === true;
@@ -259,12 +256,6 @@ export function TraderProfileClient({ slug }: { slug: string }) {
             </div>
 
             {profile.bio ? <p className="pass-thesis">{profile.bio}</p> : null}
-
-            {authorHyperlinked && profile.hyperliquidAccountAddress ? (
-              <p className="pass-stale">
-                Hyperliquid <Address value={profile.hyperliquidAccountAddress} />
-              </p>
-            ) : null}
           </header>
           </CornerBracketFrame>
 

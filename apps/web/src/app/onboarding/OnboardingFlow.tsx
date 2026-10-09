@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * OnboardingFlow — the real four-step onboarding (PRD §8.1) wired to `/me`.
+ * OnboardingFlow — the real three-step onboarding (PRD §8.1, D-023) wired
+ * to `/me`.
  *
  * `OnboardingClient` is the presentational step shell (one step per screen,
  * per-step error, skip where allowed). This container owns the data: it
@@ -11,13 +12,13 @@
  *
  *   x            -> full navigation to the OAuth entry (same-origin proxy)
  *   profile      -> POST /api/v1/profiles (slug uniqueness enforced by API)
- *   hyperliquid  -> ConnectKit wallet connect, then link account_address
- *                   ONLY. No agent key is generated here and approveAgent is
- *                   never called — agent approval is a first-execution
- *                   concern (D-019.1, Stage F), never an onboarding one.
  *   ethos        -> POST /integrations/ethos/refresh. Never blocks: success
  *                   shows the score with the API's disclaimer (D-007), any
  *                   failure shows the "later" state and still continues.
+ *
+ * D-023: no wallet step. Wallet connection is a signing concern that
+ * happens lazily at first Take / approveAgent — never here, never shown
+ * here, never mentioned here.
  *
  * Completion is the profile row itself — no extra column, no new table.
  * When every required step is done the flow renders the handoff
@@ -27,20 +28,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
-import { WalletControl } from "@/components/WalletControl";
 import { Field, Textarea, TextInput } from "@/components/wave2/controls";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 import { onMeChanged } from "@/lib/me-events";
 import { clientGet, clientPost } from "@/lib/client";
-import { truncateAddress } from "@/lib/format";
 import {
   ethosConnection,
-  hasTradingAccount,
   isXConnected,
   type MePayload,
 } from "@/lib/me";
@@ -66,7 +63,7 @@ function slugError(value: string): string | null {
   return null;
 }
 
-const HANDOFF = 4;
+const HANDOFF = 3;
 
 export function OnboardingFlow({
   onNavigate,
@@ -99,7 +96,6 @@ function FlowInner({
   reload: () => void;
   onNavigate?: (url: string) => void;
 }) {
-  const { address } = useAccount();
   // Re-read /me when another surface mutates connection state (Bug 2a).
   useEffect(() => onMeChanged(reload), [reload]);
   const [manual, setManual] = useState<number | null>(null);
@@ -114,7 +110,6 @@ function FlowInner({
   const progress: StepProgress[] = [
     { step: "x", complete: isXConnected(me) },
     { step: "profile", complete: Boolean(me.profileSlug) },
-    { step: "hyperliquid", complete: hasTradingAccount(me) },
     {
       step: "ethos",
       complete: Boolean(ethosConnection(me)?.connected) || ethosAcked,
@@ -130,11 +125,9 @@ function FlowInner({
       ? 0
       : !done("profile")
         ? 1
-        : !done("hyperliquid") && !skipped.has("hyperliquid")
+        : !done("ethos") && !skipped.has("ethos")
           ? 2
-          : !done("ethos") && !skipped.has("ethos")
-            ? 3
-            : HANDOFF;
+          : HANDOFF;
   const display = manual ?? auto;
 
   const go = (url: string) => {
@@ -160,13 +153,6 @@ function FlowInner({
       reload();
       return;
     }
-    if (id === "hyperliquid") {
-      if (!address) throw new Error("Connect your wallet first, then link the account.");
-      await clientPost("/api/v1/me/trading-accounts", { accountAddress: address });
-      setManual(null);
-      reload();
-      return;
-    }
     // Ethos stays on screen after resolving so the score (or the "later"
     // state) is actually seen; Continue advances explicitly. A refresh
     // failure is absorbed here rather than thrown: Ethos must never block
@@ -180,7 +166,7 @@ function FlowInner({
       setEthosFailed(true);
     }
     setEthosAcked(true);
-    setManual(3);
+    setManual(2);
   };
 
   const onSkip = (id: StepId) => {
@@ -189,7 +175,6 @@ function FlowInner({
   };
 
   if (display === HANDOFF) {
-    const walletMissing = !hasTradingAccount(me);
     return (
       <PageShell>
         <XConnectedNotice />
@@ -197,14 +182,9 @@ function FlowInner({
           <Panel>
             <h1>You&apos;re set. Go find a Pass.</h1>
             <p className="pass-stale">
-              Your identity, profile{walletMissing ? "" : ", wallet"} and reputation
-              are linked. Takers read your thesis and your track record from here.
+              Your identity, profile and reputation are linked. Takers read
+              your thesis and your track record from here.
             </p>
-            {walletMissing ? (
-              <p className="pass-validation" role="note">
-                No wallet linked — taking a Pass will ask you to connect one first.
-              </p>
-            ) : null}
             <Inline gap="3">
               <Link className="pass-btn" data-variant="primary" href="/discover">
                 Explore Passes
@@ -260,31 +240,7 @@ function FlowInner({
                 )}
               </Field>
             </Stack>
-          ) : display === 2 ? (
-            <Stack gap="4">
-              <WalletControl showNote />
-              {address ? (
-                <p className="pass-stale">
-                  Ready to link <span className="pass-num">{truncateAddress(address)}</span>.
-                  Only the address leaves this browser — never a key.
-                </p>
-              ) : null}
-              <p className="pass-stale">
-                Taking a Pass requires a connected wallet. You can continue
-                without one and link it later.
-              </p>
-              <Inline gap="3">
-                <button
-                  type="button"
-                  className="pass-btn"
-                  data-variant="ghost"
-                  onClick={() => onSkip("hyperliquid")}
-                >
-                  Continue without a wallet
-                </button>
-              </Inline>
-            </Stack>
-          ) : display === 3 && (ethosResult || ethosFailed) ? (
+          ) : display === 2 && (ethosResult || ethosFailed) ? (
             <Stack gap="4">
               {ethosResult && !ethosFailed ? (
                 <>

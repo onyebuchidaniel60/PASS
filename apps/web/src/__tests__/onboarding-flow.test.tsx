@@ -22,27 +22,6 @@ vi.mock("@/lib/client", () => ({
   clientPatch: (...a: unknown[]) => mockPost(...a),
 }));
 
-let account: Record<string, unknown> = { isConnected: false };
-
-vi.mock("wagmi", () => ({
-  useAccount: () => account,
-  useDisconnect: () => ({ disconnect: vi.fn() }),
-}));
-
-vi.mock("connectkit", () => ({
-  ConnectKitButton: Object.assign(
-    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
-      children({ show: () => {} }),
-    {
-      Custom: ({
-        children,
-      }: {
-        children: (p: { show: () => void }) => React.ReactNode;
-      }) => children({ show: () => {} }),
-    },
-  ),
-}));
-
 const ADDR = "0x1234567890abcdef1234567890abcdef12345678";
 
 const X_ON = {
@@ -108,7 +87,6 @@ let me: unknown = ME_X_ONLY;
 
 beforeEach(() => {
   me = ME_X_ONLY;
-  account = { isConnected: false };
   mockGet.mockReset();
   mockPost.mockReset();
   mockGet.mockImplementation(async () => me);
@@ -148,7 +126,8 @@ describe("OnboardingFlow — profile step", () => {
         bio: "BTC swings.",
       }),
     );
-    expect(await screen.findByText("Associate your Hyperliquid account.")).toBeInTheDocument();
+    // D-023: profile advances straight to Ethos — no wallet step exists.
+    expect(await screen.findByText("Resolve your Ethos reputation.")).toBeInTheDocument();
   });
 
   it("rejects an invalid slug locally without posting", async () => {
@@ -172,47 +151,34 @@ describe("OnboardingFlow — profile step", () => {
   });
 });
 
-describe("OnboardingFlow — wallet step", () => {
-  it("prompts to connect when no wallet is connected", async () => {
-    me = ME_PROFILE;
-    render(<OnboardingFlow onNavigate={() => {}} />);
-    await screen.findByText("Associate your Hyperliquid account.");
-    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
-  });
-
-  it("shows the connected address and links only the address", async () => {
-    me = ME_PROFILE;
-    account = { isConnected: true, address: ADDR };
-    render(<OnboardingFlow onNavigate={() => {}} />);
-    await screen.findByText("Associate your Hyperliquid account.");
-    fireEvent.click(screen.getByRole("button", { name: "Link wallet account" }));
-    await waitFor(() =>
-      expect(mockPost).toHaveBeenCalledWith("/api/v1/me/trading-accounts", {
-        accountAddress: ADDR,
-      }),
-    );
-    const calls = mockPost.mock.calls.map((c) => String(c[0]));
-    expect(calls.some((u) => u.includes("approve"))).toBe(false);
-  });
-
-  it("generates no agent key material anywhere in onboarding", async () => {
-    me = ME_PROFILE;
-    account = { isConnected: true, address: ADDR };
+describe("OnboardingFlow — D-023, no wallet step", () => {
+  it("walks X → profile → Ethos → handoff with no wallet UI anywhere", async () => {
     const { container } = render(<OnboardingFlow onNavigate={() => {}} />);
-    await screen.findByText("Associate your Hyperliquid account.");
+    // Profile step (X already connected in the default fixture).
+    await screen.findByText("Create your PASS profile.");
+    expect(screen.queryByText("Associate your Hyperliquid account.")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "turnttfup99" } });
+    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Turntt" } });
+    me = ME_PROFILE;
+    fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
+    await screen.findByText("Resolve your Ethos reputation.");
+    expect(screen.queryByText("Connect wallet")).toBeNull();
+    expect(screen.queryByText("Link wallet account")).toBeNull();
+    mockPost.mockResolvedValue({
+      providerProfileId: "ethos-1",
+      credibilityScore: 720,
+      reviewsCount: 0,
+      vouchesCount: 0,
+      disclaimer: "Community sentiment, not a verdict.",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Resolve Ethos" }));
+    expect(await screen.findByText("Community sentiment, not a verdict.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/You're set/)).toBeInTheDocument();
     const html = container.innerHTML.toLowerCase();
-    for (const forbidden of ["private key", "seed phrase", "mnemonic", "approveagent"]) {
+    for (const forbidden of ["hyperliquid", "connect wallet", "agent wallet"]) {
       expect(html).not.toContain(forbidden);
     }
-  });
-
-  it("skip advances with the Take-requires-wallet warning at handoff", async () => {
-    me = { ...ME_PROFILE, connections: [X_ON, HL_OFF, ETHOS_ON] };
-    render(<OnboardingFlow onNavigate={() => {}} />);
-    await screen.findByText("Associate your Hyperliquid account.");
-    fireEvent.click(screen.getByRole("button", { name: "Continue without a wallet" }));
-    expect(await screen.findByText(/You're set/)).toBeInTheDocument();
-    expect(screen.getByText(/No wallet linked/)).toBeInTheDocument();
   });
 });
 

@@ -9,7 +9,7 @@ import {
   tradingAccounts,
   xConnections,
 } from "@pass/db";
-import { isValidProfileSlug, truncateAddress } from "@pass/domain";
+import { isValidProfileSlug } from "@pass/domain";
 import { decryptSecret, encryptSecret } from "../crypto.js";
 import type { CreateProfileRequest, UpdateProfileRequest } from "@pass/contracts";
 import { passPerformance } from "./execution-service.js";
@@ -409,6 +409,9 @@ export async function buildPublicProfile(ctx: AppContext, slug: string) {
   const primaryAccount = accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
 
   // Same single definition as `/me`: liveness, never row existence.
+  // D-023: no hyperliquid entry here either. The wallet is execution-only;
+  // the linked row is still returned as `accountAddress` below for the
+  // author's own Take flow, but it is never a connection state.
   const xLive = isXConnectionLive(xConn);
   const connections = [
     {
@@ -420,14 +423,6 @@ export async function buildPublicProfile(ctx: AppContext, slug: string) {
           ? `X linked · @${xIdentity.username} (display only)`
           : "X not connected",
       displayOnly: Boolean(xIdentity && !xLive),
-    },
-    {
-      provider: "hyperliquid" as const,
-      connected: Boolean(primaryAccount),
-      label: primaryAccount
-        ? `Hyperliquid · ${truncateAddress(primaryAccount.accountAddress)}`
-        : "Hyperliquid not linked",
-      displayOnly: false,
     },
     {
       provider: "ethos" as const,

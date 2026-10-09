@@ -1,34 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SettingsClient, type Me } from "@/app/settings/SettingsClient";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { notifyMeChanged } from "@/lib/me-events";
 
-// Single-state rule: the hyperliquid section needs the browser session too.
-// Mutable so tests cover both halves of the wallet state.
-let wallet: { address?: string; isConnected: boolean } = { isConnected: false };
-
-vi.mock("wagmi", () => ({
-  useAccount: () => wallet,
-  useDisconnect: () => ({ disconnect: vi.fn() }),
-}));
-
-vi.mock("connectkit", () => ({
-  ConnectKitButton: Object.assign(
-    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
-      children({ show: () => {} }),
-    {
-      Custom: ({
-        children,
-      }: {
-        children: (p: { show: () => void }) => React.ReactNode;
-      }) => children({ show: () => {} }),
-    },
-  ),
-}));
-
-const ADDR = "0x1234567890abcdef1234567890abcdef12345678";
+// D-023: SettingsClient reads no wallet state. No wagmi/connectkit mocks
+// needed — and none must be required for this screen to render.
 
 const ME: Me = {
   userId: "u1",
@@ -55,10 +33,6 @@ const ME: Me = {
 const authed = async () => true;
 const unauthed = async () => false;
 const withMe = (me: Partial<Me> = {}) => async () => ({ ...ME, ...me });
-
-beforeEach(() => {
-  wallet = { isConnected: false };
-});
 
 describe("§10.10 Profile and connections", () => {
   it("states the SPECIFIC reason when unauthorized", async () => {
@@ -105,10 +79,9 @@ describe("§10.10 Profile and connections", () => {
     // X is connected: its chip states Connected. Ethos is read-only: Read only.
     expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByText("Read only")).toBeInTheDocument();
-    // Hyperliquid's row exists but the browser wallet is off: no chip, no
-    // address, no "Not connected" line — the launcher stands in instead.
-    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
-    expect(screen.queryByText(ADDR)).toBeNull();
+    // D-023: no wallet UI anywhere — no chip, no address, no launcher.
+    expect(screen.queryByText("Hyperliquid")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
   });
 
   it("shows Connect X instead of a chip when X is disconnected", async () => {
@@ -140,7 +113,7 @@ describe("§10.10 Profile and connections", () => {
     expect(onNavigate).toHaveBeenCalledWith("/api/v1/auth/x/start");
   });
 
-  it("shows the single connect CTA when neither account is connected", async () => {
+  it("shows the single connect CTA when X is disconnected (D-023)", async () => {
     const bare: Me = {
       ...ME,
       connections: ME.connections.map((c) => ({ ...c, connected: false })),
@@ -148,10 +121,14 @@ describe("§10.10 Profile and connections", () => {
     };
     render(<SettingsClient probe={authed} load={withMe(bare)} />);
     expect(
-      await screen.findByText("Connect an account to activate your profile"),
+      await screen.findByText("Connect X to activate your profile"),
     ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Connect X" })).toBeInTheDocument();
     // Basics stay — display identity is PASS attribution, not account.
     expect(screen.getByText("turnttfup99")).toBeInTheDocument();
+    // And still no wallet UI of any kind.
+    expect(screen.queryByText("Hyperliquid")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
   });
 
   it("edits the display name and bio, then saves", async () => {
@@ -170,20 +147,14 @@ describe("§10.10 Profile and connections", () => {
     );
   });
 
-  it("exposes the Hyperliquid identity toggle (§10.10.2), off by default", async () => {
+  it("never renders wallet state in any form (D-023)", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
-    const toggle = await screen.findByRole("switch");
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "true");
-  });
-
-  it("lists trading accounts by address when the wallet is connected", async () => {
-    wallet = { isConnected: true, address: ADDR };
-    render(<SettingsClient probe={authed} load={withMe()} />);
-    expect(
-      await screen.findByText(/0x1234567890abcdef1234567890abcdef12345678/),
-    ).toBeInTheDocument();
+    await screen.findByText("X");
+    expect(screen.queryByText("Hyperliquid")).toBeNull();
+    expect(screen.queryByText(/0x1234567890abcdef1234567890abcdef12345678/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+    expect(screen.queryByText(/session active/)).toBeNull();
+    expect(screen.queryByText(/Trading accounts/)).toBeNull();
   });
 
   // §10.10 + AGENTS.md: no key material is requested or displayed, ever.
@@ -220,22 +191,11 @@ describe("§10.10 Profile and connections", () => {
     await act(async () => {
       notifyMeChanged();
     });
-    // X off + wallet off in the mock: the single CTA panel replaces the chips.
+    // X off: the single CTA panel replaces the chips.
     expect(
-      await screen.findByText("Connect an account to activate your profile"),
+      await screen.findByText("Connect X to activate your profile"),
     ).toBeInTheDocument();
     expect(screen.queryByText("X not connected")).toBeNull();
-  });
-
-  // Bug 2b, single-state rule: a linked row with no live browser session
-  // hides the address and shows the launcher instead. No "linked but
-  // inactive" line exists anywhere.
-  it("hides the address while the wallet session is off", async () => {
-    render(<SettingsClient probe={authed} load={withMe()} />);
-    await screen.findByRole("button", { name: "Connect wallet" });
-    expect(screen.queryByText(ADDR)).toBeNull();
-    expect(screen.queryByText(/session inactive/)).toBeNull();
-    expect(screen.queryByText(/session active/)).toBeNull();
   });
 });
 

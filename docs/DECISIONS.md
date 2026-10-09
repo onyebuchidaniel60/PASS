@@ -404,3 +404,32 @@ relations of its own.
 ### Not a Stage B gate
 
 Stage B closes on the onboarding flow; the tour ships alongside.
+
+## D-023 — X is the identity; wallet is execution-only
+
+**Date:** 2026-10-09
+**Status:** Accepted. In force.
+
+**Decision:** PASS identity is X-only. The X identity determines the
+display name, handle, avatar, profile slug, Ethos resolution, and pass
+authorship. The Hyperliquid wallet is not part of identity.
+
+**Wallet connection happens lazily, at the moment a signature is
+required** — first Take, first approveAgent. It is not connected during
+onboarding, not shown in the topbar, not shown on Profile, not shown in
+the profile settings, not returned by /me as an identity.
+
+**Why:** wallet connection is a signing concern, not an identity
+concern. Coupling them confused the identity model, produced stale
+"connected" states, and made disconnects ambiguous. Decoupling matches
+Hyperliquid's model (account address vs signer) and D-015 (Taker
+authorizes their own execution).
+
+**Consequences:**
+- Onboarding is X + profile + Ethos. No wallet step.
+- /me connections[] no longer carries a hyperliquid identity entry.
+- trading_accounts rows are internal — never rendered as a
+  connection state.
+- Take flow owns wallet connect, address read, agent approval.
+- D-019.1 is unchanged (wagmi + viem + ConnectKit remain the stack);
+  D-023 governs when the wallet is connected, not how.

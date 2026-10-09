@@ -20,13 +20,11 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { useAccount } from "wagmi";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { onMeChanged } from "@/lib/me-events";
-import { isWalletConnected, isXLive } from "@/lib/me";
+import { isXLive } from "@/lib/me";
 import { useMePayload } from "@/lib/use-me";
-import { WalletControl } from "@/components/WalletControl";
 import {
   EmptyBlock,
   LIFECYCLE_LABEL,
@@ -136,12 +134,11 @@ export function MyPassesClient({
   });
   // Re-read when another surface mutates connection state (Bug 2a).
   useEffect(() => onMeChanged(reload), [reload]);
-  // Single-state rule (lib/me.ts): the lists belong to the session's user,
-  // but nothing account-attributed displays while both accounts are
+  // Single-state rule, D-023: identity is X-only. The lists belong to the
+  // session's user, but nothing account-attributed displays while X is
   // disconnected. `me` null is fail-open — the probe already proved the
   // session, so an unreadable snapshot must not hide the user's passes.
   const { me } = useMePayload();
-  const { isConnected: walletSession } = useAccount();
 
   return (
     <PageShell>
@@ -177,7 +174,7 @@ export function MyPassesClient({
         onRetry={reload}
       >
         {(passes) => {
-          const gated = me !== null && !isXLive(me) && !isWalletConnected(me, walletSession);
+          const gated = me !== null && !isXLive(me);
           if (gated) {
             return (
               <Panel>
@@ -191,7 +188,6 @@ export function MyPassesClient({
                   <Link className="pass-btn" data-variant="primary" href="/onboarding">
                     Connect an account
                   </Link>
-                  <WalletControl linked={false} />
                 </Inline>
               </Panel>
             );

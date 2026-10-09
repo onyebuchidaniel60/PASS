@@ -1,12 +1,16 @@
 "use client";
 
 /**
- * Onboarding (§10.11, PRD §8.1) — ONE STEP PER SCREEN.
+ * Onboarding (§10.11, PRD §8.1, D-023) — ONE STEP PER SCREEN.
  *
- * The four steps are declared as DATA here and the screen renders whichever one
+ * The three steps are declared as DATA here and the screen renders whichever one
  * it is given. That is what "one step per screen" means structurally: a step is
- * a question, an action, and one sentence of justification — never a four-field
+ * a question, an action, and one sentence of justification — never a combined
  * form the Trader has to reason about all at once.
+ *
+ * D-023: identity is X-only. There is no wallet step — wallet connection is
+ * a signing concern that happens lazily at first Take / approveAgent, never
+ * during onboarding.
  *
  * Spec points encoded:
  *  - the step's single question is a display-size statement (`Connect your X
@@ -15,13 +19,13 @@
  *    "Continue");
  *  - "why it is needed" is ONE sentence in secondary body. Not a permissions
  *    essay. Each `why` below is deliberately short;
- *  - progress is mono `STEP 2 / 4`;
+ *  - progress is mono `STEP 2 / 3`;
  *  - a step whose provider is unavailable shows `UnavailableBlock` and may be
  *    SKIPPED where the PRD permits it (Ethos is `optional: true`, and only
  *    because the PRD marks reputation resolution "if available").
  *
- * Nothing here collects key material. The agent wallet is generated client-side;
- * no seed phrase or private key is ever requested, echoed or displayed (AGENTS.md).
+ * Nothing here collects key material. No seed phrase or private key is ever
+ * requested, echoed or displayed (AGENTS.md).
  */
 
 import { useState, type ReactNode } from "react";
@@ -31,7 +35,7 @@ import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/lay
 import { Eyebrow } from "@/components/wave1/signature";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 
-export type StepId = "x" | "profile" | "hyperliquid" | "ethos";
+export type StepId = "x" | "profile" | "ethos";
 
 export interface Step {
   id: StepId;
@@ -58,13 +62,6 @@ export const STEPS: Step[] = [
     question: "Create your PASS profile.",
     action: "Create profile",
     why: "A profile is where takers read your thesis and your track record.",
-    optional: false,
-  },
-  {
-    id: "hyperliquid",
-    question: "Associate your Hyperliquid account.",
-    action: "Link wallet account",
-    why: "Takers authorize against your plan, you fill against your own account.",
     optional: false,
   },
   {

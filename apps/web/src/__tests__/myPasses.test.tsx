@@ -46,36 +46,15 @@ const PASSES: MyPass[] = [
 const authed = async () => true;
 const unauthed = async () => false;
 
-// Single-state rule: the lists need the connection snapshot (`useMePayload`)
-// and the browser wallet session (wagmi). Fail-open by default — the /me
-// read rejects, so existing tests observe the lists exactly as before.
+// Single-state rule (D-023): gating reads the X entry of the /me snapshot
+// only. Fail-open by default — the /me read rejects, so existing tests
+// observe the lists exactly as before (see use-me.ts).
 const { mockMeGet } = vi.hoisted(() => ({ mockMeGet: vi.fn() }));
 
 vi.mock("@/lib/client", () => ({
   clientGet: (...a: unknown[]) => mockMeGet(...a),
   clientPost: vi.fn(),
   clientPatch: vi.fn(),
-}));
-
-let wallet: { address?: string; isConnected: boolean } = { isConnected: false };
-
-vi.mock("wagmi", () => ({
-  useAccount: () => wallet,
-  useDisconnect: () => ({ disconnect: vi.fn() }),
-}));
-
-vi.mock("connectkit", () => ({
-  ConnectKitButton: Object.assign(
-    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
-      children({ show: () => {} }),
-    {
-      Custom: ({
-        children,
-      }: {
-        children: (p: { show: () => void }) => React.ReactNode;
-      }) => children({ show: () => {} }),
-    },
-  ),
 }));
 
 const ME_OFF = {
@@ -106,7 +85,6 @@ const ME_X_ON = {
 };
 
 beforeEach(() => {
-  wallet = { isConnected: false };
   mockMeGet.mockReset();
   mockMeGet.mockRejectedValue(new Error("no session snapshot"));
 });
@@ -184,8 +162,8 @@ describe("My Passes (§10.8)", () => {
   });
 });
 
-describe("My Passes — single-state rule", () => {
-  it("hides the lists and shows the CTA when both accounts are disconnected", async () => {
+describe("My Passes — single-state rule (D-023, X-only)", () => {
+  it("hides the lists and shows the CTA when X is disconnected", async () => {
     mockMeGet.mockResolvedValue(ME_OFF);
     renderWith({});
     expect(
@@ -195,7 +173,7 @@ describe("My Passes — single-state rule", () => {
     expect(screen.queryByText("ETH")).toBeNull();
   });
 
-  it("renders the lists when X is connected, wallet or not", async () => {
+  it("renders the lists when X is connected", async () => {
     mockMeGet.mockResolvedValue(ME_X_ON);
     renderWith({});
     expect((await screen.findAllByText("BTC")).length).toBeGreaterThan(0);
