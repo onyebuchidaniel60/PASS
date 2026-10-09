@@ -780,3 +780,44 @@ suites share one boot per file (parallel boots flaked under load).
 ### Still operator-side
 
 The 8-step run with screenshots + `/me` bodies — no browser here.
+
+## 20. D-023 — X-only identity, wallet execution-only (2026-10-09)
+
+Fix commit `ae33afc`. API redeploy `e6ce6dc6` SUCCESS; web redeploy READY
+(`pass-dzvf6awzs`, aliased). `/health` modes unchanged; execution mock.
+
+### The decision
+
+Recorded verbatim as D-023: identity is X-only (display name, handle,
+avatar, slug, Ethos, authorship); wallet connects lazily at first Take /
+approveAgent. D-019.1 unchanged (same stack, different timing).
+
+### What changed
+
+- Onboarding is X + profile + Ethos (wallet step + tests deleted, counter
+  /3, handoff has no wallet note).
+- Topbar shows X only (`WalletControl` removed from layout; new topbar
+  test asserts no wallet element in the tree).
+- Settings + `/u` profile: no address, no Hyperliquid account, no linked/
+  active lines. Settings is X chip / Connect-X CTA + Ethos; `/u` gates
+  author handle-link/chips/Ethos on author liveness, passes stay.
+- `/me` and public profile drop the hyperliquid `connections[]` entry
+  (`tradingAccounts[]` stays for Take-preview internals).
+- Pass-list leak fixed at its mechanism: gating was X-AND-wallet, so a
+  live browser wallet kept lists visible after X disconnect. Now X-only
+  (`me !== null && !isXLive(me)` → CTA) on My Passes + Executions, with
+  regression tests. `/u` published lists intentionally stay (published
+  content renders regardless of viewer — recorded choice, not oversight).
+- Pass detail: additive `trader.xConnected`, displayName fallback.
+
+### Tests
+
+Root 14/132 green; every touched web file green (topbar 2 new, settings/
+flow/gate/passDetail/traderProfile/myPasses/executions/me updated); tsc +
+eslint clean. Deleted obsolete tests asserted the rejected models
+(chip-actions, wallet step, two-line session).
+
+### Still operator-side
+
+D-023 surface run + the 10-check Stage C Create-Pass walk — no browser
+here. Stage C is NOT met until that run passes.
