@@ -821,3 +821,43 @@ eslint clean. Deleted obsolete tests asserted the rejected models
 
 D-023 surface run + the 10-check Stage C Create-Pass walk — no browser
 here. Stage C is NOT met until that run passes.
+
+## 21. D-024 — sign-out is sign-out (2026-10-09)
+
+Fix commit `b2fc322`. API redeploy `18bb3d6d` SUCCESS; web redeploy READY
+(`pass-p570o0ufh`, aliased). `/health` modes unchanged; execution mock.
+
+### The model change
+
+D-024 recorded verbatim: X connection ≡ PASS session. Disconnecting X
+terminates the session — no session-without-identity state exists
+anymore. This resolves the operator's half-signed-out screenshot at its
+root: the profile rendered because the session survived the disconnect,
+not because any screen failed to reload.
+
+### What changed
+
+- API: shared `endSession` (destroy row + clear cookie) used by both
+  `POST /auth/x/disconnect` (which additionally deletes the
+  `x_connections` tokens row, keeps everything else) and
+  `POST /auth/logout`. Old cookies 401 afterwards.
+- Web: topbar disconnect routes to `/` on success (stays put on
+  failure, when the session is truthfully still alive).
+- `AuthenticatedView` gains `unauthorizedAction`; settings/passes/
+  executions signed-out views render a working Sign in with X CTA
+  (`SignInX` component) instead of a dead end. `/passes/new` keeps its
+  existing wall (the gate redirects first).
+- All `/me` consumers already mapped 401 → signed-out; verified each
+  (probe/hook/boot/load paths), no fallbacks to stale data found.
+
+### Tests
+
+API: disconnect kills session + preserves all rows, logout kills
+session, reconnect returns the same user/history (31 pass-gate +
+callback tests). Web: disconnect navigation ×2, signed-out CTA screens
+×3 (asserting absence of user data). Root 14/133 green; web full suite
+587 green; tsc + eslint clean.
+
+### Still operator-side
+
+The 10-step run — no browser here. Stage B is NOT met until it passes.
