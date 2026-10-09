@@ -639,3 +639,48 @@ test` (104 + 539) and `pnpm run check` green.
 The 6-check browser re-run (signed-out load, sign-in, landing without
 error boundary, chip, clean console, refresh persistence) — no browser
 in this environment.
+
+## 17. Stage B closure — full onboarding flow + one-time tour (2026-10-09)
+
+Fix commit `5b37ccf`. API redeploy `3a0f41f7` SUCCESS (migration 0002
+applied at startup); web redeploy Ready, Production
+(`pass-oy0it90lg`, aliased). `/health` modes unchanged; execution mock.
+
+### Step 0 answers (abridged)
+
+Seven code sites touched `/api/v1/me`; after the fix exactly two read
+identity state and both go through `lib/me.ts` (`XIdentityControl`,
+`XConnectedNotice`). `SettingsClient`, the guard, and the probes read
+other flat fields or booleans only. `/app/onboarding/` was two files —
+one presentational screen, always step 0, actions unwired (no props from
+`page.tsx`). First-visit gating was partial (three pages). wagmi +
+ConnectKit mounted in the root layout (`Providers`). No handoff existed.
+
+### What shipped
+
+- `OnboardingFlow`: `/me` as source of truth, first-incomplete-step
+  start, real actions (OAuth nav, profile POST with slug validation,
+  wallet-address link only, Ethos refresh that never blocks), Back
+  navigation, wallet skip with Take warning, handoff
+  ("You're set. Go find a Pass." → `/discover`, `/u/{slug}`). Profile row
+  is the completion record — no new column. The hyperliquid step action
+  was renamed ("Generate agent wallet" → "Link wallet account"): the old
+  label promised Stage F work inside onboarding.
+- `OnboardingGate` (single, layout-mounted) replaces the three per-page
+  guards: profile-less → `/onboarding` from anywhere; signed-out on
+  `/onboarding` → `/`; complete on `/onboarding` → `/discover`.
+- D-022 tour: five `Dialog`-shelled steps (focus trap, Esc, aria from the
+  existing overlay — no animation, so reduced-motion is trivially met),
+  `profiles.tour_completed_at` + migration 0002, PATCH support,
+  settings replay. Tour is explicitly not the Stage B gate.
+
+### Tests
+
+Flow 13, gate 6, tour 9 (incl. gate PATCH-and-hide), selector additions.
+`pnpm test` (104 + 570) and every `check` phase green. One environment
+note: the PGlite API tests need 120s timeouts — boots take 10s+ idle and
+70s+ under load on this machine; 30s default flaked.
+
+### Still operator-side
+
+The 13-check incognito run (report §8). No browser in this environment.
