@@ -465,3 +465,50 @@ a feature.
 - Historical pass attribution: a Pass authored by this user renders the
   author's display name to the world. The author, when signed out, does
   not see their own pass list.
+
+## D-025 — Take execution semantics
+
+**Date:** 2026-10-10
+**Status:** Accepted. In force. (D-025.4 provisional — operator to ratify.)
+
+**Context:** Stage F wires the client's Take into a real signed
+Hyperliquid order. Three semantics were previously undefined.
+
+### D-025.1 — Entry limit price
+- A **limit Pass** uses the Pass's authored `entry_price`.
+- A **market Pass** uses the current mid from the Info API at
+  preview time.
+The chosen price is shown in the execution preview and signed into
+the order. Do not silently substitute.
+
+### D-025.2 — sizeUsd → base size
+`baseSize = sizeUsd / entryPrice`, then rounded **down** to the
+asset's `szDecimals` from the Info API universe. Never round up.
+Rounding down keeps the notional at or below the Taker's chosen
+size; rounding up would overshoot their intent.
+
+### D-025.3 — Server/client reconciliation
+The client sends the signed Hyperliquid action inside
+`signedPayload.exchangeRequest`. The server relays it unchanged
+(D-018.3). The client stops posting `signedAction: "demo"`. The
+server's `execution-service.ts` already reads
+`input.signedPayload.exchangeRequest`; the client must match that
+shape exactly.
+
+**Consequences:**
+- `buildOrderAction` (already built, 16 tests) has a caller:
+  `TakeFlowClient.authorize()`.
+- Preview and submit use the same numbers.
+- `hyperliquidExecution: mock` remains the deployed default. Wiring
+  this code path does not arm it.
+
+### D-025.4 — Pass-id resolution on the execution routes (provisional)
+The Take screen only ever holds the public `public_id` (D-018.4 share
+URLs), while the execution routes resolve the internal UUID. No
+owner-only listing can bridge that for a Taker taking someone else's
+Pass, so `POST /passes/:id/execution-preview` and
+`POST /passes/:id/executions` resolve `:id` as the internal UUID
+first and fall back to `public_id`. The canonical share URL is
+unchanged, ownership and idempotency checks are unchanged, and the
+public DTO still carries no internal id. Operator to ratify or replace
+with a dedicated resolution endpoint.

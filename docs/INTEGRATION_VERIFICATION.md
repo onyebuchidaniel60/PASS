@@ -140,18 +140,18 @@ https://colosseum.com/worldsfair
 
 Added during the one-shot build. These are capabilities that are **not** implemented and are not faked.
 
-### 17.1 Live client-side Hyperliquid signing — not wired
+### 17.1 Live client-side Hyperliquid signing — wired 2026-10-10
 
-`apps/web/src/lib/signer.ts` produces a correctly shaped signed envelope when `HYPERLIQUID_MODE=mock` so the full relay path, the D-018.3 validation order, and idempotency can be exercised. In live mode it **throws** rather than sending an unsigned or placeholder-signed order to a real exchange.
-
-The official packages were confirmed available on npm during the build:
-
-- `hyperliquid` — 1.7.7
-- `viem` — 2.57.2
-
-Closing the gap means adding those two dependencies and implementing `signExchangeRequest` with the official SDK's documented signing flow. `AGENTS.md` forbids hand-rolling the signing serialization, so no bespoke EIP-712 implementation was written. Signing remains in the browser; only the signed payload is submitted, and the agent private key is never persisted or transmitted (D-018.3, D-018.9).
-
-Install command and procedure: `docs/CREDENTIALS_SWAP.md`.
+`TakeFlowClient.authorize()` builds the bracket with `buildOrderAction`
+and signs it via `signExchangeRequest`: mock mode produces the
+correctly shaped placeholder envelope; live mode signs with the
+client-held agent key through viem's official EIP-712 primitive
+(D-019.1 stack — no hand-rolled serialization, no `hyperliquid` npm
+dependency added). Live mode without a key throws and sends nothing.
+`hyperliquidExecution` remains `mock` on deployed services, so the
+wired path exercises relay, validation order and idempotency without
+moving funds. Status 2026-10-10: wired, mock-verified in tests, no live
+mainnet submission yet (see `docs/EXECUTION_READINESS.md` §6.4).
 
 ### 17.2 `approveAgent` — requires a browser wallet connector
 

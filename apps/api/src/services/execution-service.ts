@@ -21,6 +21,30 @@ import type {
 
 const ALLOWED_PRIOR_VERSIONS: number[] = [];
 
+/**
+ * D-025.4 (provisional): the Take screen only ever holds the public
+ * `public_id`, while these routes historically resolved the internal UUID
+ * (D-018.4). Resolve internal-first, fall back to public. Ownership,
+ * idempotency and status checks downstream are unchanged; unknown ids
+ * still 404 as PASS_NOT_FOUND.
+ */
+export async function resolvePassForExecution(
+  ctx: AppContext,
+  idOrPublicId: string,
+): Promise<PassRow> {
+  // Non-UUID strings must never reach the UUID-keyed lookup: Postgres
+  // raises a raw `invalid input syntax` error rather than an AppError.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrPublicId)) {
+    try {
+      return await getPassById(ctx, idOrPublicId);
+    } catch (e) {
+      if (!(e instanceof AppError) || e.code !== "PASS_NOT_FOUND") throw e;
+    }
+  }
+  const { getPassByPublicId } = await import("./pass-service.js");
+  return getPassByPublicId(ctx, idOrPublicId);
+}
+
 function assertAccountOwnership(
   ctx: AppContext,
   accountId: string,
@@ -54,7 +78,7 @@ export async function buildExecutionPreview(
   takerId: string,
   input: ExecutionPreviewRequest,
 ): Promise<ExecutionPreviewDto> {
-  const pass = await getPassById(ctx, passId);
+  const pass = await resolvePassForExecution(ctx, passId);
 
   if (pass.status !== "active" && pass.status !== "entry_pending") {
     throw new AppError("PASS_NOT_ACTIVE", `This Pass is ${pass.status}.`);
@@ -187,7 +211,7 @@ export async function relayExecution(
   if (!takerId) throw new AppError("AUTH_REQUIRED");
 
   // 2. verify the Pass exists and is active.
-  const pass: PassRow = await getPassById(ctx, passId);
+  const pass: PassRow = await resolvePassForExecution(ctx, passId);
   if (pass.status !== "active" && pass.status !== "entry_pending") {
     throw new AppError("PASS_NOT_ACTIVE", `This Pass is ${pass.status}.`);
   }
