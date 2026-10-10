@@ -861,3 +861,22 @@ callback tests). Web: disconnect navigation ×2, signed-out CTA screens
 ### Still operator-side
 
 The 10-step run — no browser here. Stage B is NOT met until it passes.
+
+## 22. Stage B closure — gate met (2026-10-09)
+
+Stage B is **Met**. The gate ("a test user can create a complete profile without exposing secrets") closed on a 10-step operator browser run on 2026-10-09, all pass. Session model: X connection ≡ PASS session (D-024) — no session-without-identity state exists. Identity: X-only (D-023) — wallet is execution-only, connected lazily at Take. Deploy SHA at closure: `b2fc322` (code) / `0baa4cc` (docs).
+
+Evidence (10-step operator browser run, 2026-10-09, all pass):
+
+1. Sign in with X — pass
+2. Onboarding: 3 steps, no wallet step — pass
+3. Topbar: X chip only — pass
+4. Profile signed-in: name, slug, bio visible — pass
+5. Disconnect X: routed away immediately, no flash of user data — pass
+6. `/settings` signed-out: connect CTA only, no name, slug, bio, Save — pass
+7. My Passes signed-out: CTA only, no list — pass
+8. Executions signed-out: CTA only — pass
+9. `/passes/new` signed-out: blocked — pass
+10. Public pass URL renders signed-out; reconnect returns same user — pass
+
+Stage B gate closed, Stage C in progress.
