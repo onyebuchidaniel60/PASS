@@ -482,8 +482,7 @@ describe("Pass detail reference language (14)", () => {
   });
 });
 
-describe("Pass detail — disconnected author (single-state rule)", () => {
-  it("falls back to displayName and still renders the pass", async () => {
+describe("Pass detail — disconnected author (single-state rule)", () => {  it("falls back to displayName and still renders the pass", async () => {
     renderPass({ trader: { ...PASS.trader, xConnected: false } });
     // Thesis proves the pass itself renders.
     await screen.findByText(/reclaiming the 113.4k range top/);
@@ -501,5 +500,33 @@ describe("Pass detail — disconnected author (single-state rule)", () => {
     renderPass({ trader: { ...PASS.trader, xConnected: true } });
     await screen.findByText(/reclaiming the 113.4k range top/);
     expect(screen.getByText("@turnttfup99")).toBeInTheDocument();
+  });
+});
+
+describe("Pass detail — terminal states offer no Take action (Stage C)", () => {
+  it("a cancelled Pass keeps its page but removes the Take CTA", async () => {
+    const { container } = renderPass({ status: "cancelled" });
+    await screen.findByRole("heading", { level: 1 });
+    // The plan still reads — the thesis proves it.
+    expect(screen.getByText(/reclaiming the 113.4k range top/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Take Pass" })).toBeNull();
+    expect(container.querySelectorAll('[data-variant="primary"]')).toHaveLength(0);
+    expect(screen.getByText(/cannot be taken/)).toBeInTheDocument();
+  });
+
+  it("an active but time-expired Pass offers no Take action", async () => {
+    renderPass({ status: "active", expiresAt: "2000-01-01T00:00:00.000Z" });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("link", { name: "Take Pass" })).toBeNull();
+    expect(screen.getByText(/expired and cannot be taken/)).toBeInTheDocument();
+  });
+
+  it("an active, unexpired Pass still offers exactly one Take CTA", async () => {
+    renderPass({ status: "active" });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByRole("link", { name: "Take Pass" })).toHaveAttribute(
+      "href",
+      "/passes/UvvuxpWPZ4/take",
+    );
   });
 });

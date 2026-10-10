@@ -271,6 +271,13 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
   const takeHref = `/passes/${data.publicId}/take`;
   const expiryMs = new Date(data.expiresAt).getTime() - Date.now();
   const expired = expiryMs <= 0;
+  // The Take CTA is offered only while the Pass can still be taken: active
+  // or entry_pending and unexpired — the same pair the server enforces
+  // (TAKABLE_STATUSES in @pass/contracts). Anything else keeps its page but
+  // offers no Take action, so no new execution can be invited against a
+  // cancelled, expired or otherwise terminal Pass (DATA_MODEL.md §3.7).
+  const takable =
+    (data.status === "active" || data.status === "entry_pending") && !expired;
   const tone = expired ? ("expired" as StatusTone) : TONE[data.status];
   const label = expired ? "Expired" : STATE_LABEL[data.status] ?? data.status;
   const asset = data.asset.toUpperCase();
@@ -511,7 +518,8 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
             </Section>
           ) : null}
 
-          {/* §10.3 item 7 — the single accent-filled CTA. */}
+          {/* §10.3 item 7 — the single accent-filled CTA, while takable. */}
+          {takable ? (
           <Stack gap="3">
             <Inline gap="3">
               <Link href={takeHref} className="pass-row-link-plain">
@@ -526,6 +534,15 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
               selects a size for you.
             </p>
           </Stack>
+          ) : (
+          <Stack gap="3">
+            <p className="pass-note pass-note-status">
+              This Pass is {expired ? "expired" : label.toLowerCase()} and cannot
+              be taken. It stays readable, because a plan is worth reading
+              after it has closed.
+            </p>
+          </Stack>
+          )}
         </Stack>
 
         {/* §10.7 Stale Pass interstitial. Execution is never silently attempted

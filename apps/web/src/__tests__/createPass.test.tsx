@@ -14,13 +14,19 @@ import {
  * them without a render, without the network, and without the form's state
  * machine in the way.
  */
-const { mockGet, mockPost } = vi.hoisted(() => ({
+const { mockGet, mockPost, mockPatch, searchGet } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockPost: vi.fn(),
+  mockPatch: vi.fn(),
+  searchGet: vi.fn((_key: string): string | null => null),
 }));
 vi.mock("@/lib/client", () => ({
   clientGet: (...a: unknown[]) => mockGet(...a),
   clientPost: (...a: unknown[]) => mockPost(...a),
+  clientPatch: (...a: unknown[]) => mockPatch(...a),
+}));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => ({ get: (k: string) => searchGet(k) }),
 }));
 
 const MARKETS = [
@@ -106,6 +112,9 @@ describe("live validation (UX_SPEC §7)", () => {
 beforeEach(() => {
   mockGet.mockReset();
   mockPost.mockReset();
+  mockPatch.mockReset();
+  searchGet.mockReset();
+  searchGet.mockReturnValue(null);
 });
 
 async function renderForm({ authed = true, xConnected = true } = {}) {
@@ -246,29 +255,212 @@ describe("Create Pass preview and publish (§10.5)", () => {
   });
 });
 
-describe("Create Pass publish path", () => {
-  it("shows the published state with links to the Pass and My Passes", async () => {
-    mockPost.mockResolvedValue({ publicId: "UvvuxpWPZ4" });
-    await renderForm();
-    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
-
+describe("Create Pass publish path (create then publish)", () => {
+  async function fillValidForm() {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup({ delay: null });
-    const stop = screen.getByLabelText(/Stop loss/);
-    await user.type(stop, "111900");
+    await user.type(screen.getByLabelText(/Stop loss/), "111900");
     await user.type(screen.getByLabelText(/Take profit/), "116000");
     await user.type(screen.getByLabelText(/Entry price/), "113400");
     await user.type(screen.getByLabelText(/Thesis/), "Range top reclaim.");
     await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
-
-    const publish = screen.getByRole("button", { name: /Publish/ });
+    const publish = screen.getByRole("button", { name: /^Publish$/ });
     await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled", "true"));
+    return { user, publish };
+  }
+
+  it("POSTs the draft, then publishes it, and only then says Published", async () => {
+    mockPost
+      .mockResolvedValueOnce({ id: "uuid-1", publicId: "UvvuxpWPZ4", version: 1, status: "draft" })
+      .mockResolvedValueOnce({ id: "uuid-1", publicId: "UvvuxpWPZ4", status: "active", version: 1, canonicalPath: "/p/UvvuxpWPZ4" });
+    await renderForm();
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { user, publish } = await fillValidForm();
     await user.click(publish);
 
-    await waitFor(() => expect(screen.getByText("Pass published")).toBeInTheDocument());
+    // Both POSTs fire in order: draft first, publish second.
+    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    expect(mockPost.mock.calls[0]?.[0]).toBe("/api/v1/passes");
+    expect(mockPost.mock.calls[1]?.[0]).toBe("/api/v1/passes/uuid-1/publish");
+    // Only now is the public URL shown, with a copy control.
+    await waitFor(() => expect(screen.getByText("Published")).toBeInTheDocument());
+    expect(screen.getByDisplayValue("/p/UvvuxpWPZ4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View Pass" })).toHaveAttribute(
       "href",
       "/p/UvvuxpWPZ4",
     );
+  });
+
+  it("on publish failure stays on the form and never says published", async () => {
+    mockPost
+      .mockResolvedValueOnce({ id: "uuid-1", publicId: "UvvuxpWPZ4", version: 1, status: "draft" })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("A draft Pass cannot be published."), { code: "PASS_NOT_ACTIVE" }),
+      );
+    await renderForm();
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { user, publish } = await fillValidForm();
+    await user.click(publish);
+
+    await waitFor(() => expect(screen.getByText(/Publish failed/)).toBeInTheDocument());
+    // The API code is shown and the draft-kept retry path is named.
+    expect(screen.getByText(/PASS_NOT_ACTIVE/)).toBeInTheDocument();
+    expect(screen.getByText(/draft was kept/i)).toBeInTheDocument();
+    // Still on the form: no Published heading, no public URL, no navigation.
+    expect(screen.queryByText("Published")).toBeNull();
+    expect(screen.queryByDisplayValue("/p/UvvuxpWPZ4")).toBeNull();
+    expect(screen.getByText("Create a Pass")).toBeInTheDocument();
+  });
+
+  it("sends null, not an empty string, for a market entry price", async () => {
+    mockPost
+      .mockResolvedValueOnce({ id: "uuid-1", publicId: "UvvuxpWPZ4", version: 1, status: "draft" })
+      .mockResolvedValueOnce({ id: "uuid-1", publicId: "UvvuxpWPZ4", status: "active", version: 1 });
+    await renderForm();
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    // Market entry: the price field stays empty, which the server forbids as "".
+    await user.click(screen.getByRole("button", { name: "Market" }));
+    await user.type(screen.getByLabelText(/Stop loss/), "111900");
+    await user.type(screen.getByLabelText(/Take profit/), "116000");
+    await user.type(screen.getByLabelText(/Thesis/), "Market break.");
+    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
+    const publish = screen.getByRole("button", { name: /^Publish$/ });
+    await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled", "true"));
+    await user.click(publish);
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalled());
+    const body = mockPost.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(body.entryType).toBe("market");
+    expect(body.entryPrice).toBeNull();
+  });
+});
+
+const EDIT_DETAIL = {
+  id: "uuid-9",
+  publicId: "UvvuxpWPZ4",
+  version: 1,
+  status: "active",
+  asset: "BTC",
+  direction: "long",
+  entryType: "limit",
+  entryPrice: "113400",
+  stopLoss: "111900",
+  takeProfit: "116000",
+  leverage: "5",
+  thesis: "Range top reclaim.",
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  publishedAt: "2026-10-05T09:00:00.000Z",
+};
+
+async function renderEditForm(detail: unknown = EDIT_DETAIL) {
+  searchGet.mockImplementation((k: string) => (k === "edit" ? "uuid-9" : null));
+  mockGet.mockImplementation((url?: unknown) => {
+    const path = String(url ?? "");
+    if (path.startsWith("/api/v1/me/passes/")) {
+      return detail instanceof Error ? rejected(detail.message) : Promise.resolve(detail);
+    }
+    if (path.includes("/api/v1/me")) {
+      return Promise.resolve({
+        userId: "u1",
+        profileSlug: "t",
+        displayName: "T",
+        connections: [
+          { provider: "x", connected: true, label: "X connected · @t", displayOnly: false, handle: "t" },
+        ],
+        tradingAccounts: [],
+      });
+    }
+    return Promise.resolve({ assets: MARKETS });
+  });
+  let out!: ReturnType<typeof render>;
+  await act(async () => {
+    out = render(<CreatePassClient />);
+  });
+  return out;
+}
+
+describe("Edit Pass (same form, ?edit={id})", () => {
+  it("prefills the form from the author's pass", async () => {
+    await renderEditForm();
+    await waitFor(() => expect(screen.getByText("Edit Pass")).toBeInTheDocument());
+    expect(screen.getByLabelText(/Entry price/)).toHaveValue("113400");
+    expect(screen.getByLabelText(/Stop loss/)).toHaveValue("111900");
+    expect(screen.getByLabelText(/Thesis/)).toHaveValue("Range top reclaim.");
+    expect(screen.getByText(/Version 1/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "/p/UvvuxpWPZ4" })).toHaveAttribute(
+      "href",
+      "/p/UvvuxpWPZ4",
+    );
+  });
+
+  it("PATCHes the id with the current version and shows the new version", async () => {
+    mockPatch.mockResolvedValueOnce({ id: "uuid-9", version: 2, status: "active" });
+    await renderEditForm();
+    await waitFor(() => expect(screen.getByText("Edit Pass")).toBeInTheDocument());
+    // Refetch after save reports the bumped version (D-018.5 through the UI).
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path.startsWith("/api/v1/me/passes/")) {
+        return Promise.resolve({ ...EDIT_DETAIL, version: 2, takeProfit: "117500" });
+      }
+      if (path.includes("/api/v1/me")) {
+        return Promise.resolve({
+          userId: "u1",
+          connections: [{ provider: "x", connected: true, label: "x", displayOnly: false }],
+          tradingAccounts: [],
+        });
+      }
+      return Promise.resolve({ assets: MARKETS });
+    });
+
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.clear(screen.getByLabelText(/Take profit/));
+    await user.type(screen.getByLabelText(/Take profit/), "117500");
+    const save = screen.getByRole("button", { name: "Save changes" });
+    await waitFor(() => expect(save).not.toHaveAttribute("aria-disabled", "true"));
+    await user.click(save);
+
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledTimes(1));
+    expect(mockPatch.mock.calls[0]?.[0]).toBe("/api/v1/passes/uuid-9");
+    const body = mockPatch.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(body.version).toBe(1);
+    expect(body.takeProfit).toBe("117500");
+    await waitFor(() =>
+      expect(screen.getByText(/Saved — now version 2/)).toBeInTheDocument(),
+    );
+  });
+
+  it("hides the form from a non-author and names the refusal", async () => {
+    searchGet.mockImplementation((k: string) => (k === "edit" ? "uuid-9" : null));
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path.startsWith("/api/v1/me/passes/")) {
+        const err = Object.assign(new Error("Only the owning Trader can edit this Pass."), {
+          code: "FORBIDDEN",
+          status: 403,
+        });
+        return rejected(err.message);
+      }
+      if (path.includes("/api/v1/me")) {
+        return Promise.resolve({
+          userId: "u1",
+          connections: [{ provider: "x", connected: true, label: "x", displayOnly: false }],
+          tradingAccounts: [],
+        });
+      }
+      return Promise.resolve({ assets: MARKETS });
+    });
+    await act(async () => {
+      render(<CreatePassClient />);
+    });
+    await waitFor(() =>
+      expect(screen.getByText(/This Pass cannot be edited/)).toBeInTheDocument(),
+    );
+    expect(screen.queryByLabelText(/Entry price/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
   });
 });

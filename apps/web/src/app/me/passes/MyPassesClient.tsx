@@ -19,11 +19,14 @@
  */
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { SignInXButton } from "@/components/SignInX";
+import { Button } from "@/components/wave2/controls";
+import { Dialog } from "@/components/wave5/Dialog";
 import { onMeChanged } from "@/lib/me-events";
+import { clientPost } from "@/lib/client";
 import { isXLive } from "@/lib/me";
 import { useMePayload } from "@/lib/use-me";
 import {
@@ -41,6 +44,7 @@ import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 export interface MyPass {
   id: string;
   publicId: string;
+  version: number;
   status: PassLifecycle;
   asset: string;
   direction: string;
@@ -56,6 +60,11 @@ export interface MyPass {
 /** Draft and cancelled are not live inventory; they are ghosted, not hidden. */
 const GHOST = new Set<PassLifecycle>(["draft", "cancelled"]);
 
+/** Server allows edits while draft, active or entry_pending. */
+const EDITABLE = new Set<PassLifecycle>(["draft", "active", "entry_pending"]);
+/** The state machine allows cancel from active or entry_pending only. */
+const CANCELLABLE = new Set<PassLifecycle>(["active", "entry_pending"]);
+
 /**
  * Counts are over the REAL lifecycle states, not invented buckets: an author
  * needs to see which Passes are waiting on entry versus genuinely open, so
@@ -70,7 +79,8 @@ async function fetchPasses(): Promise<MyPass[]> {
   return body.passes ?? [];
 }
 
-const COLUMNS: DataTableColumn<MyPass>[] = [
+function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] {
+  return [
   {
     key: "asset",
     label: "PASS",
@@ -119,7 +129,29 @@ const COLUMNS: DataTableColumn<MyPass>[] = [
         <span className="pass-stale">—</span>
       ),
   },
-];
+  {
+    // Author-only by construction: this list holds the viewer's own passes.
+    // Edit reuses the Create form (?edit={id}); Cancel confirms, then the
+    // row reloads as cancelled and both controls disappear with the state.
+    key: "actions",
+    label: "ACTIONS",
+    render: (p) => (
+      <Inline gap="2">
+        {EDITABLE.has(p.status) ? (
+          <Link href={`/passes/new?edit=${p.id}`} className="pass-link-btn">
+            Edit
+          </Link>
+        ) : null}
+        {CANCELLABLE.has(p.status) ? (
+          <Button variant="destructive" size="sm" onClick={() => onCancel(p.id)}>
+            Cancel
+          </Button>
+        ) : null}
+      </Inline>
+    ),
+  },
+  ];
+}
 
 export function MyPassesClient({
   probe,
@@ -138,6 +170,29 @@ export function MyPassesClient({
   });
   // Re-read when another surface mutates connection state (Bug 2a).
   useEffect(() => onMeChanged(reload), [reload]);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  async function confirmCancel() {
+    if (!confirmId || cancelling) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await clientPost(`/api/v1/passes/${confirmId}/cancel`);
+      setConfirmId(null);
+      reload();
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      setCancelError(
+        `Cancel failed${code ? ` (${code})` : ""}: ${
+          e instanceof Error ? e.message : "Could not cancel this Pass."
+        }`,
+      );
+    } finally {
+      setCancelling(false);
+    }
+  }
   // Single-state rule, D-023: identity is X-only. The lists belong to the
   // session's user, but nothing account-attributed displays while X is
   // disconnected. `me` null is fail-open — the probe already proved the
@@ -213,12 +268,54 @@ export function MyPassesClient({
             <Panel>
               <DataTable
                 caption="Passes you have authored"
-                columns={COLUMNS}
+                columns={passColumns(setConfirmId)}
                 rows={passes}
                 rowKey={(p) => p.id}
                 isGhost={(p) => GHOST.has(p.status)}
               />
             </Panel>
+            <Dialog
+              open={confirmId !== null}
+              onClose={() => {
+                if (!cancelling) {
+                  setConfirmId(null);
+                  setCancelError(null);
+                }
+              }}
+              title="Cancel this Pass?"
+              action={
+                <Inline gap="3">
+                  <Button
+                    variant="destructive"
+                    size="md"
+                    onClick={confirmCancel}
+                    disabledReason={cancelling ? "Cancelling…" : undefined}
+                  >
+                    Confirm cancel
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() => {
+                      setConfirmId(null);
+                      setCancelError(null);
+                    }}
+                  >
+                    Keep Pass
+                  </Button>
+                </Inline>
+              }
+            >
+              <p style={{ maxWidth: "var(--measure-body)" }}>
+                This is terminal. A cancelled Pass accepts no new executions
+                and never returns to active.
+              </p>
+              {cancelError ? (
+                <p className="pass-validation" role="alert">
+                  {cancelError}
+                </p>
+              ) : null}
+            </Dialog>
           </Stack>
           );
         }}

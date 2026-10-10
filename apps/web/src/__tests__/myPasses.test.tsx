@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MyPassesClient, type MyPass } from "@/app/me/passes/MyPassesClient";
@@ -16,7 +16,8 @@ const PASSES: MyPass[] = [
   {
     id: "p1",
     publicId: "UvvuxpWPZ4",
-    status: "open",
+    version: 2,
+    status: "active",
     asset: "BTC",
     direction: "LONG",
     entryPrice: "113400",
@@ -30,6 +31,7 @@ const PASSES: MyPass[] = [
   {
     id: "p2",
     publicId: "AbCdEfGh12",
+    version: 1,
     status: "draft",
     asset: "ETH",
     direction: "SHORT",
@@ -49,11 +51,14 @@ const unauthed = async () => false;
 // Single-state rule (D-023): gating reads the X entry of the /me snapshot
 // only. Fail-open by default — the /me read rejects, so existing tests
 // observe the lists exactly as before (see use-me.ts).
-const { mockMeGet } = vi.hoisted(() => ({ mockMeGet: vi.fn() }));
+const { mockMeGet, mockCancelPost } = vi.hoisted(() => ({
+  mockMeGet: vi.fn(),
+  mockCancelPost: vi.fn(),
+}));
 
 vi.mock("@/lib/client", () => ({
   clientGet: (...a: unknown[]) => mockMeGet(...a),
-  clientPost: vi.fn(),
+  clientPost: (...a: unknown[]) => mockCancelPost(...a),
   clientPatch: vi.fn(),
 }));
 
@@ -87,6 +92,7 @@ const ME_X_ON = {
 beforeEach(() => {
   mockMeGet.mockReset();
   mockMeGet.mockRejectedValue(new Error("no session snapshot"));
+  mockCancelPost.mockReset();
 });
 
 const renderWith = (opts: { probe?: () => Promise<boolean>; load?: () => Promise<MyPass[]> }) =>
@@ -171,8 +177,7 @@ describe("My Passes (§10.8)", () => {
   });
 });
 
-describe("My Passes — single-state rule (D-023, X-only)", () => {
-  it("hides the lists and shows the CTA when X is disconnected", async () => {
+describe("My Passes — single-state rule (D-023, X-only)", () => {  it("hides the lists and shows the CTA when X is disconnected", async () => {
     mockMeGet.mockResolvedValue(ME_OFF);
     renderWith({});
     expect(
@@ -186,6 +191,96 @@ describe("My Passes — single-state rule (D-023, X-only)", () => {
     mockMeGet.mockResolvedValue(ME_X_ON);
     renderWith({});
     expect((await screen.findAllByText("BTC")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("My Passes — author actions (Stage C)", () => {
+  it("links each editable pass to the shared Create form with ?edit={id}", async () => {
+    renderWith({});
+    await screen.findByText("My Passes");
+    // Active (p1) and draft (p2) are editable; each renders twice (wide
+    // table + narrow stacked list).
+    const edits = await screen.findAllByRole("link", { name: "Edit" });
+    expect(edits.map((a) => a.getAttribute("href")).sort()).toEqual(
+      ["/passes/new?edit=p1", "/passes/new?edit=p1", "/passes/new?edit=p2", "/passes/new?edit=p2"].sort(),
+    );
+  });
+
+  it("offers Cancel only where the state machine allows it", async () => {
+    renderWith({});
+    await screen.findByText("My Passes");
+    // Active p1 is cancellable; draft p2 is not (draft -> cancelled is
+    // illegal). Two copies again: table + stacked list.
+    expect((await screen.findAllByRole("button", { name: "Cancel" })).length).toBe(2);
+  });
+
+  it("cancel confirms, POSTs, and the row returns cancelled with no controls", async () => {
+    let current: MyPass[] = PASSES;
+    mockCancelPost.mockResolvedValue({ id: "p1", status: "cancelled" });
+    render(
+      <MyPassesClient probe={authed} load={async () => current} />,
+    );
+    await screen.findByText("My Passes");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+
+    await user.click((await screen.findAllByRole("button", { name: "Cancel" }))[0]);
+    // The terminal warning names the consequence before anything is sent.
+    expect(await screen.findByRole("dialog", { name: "Cancel this Pass?" })).toBeInTheDocument();
+    expect(screen.getByText(/no new executions/i)).toBeInTheDocument();
+    expect(mockCancelPost).not.toHaveBeenCalled();
+
+    current = [{ ...PASSES[0], status: "cancelled" }, PASSES[1]];
+    await user.click(screen.getByRole("button", { name: "Confirm cancel" }));
+    await waitFor(() => expect(mockCancelPost).toHaveBeenCalledTimes(1));
+    expect(mockCancelPost.mock.calls[0]?.[0]).toBe("/api/v1/passes/p1/cancel");
+
+    // Reloaded: the dialog closes on success, then the row returns
+    // cancelled and both controls are gone with it. The draft row keeps
+    // its own Edit link — only p1's controls disappear.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull());
+    expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
+    const hrefs = screen
+      .getAllByRole("link", { name: "Edit" })
+      .map((a) => a.getAttribute("href"));
+    expect(hrefs).not.toContain("/passes/new?edit=p1");
+    expect(hrefs).toContain("/passes/new?edit=p2");
+  });
+
+  it("keeps the Pass when the confirm is dismissed", async () => {
+    renderWith({});
+    await screen.findByText("My Passes");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.click((await screen.findAllByRole("button", { name: "Cancel" }))[0]);
+    await screen.findByRole("dialog", { name: "Cancel this Pass?" });
+    await user.click(screen.getByRole("button", { name: "Keep Pass" }));
+    expect(mockCancelPost).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("My Passes — status correctness (Stage C, Task 4)", () => {
+  const ROWS: MyPass[] = [
+    { ...PASSES[0], id: "d", status: "draft", publishedAt: null },
+    { ...PASSES[0], id: "a", status: "active" },
+    { ...PASSES[0], id: "c", status: "cancelled" },
+    { ...PASSES[0], id: "e", status: "expired" },
+  ];
+
+  it("renders draft / active / cancelled / expired as distinct labelled chips", async () => {
+    const { container } = render(
+      <MyPassesClient probe={authed} load={async () => ROWS} />,
+    );
+    await screen.findByText("My Passes");
+    for (const label of ["Draft", "Active", "Cancelled", "Expired"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    // Distinct states, not one shared badge: each chip carries its own state.
+    for (const s of ["draft", "active", "cancelled", "expired"]) {
+      expect(container.querySelector(`[data-state="${s}"]`)).toBeTruthy();
+    }
   });
 });
 

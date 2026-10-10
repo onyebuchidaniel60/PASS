@@ -22,6 +22,7 @@
  */
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -54,7 +55,7 @@ import {
   PermissionBlock,
 } from "@/components/wave3/data";
 
-import { clientGet, clientPost } from "@/lib/client";
+import { clientGet, clientPatch, clientPost } from "@/lib/client";
 import { isXConnected, type MePayload } from "@/lib/me";
 
 interface Market {
@@ -152,7 +153,47 @@ export function validate(p: {
   return e;
 }
 
+/** Statuses the author may still edit (server enforces the same set). */
+const EDITABLE_STATUSES = new Set(["draft", "active", "entry_pending"]);
+
+/** Empty numeric inputs cross the API as null, never as "". */
+function emptyToNull(v: string): string | null {
+  return v.trim() === "" ? null : v;
+}
+
+/** ISO timestamp -> "YYYY-MM-DDTHH:mm" for the expiry input. */
+export function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+}
+
+interface PassDetailForEdit {
+  id: string;
+  publicId: string;
+  version: number;
+  status: string;
+  asset: string;
+  direction: "long" | "short";
+  entryType: "limit" | "market";
+  entryPrice: string | null;
+  stopLoss: string | null;
+  takeProfit: string | null;
+  leverage: string | null;
+  thesis: string;
+  expiresAt: string | null;
+}
+
 export function CreatePassClient() {
+  // Edit mode reuses this form: /passes/new?edit={id}. No separate page.
+  const search = useSearchParams();
+  const editId = search?.get("edit") ?? null;
+
   const [markets, setMarkets] = useState<Market[]>([]);
   const [auth, setAuth] = useState<"checking" | "in" | "out">("checking");
   const [booting, setBooting] = useState(true);
@@ -170,6 +211,15 @@ export function CreatePassClient() {
   const [busy, setBusy] = useState(false);
   const [published, setPublished] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  // A draft left behind by a failed publish. Retry publishes it instead of
+  // minting a second draft.
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Edit-mode state.
+  const [editVersion, setEditVersion] = useState<number | null>(null);
+  const [editPublicId, setEditPublicId] = useState<string | null>(null);
+  const [editBlocked, setEditBlocked] = useState<string | null>(null);
+  const [savedVersion, setSavedVersion] = useState<number | null>(null);
 
   const boot = useCallback(async () => {
     setBooting(true);
@@ -188,15 +238,39 @@ export function CreatePassClient() {
       const m = await clientGet<{ assets?: Market[] }>("/api/v1/markets");
       const list = m.assets ?? [];
       setMarkets(list);
-      if (list[0]) setAsset(list[0].asset);
+      if (list[0] && !editId) setAsset(list[0].asset);
     } catch {
       // Markets are needed for validation. Without them the form cannot be
       // validated, so this is an error state rather than a silent empty list.
       setFailed("Could not load supported markets.");
-    } finally {
-      setBooting(false);
     }
-  }, []);
+    if (editId) {
+      // Prefill from the author's own pass. Non-authors get the server's
+      // 403 here (SECURITY_SPEC §11); the form stays empty and the error
+      // names the refusal instead of a blank screen.
+      try {
+        const d = await clientGet<PassDetailForEdit>(`/api/v1/me/passes/${editId}`);
+        if (!EDITABLE_STATUSES.has(d.status)) {
+          setEditBlocked(`This Pass is ${d.status} and cannot be edited.`);
+        } else {
+          setAsset(d.asset);
+          setDirection(d.direction);
+          setEntryType(d.entryType);
+          setEntry(d.entryPrice ?? "");
+          setSl(d.stopLoss ?? "");
+          setTp(d.takeProfit ?? "");
+          setLeverage(Number(d.leverage ?? "5") || 5);
+          setThesis(d.thesis);
+          setExpiry(toLocalInput(d.expiresAt));
+          setEditVersion(d.version);
+          setEditPublicId(d.publicId);
+        }
+      } catch (e) {
+        setEditBlocked(e instanceof Error ? e.message : "Could not load this Pass.");
+      }
+    }
+    setBooting(false);
+  }, [editId]);
 
   useEffect(() => {
     void boot();
@@ -211,41 +285,130 @@ export function CreatePassClient() {
   const blocking = Object.keys(errors).length > 0 || !thesis.trim() || !asset;
   const valid = !blocking;
 
+  function planBody() {
+    return {
+      asset,
+      direction,
+      entryType,
+      // A market Pass must not carry an entry price, and "" is not a decimal
+      // string at the API boundary — empty inputs cross as null.
+      entryPrice: emptyToNull(entry),
+      stopLoss: emptyToNull(sl),
+      takeProfit: emptyToNull(tp),
+      leverage: String(leverage),
+      thesis,
+      expiresAt: new Date(expiry).toISOString(),
+    };
+  }
+
   async function publish() {
     setBusy(true);
     setFailed(null);
+    setCopied(false);
     try {
-      const created = await clientPost<{ publicId?: string }>("/api/v1/passes", {
-        asset,
-        direction,
-        entryType,
-        entryPrice: entry,
-        stopLoss: sl,
-        takeProfit: tp,
-        leverage: String(leverage),
-        thesis,
-        expiresAt: new Date(expiry).toISOString(),
-      });
-      setPublished(created.publicId ?? null);
+      // Step 1: create the draft (or reuse one left by a failed publish).
+      let id = draftId;
+      if (!id) {
+        const created = await clientPost<{ id?: string; publicId?: string }>(
+          "/api/v1/passes",
+          planBody(),
+        );
+        if (!created.id) throw new Error("The server did not return a Pass id.");
+        id = created.id;
+        setDraftId(id);
+      }
+      // Step 2: publish it. "Published" is said only after this returns.
+      const done = await clientPost<{ publicId?: string }>(
+        `/api/v1/passes/${id}/publish`,
+      );
+      if (!done.publicId) throw new Error("The server did not return a public URL.");
+      setDraftId(null);
+      setPublished(done.publicId);
     } catch (e) {
-      setFailed(e instanceof Error ? e.message : "Could not publish the Pass.");
+      const code = (e as { code?: string }).code;
+      setFailed(
+        `Publish failed${code ? ` (${code})` : ""}: ${
+          e instanceof Error ? e.message : "Could not publish the Pass."
+        } Your draft was kept — fix the problem and retry.`,
+      );
     } finally {
       setBusy(false);
     }
   }
 
+  async function saveEdit() {
+    if (!editId || editVersion === null) return;
+    setBusy(true);
+    setFailed(null);
+    setSavedVersion(null);
+    try {
+      // Send the full plan: clears are real (null), not omissions.
+      const updated = await clientPatch<{ version?: number }>(
+        `/api/v1/passes/${editId}`,
+        { ...planBody(), version: editVersion },
+      );
+      // Refetch so the shown version is the server's, not an assumption.
+      // A new pass_versions row exists exactly when an execution-relevant
+      // field changed (D-018.5, enforced server-side).
+      const fresh = await clientGet<PassDetailForEdit>(`/api/v1/me/passes/${editId}`);
+      setEditVersion(fresh.version);
+      setSavedVersion(updated.version ?? fresh.version);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      setFailed(
+        `Save failed${code ? ` (${code})` : ""}: ${
+          e instanceof Error ? e.message : "Could not save this Pass."
+        }`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyUrl(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      setFailed("Copy failed — select the URL and copy it manually.");
+    }
+  }
+
   if (published) {
+    const path = `/p/${published}`;
     return (
       <PageShell>
         <ShellContent>
           <Section label="Published">
-            <h1 className="pass-asset-line">Pass published</h1>
+            <h1 className="pass-asset-line">Published</h1>
             <p className="pass-thesis" style={{ marginBlockStart: "var(--space-4)" }}>
               Your plan is live. Share it, or keep authoring.
             </p>
+            <Field label="Public URL" helper="Signed-out browsers open this link.">
+              {({ controlId }) => (
+                <Inline gap="3">
+                  <TextInput
+                    id={controlId}
+                    value={path}
+                    onChange={() => {}}
+                    placeholder=""
+                  />
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() =>
+                      void copyUrl(`${window.location.origin}${path}`)
+                    }
+                    disabledReason={undefined}
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </Inline>
+              )}
+            </Field>
             <Inline gap="4" style={{ marginBlockStart: "var(--space-5)" }}>
               {published ? (
-                <Link href={`/p/${published}`} className="pass-link-btn">
+                <Link href={path} className="pass-link-btn">
                   View Pass
                 </Link>
               ) : null}
@@ -257,6 +420,25 @@ export function CreatePassClient() {
               </Link>
             </Inline>
           </Section>
+        </ShellContent>
+      </PageShell>
+    );
+  }
+
+  if (editId && editBlocked) {
+    // Non-author (server 403) or a Pass past editing. The control is hidden
+    // by never rendering the form; the reason names the refusal.
+    return (
+      <PageShell>
+        <ShellContent>
+          <PermissionBlock
+            reason={`This Pass cannot be edited. ${editBlocked}`}
+            action={
+              <Link href="/me/passes" className="pass-link-btn">
+                Back to My Passes
+              </Link>
+            }
+          />
         </ShellContent>
       </PageShell>
     );
@@ -293,13 +475,41 @@ export function CreatePassClient() {
     <PageShell>
       <ShellContent>
         <Stack gap="6">
-          <Section label="Create a Pass">
-            <h1 className="pass-asset-line">Create a Pass</h1>
+          <Section label={editId ? "Edit Pass" : "Create a Pass"}>
+            <h1 className="pass-asset-line">{editId ? "Edit Pass" : "Create a Pass"}</h1>
             <p className="pass-thesis" style={{ marginBlockStart: "var(--space-3)" }}>
-              A Trader publishes a plan, not a size instruction. Takers choose
-              their own size.
+              {editId ? (
+                <>
+                  Version {editVersion ?? "…"}.
+                  {editPublicId ? (
+                    <>
+                      {" "}Public URL <Link href={`/p/${editPublicId}`} className="pass-link-btn">{`/p/${editPublicId}`}</Link>.
+                    </>
+                  ) : null}{" "}
+                  Saving an execution-relevant change mints a new version before
+                  it goes visible.
+                </>
+              ) : (
+                <>
+                  A Trader publishes a plan, not a size instruction. Takers choose
+                  their own size.
+                </>
+              )}
             </p>
           </Section>
+
+          {savedVersion !== null ? (
+            <div role="status" aria-live="polite">
+              <ValidationMessage>
+                Saved — now version {savedVersion}.
+                {editPublicId ? (
+                  <>
+                    {" "}The public page shows the new version.
+                  </>
+                ) : null}
+              </ValidationMessage>
+            </div>
+          ) : null}
 
           {failed ? <ErrorBlock detail={failed} onRetry={boot} /> : null}
 
@@ -440,21 +650,40 @@ export function CreatePassClient() {
 
           {/* §10.5 — Publish is disabled WITH AN INLINE REASON until valid. */}
           <Inline gap="3">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={publish}
-              disabledReason={
-                busy
-                  ? "Publishing…"
-                  : valid
-                    ? undefined
-                    : "Complete the required fields and clear the messages above."
-              }
-            >
-              Publish
-            </Button>
-            <Link href="/" className="pass-link-btn">
+            {editId ? (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={saveEdit}
+                disabledReason={
+                  busy
+                    ? "Saving…"
+                    : editVersion === null
+                      ? "Loading this Pass."
+                      : valid
+                        ? undefined
+                        : "Complete the required fields and clear the messages above."
+                }
+              >
+                Save changes
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={publish}
+                disabledReason={
+                  busy
+                    ? "Publishing…"
+                    : valid
+                      ? undefined
+                      : "Complete the required fields and clear the messages above."
+                }
+              >
+                Publish
+              </Button>
+            )}
+            <Link href={editId ? "/me/passes" : "/"} className="pass-link-btn">
               Cancel
             </Link>
           </Inline>
