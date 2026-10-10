@@ -97,7 +97,7 @@ is complete. See `docs/EXECUTION_READINESS.md`.
 |---|---|---|
 | A — Repository and foundation | Met | |
 | B — Identity end-to-end | Met (2026-10-09) | 10-step operator browser run passed |
-| C — Create and publish a Pass | In progress | Verification run pending |
+| C — Create and publish a Pass | Met (2026-10-10) | 10-step operator browser run passed |
 | D — Public experience | Met | |
 | E — Hyperliquid reads | Met | `hyperliquidReads: live` |
 | F — Hyperliquid execution | Not met | The remaining critical-path gate |
@@ -109,70 +109,53 @@ is complete. See `docs/EXECUTION_READINESS.md`.
 
 **Deadline:** 2026-10-12 (Colosseum Crypto World's Fair).
 
-### 5.3 What just closed (Stage B)
+### 5.3 What just closed (Stage C)
 
-The gate was "a test user can create a complete profile without
-exposing secrets." Closed by a 10-step operator browser run on
-2026-10-09:
+Stage C: **Met**. Gate: "a Trader can create and publish a Pass; a
+logged-out browser can open it." Closed by a 10-step operator browser
+run on 2026-10-10, all pass:
+
+1. Sign in with X — pass
+2. Onboarding: 3 steps, no wallet step — pass
+3. Create Pass form renders — pass
+4. Submit — pass
+5. Publish shows `/p/{publicId}` URL — pass
+6. Signed-out render: handle, BTC, LONG, parameters, thesis, market — pass
+7. My Passes shows the pass with status active — pass
+8. Edit leverage → v2, public page updated (D-018.5) — pass
+9. Cancel → cancelled, Take CTA gone — pass
+10. Discover listed it when active, de-listed after cancel — pass
+
+Deploy SHA at closure: `e8e222e` + `25a24f4` (Suspense fix).
+
+Next: Stage F in progress.
+
+### 5.4 What is in progress (Stage F)
+
+Gate: **a funded test account can take a Pass end-to-end without PASS
+receiving the master private key or seed phrase** — wired in code this
+session, still `mock` on the wire. The operator mock-mode walk is the
+current task. Steps:
 
 1. Sign in with X
-2. Onboarding: 3 steps, no wallet step
-3. Topbar: X chip only
-4. Profile signed-in: name, slug, bio visible
-5. Disconnect X: routed away immediately, no flash of user data
-6. `/settings` signed-out: connect CTA only, no name, slug, bio, Save
-7. My Passes signed-out: CTA only, no list
-8. Executions signed-out: CTA only
-9. `/passes/new` signed-out: blocked
-10. Public pass URL renders signed-out; reconnect returns same user
+2. Open an active Pass
+3. Click Take Pass
+4. Choose size (e.g. `100`)
+5. Preview shows entry, size, leverage, TP, SL, entry source (limit vs mid)
+6. Authorize
+7. Wallet connect prompt (first Take) — ConnectKit opens
+8. Complete the flow; server returns synthetic `providerOrderId`; receipt renders
+9. Executions page shows the execution
 
-Deploy SHA at closure: `b2fc322` (code) / `0baa4cc` (docs).
+If steps pass in mock: Stage F met-in-mock. Live flip (`HYPERLIQUID_MODE=live`)
+is a separate operator action after funding, with legs verified on
+Hyperliquid's own UI.
 
-### 5.4 What is in progress (Stage C)
+### 5.5 The next critical-path gate (Stage G)
 
-Gate: **a Trader can create and publish a Pass; a logged-out browser
-can open it.**
-
-The 10-step verification run is the current task. Steps:
-
-1. Sign in + complete onboarding
-2. Navigate to Create Pass
-3. Fill form
-4. Preview correct
-5. Publish
-6. Public URL signed-out renders
-7. Author sees it in My Passes
-8. Edit execution-relevant field → new pass_version, public page updated
-9. Cancel → state cancelled, no new executions accepted
-
-If steps pass: Stage C met. If a step fails: fix that step, redeploy,
-re-run only that step.
-
-### 5.5 The next critical-path gate (Stage F)
-
-Once Stage C is met, Stage F is the only remaining blocker on the
-hackathon's "usable end-to-end" definition. Stage F requires:
-
-- Wiring `buildOrderAction` into `TakeFlowClient.authorize()`. The
-  builder already emits entry + reduce-only TP + reduce-only SL in a
-  single `grouping: "normalTpsl"` action and is covered by 16 tests. It
-  has no callers.
-- Three decisions to record before wiring:
-  - Entry limit price: limit Pass uses its entry price; market Pass uses
-    current mid.
-  - `sizeUsd` → base size: `baseSize = sizeUsd / entryPrice`, rounded
-    down to asset's `szDecimals`. Never round up.
-  - Server/client reconciliation: server's
-    `signedPayload.exchangeRequest` is the single source of truth.
-    Client stops posting `signedAction: "demo"` and posts the real
-    signed action.
-- Wallet connect happens lazily at Take time (D-023), not during
-  onboarding.
-- `approveAgent` is a first-execution concern (D-019.1), not
-  onboarding.
-
-Stage F live test requires a funded Hyperliquid account. Operator has
-not funded yet. Mock test path exists.
+Stage G unblocks when F lands. Performance data exists once a real
+execution lands. Tracking, attribution and aggregates follow the same
+`pass_versions` history the executions already reference.
 
 ### 5.6 What comes after F
 
@@ -200,6 +183,7 @@ Full text in `docs/DECISIONS.md`. Summaries for orientation:
 | D-022 | First-time user tour: dismissable, one-time, 5 steps |
 | D-023 | **X is the identity; wallet is execution-only.** Wallet connects lazily at Take |
 | D-024 | **Sign-out is sign-out.** X disconnect terminates the PASS session. No session-without-identity state exists |
+| D-025 | **Take execution semantics.** Entry price (limit vs mid), sizeUsd→baseSize floor, signedPayload reconciliation, pass-id resolution (D-025.4 provisional) |
 
 ## 7. Binding invariants established during the build
 
@@ -348,3 +332,4 @@ If any step fails, stop. Do not bundle a second fix.
 - **2026-10-10** — Stage C verification run (signed-out browser +
   production API). Public pass renders signed-out; publish/edit/cancel
   have no web UI (API-only). Stage C not met, awaiting operator run.
+- **2026-10-10** — Stage C met (10-step operator run). Stage F wiring begins.
