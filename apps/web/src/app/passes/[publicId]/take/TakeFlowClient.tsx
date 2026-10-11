@@ -433,7 +433,25 @@ export function TakeFlowClient({
   const nums = preview ? takeNumbers() : null;
 
   // Lazy-wallet gate (D-023): the same launcher everywhere, PASS chrome.
-  const walletGate = (
+  // No injected provider at all means the modal cannot succeed, so say so
+  // specifically instead of opening ConnectKit's generic error screen.
+  const hasInjectedWallet =
+    typeof window !== "undefined" &&
+    Boolean((window as unknown as { ethereum?: unknown }).ethereum);
+  const walletGate = !hasInjectedWallet ? (
+    <Stack gap="3">
+      <p className="pass-thesis">
+        No browser wallet was found. Install a wallet extension (MetaMask,
+        Rabby, Coinbase or Brave), reload this page, and continue — the
+        flow resumes where it left off.
+      </p>
+      <Inline gap="3">
+        <Link href={`/p/${publicId}`} className="pass-link-btn">
+          Back to Pass
+        </Link>
+      </Inline>
+    </Stack>
+  ) : (
     <Stack gap="3">
       <p className="pass-thesis">
         Connect your wallet to continue — the flow resumes where it left

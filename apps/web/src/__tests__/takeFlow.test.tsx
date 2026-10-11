@@ -100,6 +100,12 @@ let meResponse: unknown = ME_READY;
 
 function defaultMocks() {
   mockWallet.mockImplementation(() => ({ address: ADDR, isConnected: true }));
+  // jsdom ships no wallet: every test below assumes an injected provider
+  // unless it deletes this stub to exercise the no-extension path.
+  (window as unknown as { ethereum?: unknown }).ethereum = {
+    isMetaMask: true,
+    request: async () => [],
+  };
   mockGet.mockImplementation((url?: unknown) => {
     const path = String(url ?? "");
     if (path === "/api/v1/me") return Promise.resolve(meResponse);
@@ -475,9 +481,40 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
   });
 });
 
-describe("Stage F wiring — lazy wallet and first-execution approval", () => {
-  it("parks for a wallet and resumes the preview after connect", async () => {
+describe("Take prompt with no wallet installed", () => {
+  it("names the missing extension instead of opening a doomed modal", async () => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
     mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
+    mockPost.mockResolvedValue(PREVIEW);
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/No browser wallet was found/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Connect wallet" }),
+    ).toBeNull();
+  });
+
+  it("offers the Connect launcher when an extension is present", async () => {
+    mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
+    mockPost.mockResolvedValue(PREVIEW);
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("button", { name: "Connect wallet" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Stage F wiring — lazy wallet and first-execution approval", () => {
+  it("parks for a wallet and resumes the preview after connect", async () => {    mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
     mockPost.mockResolvedValue(PREVIEW);
     const out = renderFlow();
     await screen.findByText("STEP 1 / 4");

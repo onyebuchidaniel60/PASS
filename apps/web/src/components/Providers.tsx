@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { arbitrum } from "wagmi/chains";
+import { coinbaseWallet, injected, walletConnect } from "wagmi/connectors";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 import { hyperliquidChain } from "@/lib/hyperliquid";
 
@@ -19,9 +20,34 @@ import { hyperliquidChain } from "@/lib/hyperliquid";
  * 42161 (0xa4b1), per the official Exchange endpoint documentation.
  */
 
-// Public routing id only. Not a secret. Empty disables WalletConnect transport.
+// Public routing id only. Not a secret. Empty omits the WalletConnect
+// connector (it is only registered when an id is provided); the injected
+// and Coinbase paths below are unaffected. NEXT_PUBLIC_ values bake in at
+// build time, so adding the id needs a redeploy to take effect.
 const walletConnectProjectId =
   process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID ?? "";
+
+/**
+ * The connectors PASS supports. Explicit rather than ConnectKit's
+ * defaults: the default set pins the injected connector to `isMetaMask`
+ * providers only, so any other browser wallet (Rabby, Brave, Frame…)
+ * fails to resolve and ConnectKit shows its generic error screen.
+ * Unpinned `injected()` accepts the default EIP-1193 provider whatever
+ * wallet installed it (D-019.1 is connector-agnostic). No new dependency.
+ */
+export function passConnectors(projectId: string): Array<
+  ReturnType<typeof injected> | ReturnType<typeof coinbaseWallet> | ReturnType<typeof walletConnect>
+> {
+  const list: Array<
+    ReturnType<typeof injected> | ReturnType<typeof coinbaseWallet> | ReturnType<typeof walletConnect>
+  > = [injected(), coinbaseWallet({ appName: "PASS", preference: "all" })];
+  if (projectId) {
+    // Listed only when configured. ConnectKit renders the QR itself, so no
+    // display options are passed here.
+    list.push(walletConnect({ projectId }));
+  }
+  return list;
+}
 
 export const wagmiConfig = createConfig(
   getDefaultConfig({
@@ -31,6 +57,8 @@ export const wagmiConfig = createConfig(
     transports: {
       [hyperliquidChain.id]: http(),
     },
+    // Explicit connectors, not ConnectKit's defaults — see passConnectors.
+    connectors: passConnectors(walletConnectProjectId),
     ssr: true,
   }),
 );
