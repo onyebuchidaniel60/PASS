@@ -233,6 +233,19 @@ These are known and accepted. They are not blockers for the hackathon.
    Not a code issue.
 6. **SettingsClient save/connect props partially unwired** — pre-existing
    scaffolding, deferred.
+7. **Multiple wallet extensions installed simultaneously can prevent
+   `window.ethereum` from initializing** (extensions fight over the
+   property; observed with MetaMask + Rabby + Coinbase together).
+   Operators should enable only one injected wallet per browser
+   profile. PASS registers one connector tile per wallet (unpinned
+   injected + MetaMask + Rabby targets) to mitigate, but a broken
+   extension can still block connection.
+8. **Railway API does not auto-deploy from GitHub pushes.** Every API
+   change needs `railway up --service pass-api`. On 2026-10-11 the
+   Stage F fallback shipped in code but production still ran the
+   pre-fallback build, and every Take preview 500'd with `invalid
+   input syntax for type uuid` until the API was redeployed. Verify
+   the Railway deployment list after every API change.
 
 ## 9. Definition of done (unchanged)
 

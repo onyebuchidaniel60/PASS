@@ -32,15 +32,35 @@ const walletConnectProjectId =
  * defaults: the default set pins the injected connector to `isMetaMask`
  * providers only, so any other browser wallet (Rabby, Brave, Frame…)
  * fails to resolve and ConnectKit shows its generic error screen.
- * Unpinned `injected()` accepts the default EIP-1193 provider whatever
- * wallet installed it (D-019.1 is connector-agnostic). No new dependency.
+ *
+ * Multi-wallet reality (2026-10-11 session): MetaMask, Rabby and Coinbase
+ * installed together fight over `window.ethereum` — Rabby throws
+ * "Cannot redefine property: ethereum", MetaMask throws "Cannot set
+ * property ethereum … which has only a getter" — leaving the default
+ * object half-initialized. Targeted connectors look their provider up in
+ * the `window.ethereum.providers` array by flag instead, so each wallet
+ * resolves independently of the broken default object. Hence one tile
+ * per wallet rather than a single generic tile:
+ *  - unpinned `injected()` — the default EIP-1193 provider, single-wallet
+ *    browsers (D-019.1 is connector-agnostic);
+ *  - `injected({ target: "metaMask" })` — curated disambiguation (excludes
+ *    Brave- and Rabby-impersonated flags);
+ *  - `injected({ target: "rabby" })` — generic flag mapping to `isRabby`;
+ *  - Coinbase Wallet connector;
+ *  - WalletConnect only when its project id is configured.
+ * No new dependency.
  */
 export function passConnectors(projectId: string): Array<
   ReturnType<typeof injected> | ReturnType<typeof coinbaseWallet> | ReturnType<typeof walletConnect>
 > {
   const list: Array<
     ReturnType<typeof injected> | ReturnType<typeof coinbaseWallet> | ReturnType<typeof walletConnect>
-  > = [injected(), coinbaseWallet({ appName: "PASS", preference: "all" })];
+  > = [
+    injected(),
+    injected({ target: "metaMask" }),
+    injected({ target: "rabby" }),
+    coinbaseWallet({ appName: "PASS", preference: "all" }),
+  ];
   if (projectId) {
     // Listed only when configured. ConnectKit renders the QR itself, so no
     // display options are passed here.
@@ -59,6 +79,12 @@ export const wagmiConfig = createConfig(
     },
     // Explicit connectors, not ConnectKit's defaults — see passConnectors.
     connectors: passConnectors(walletConnectProjectId),
+    // Stated explicitly (it defaults true): every EIP-6963-announced
+    // provider becomes its own connector. Inert while `ssr` below is true
+    // — wagmi gates discovery on client-only init — so the explicit
+    // per-wallet connectors above are the working set, and this flag
+    // documents the intent for when server rendering is revisited.
+    multiInjectedProviderDiscovery: true,
     ssr: true,
   }),
 );

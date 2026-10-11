@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
@@ -24,6 +24,8 @@ const {
   mockSignMessage,
   mockHasKey,
   mockRunApprove,
+  mockConnectFn,
+  mockUseConnect,
 } = vi.hoisted(() => ({
   mockPost: vi.fn(),
   mockGet: vi.fn(),
@@ -32,6 +34,8 @@ const {
   mockSignMessage: vi.fn(),
   mockHasKey: vi.fn(),
   mockRunApprove: vi.fn(),
+  mockConnectFn: vi.fn(),
+  mockUseConnect: vi.fn(),
 }));
 
 vi.mock("@/lib/client", () => ({
@@ -40,6 +44,7 @@ vi.mock("@/lib/client", () => ({
 }));
 vi.mock("wagmi", () => ({
   useAccount: () => mockWallet(),
+  useConnect: () => mockUseConnect(),
   useSignTypedData: () => ({ signTypedDataAsync: mockSignTypedData }),
   useSignMessage: () => ({ signMessageAsync: mockSignMessage }),
 }));
@@ -100,6 +105,14 @@ let meResponse: unknown = ME_READY;
 
 function defaultMocks() {
   mockWallet.mockImplementation(() => ({ address: ADDR, isConnected: true }));
+  mockUseConnect.mockImplementation(() => ({
+    connectors: [
+      { id: "rabby", name: "Rabby" },
+      { id: "metaMask", name: "MetaMask" },
+    ],
+    connect: mockConnectFn,
+    isPending: false,
+  }));
   // jsdom ships no wallet: every test below assumes an injected provider
   // unless it deletes this stub to exercise the no-extension path.
   (window as unknown as { ethereum?: unknown }).ethereum = {
@@ -134,6 +147,8 @@ beforeEach(() => {
   mockWallet.mockReset();
   mockHasKey.mockReset();
   mockRunApprove.mockReset();
+  mockUseConnect.mockReset();
+  mockConnectFn.mockReset();
   meResponse = ME_READY;
   defaultMocks();
 });
@@ -480,9 +495,8 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
     expect(action.orders[0]?.s).toBe("0.00088");
   });
 });
-
 describe("Take prompt with no wallet installed", () => {
-  it("names the missing extension instead of opening a doomed modal", async () => {
+  it("names the missing extension instead of offering a doomed chooser", async () => {
     delete (window as unknown as { ethereum?: unknown }).ethereum;
     mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
     mockPost.mockResolvedValue(PREVIEW);
@@ -494,12 +508,10 @@ describe("Take prompt with no wallet installed", () => {
     expect(
       await screen.findByText(/No browser wallet was found/),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Connect wallet" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Rabby" })).toBeNull();
   });
 
-  it("offers the Connect launcher when an extension is present", async () => {
+  it("lists one tile per connector when extensions are present", async () => {
     mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
     mockPost.mockResolvedValue(PREVIEW);
     await renderReady();
@@ -508,13 +520,15 @@ describe("Take prompt with no wallet installed", () => {
 
     expect(mockPost).not.toHaveBeenCalled();
     expect(
-      await screen.findByRole("button", { name: "Connect wallet" }),
+      await screen.findByRole("button", { name: "Rabby" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "MetaMask" })).toBeInTheDocument();
   });
 });
 
 describe("Stage F wiring — lazy wallet and first-execution approval", () => {
-  it("parks for a wallet and resumes the preview after connect", async () => {    mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
+  it("parks for a wallet and resumes the preview after connect", async () => {
+    mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
     mockPost.mockResolvedValue(PREVIEW);
     const out = renderFlow();
     await screen.findByText("STEP 1 / 4");
@@ -523,9 +537,8 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
 
     // No preview yet — the flow waits for the wallet it does not require early.
     expect(mockPost).not.toHaveBeenCalled();
-    expect(
-      await screen.findByRole("button", { name: "Connect wallet" }),
-    ).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Rabby" }));
+    expect(mockConnectFn).toHaveBeenCalledTimes(1);
 
     mockWallet.mockImplementation(() => ({ address: ADDR, isConnected: true }));
     out.rerender(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
@@ -533,6 +546,35 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     expect(mockPost.mock.calls[0]?.[0]).toBe(
       "/api/v1/passes/UvvuxpWPZ4/execution-preview",
     );
+  });
+
+  it("renders a specific message when connect fails, not a generic screen", async () => {
+    mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
+    mockPost.mockResolvedValue(PREVIEW);
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await user.click(await screen.findByRole("button", { name: "Rabby" }));
+
+    const opts = mockConnectFn.mock.calls[0]?.[1] as {
+      onError: (e: unknown) => void;
+    };
+    expect(typeof opts.onError).toBe("function");
+    await act(async () => {
+      opts.onError(
+        Object.assign(new Error("User rejected the request."), {
+          name: "UserRejectedRequestError",
+        }),
+      );
+    });
+
+    // Names the wallet and the cause; the tiles stay so retry is possible.
+    expect(
+      await screen.findByText(/You rejected the connection in Rabby/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rabby" })).toBeInTheDocument();
+    expect(screen.getByText("STEP 1 / 4")).toBeInTheDocument();
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it("runs approveAgent on first execution, then signs", async () => {

@@ -48,12 +48,14 @@ afterEach(() => {
 });
 
 describe("wagmi connectors (Providers.tsx)", () => {
-  it("registers injected + Coinbase, never a MetaMask-only set", () => {
+  it("registers injected, MetaMask, Rabby and Coinbase tiles", () => {
     const list = ids(wagmiConfig);
     expect(list).toContain("injected");
+    expect(list).toContain("metaMask");
+    expect(list).toContain("rabby");
     expect(list).toContain("coinbaseWalletSDK");
     // The old default set pinned injected to isMetaMask (via ConnectKit's
-    // defaults) — that id must not appear.
+    // defaults) — a MetaMask-SDK connector must not appear.
     expect(list).not.toContain("metaMaskSDK");
   });
 
@@ -74,7 +76,12 @@ describe("wagmi connectors (Providers.tsx)", () => {
   it("omits WalletConnect when the project id env var is unset", () => {
     expect(process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID).toBeFalsy();
     expect(ids(wagmiConfig)).not.toContain("walletConnect");
-    expect(materializedIds("")).toEqual(["injected", "coinbaseWalletSDK"]);
+    expect(materializedIds("")).toEqual([
+      "injected",
+      "metaMask",
+      "rabby",
+      "coinbaseWalletSDK",
+    ]);
   });
 
   it("reads the WalletConnect project id from env when set", () => {
@@ -82,6 +89,8 @@ describe("wagmi connectors (Providers.tsx)", () => {
     // through; the builder below is what it calls, so this pins the branch.
     expect(materializedIds("test-pid-123")).toEqual([
       "injected",
+      "metaMask",
+      "rabby",
       "coinbaseWalletSDK",
       "walletConnect",
     ]);
@@ -93,6 +102,8 @@ describe("Take prompt provider tree", () => {
     // Static guard: the Take modal must consume the root Providers from the
     // layout. A nested provider would fork connector state and reproduce
     // this session's class of failure behind a passing unit suite.
+    // (Matched on imports and JSX use, not bare words — comments name
+    // ConnectKit freely.)
     const src = readFileSync(
       join(
         process.cwd(),
@@ -107,12 +118,12 @@ describe("Take prompt provider tree", () => {
     );
     for (const banned of [
       "WagmiProvider",
-      "ConnectKitProvider",
-      "createConfig",
-      "getDefaultConfig",
+      "<ConnectKitProvider",
+      "createConfig(",
+      "getDefaultConfig(",
     ]) {
       expect(src, banned).not.toContain(banned);
     }
-    expect(src).toContain("ConnectKitButton.Custom");
+    expect(src).toContain("useConnect");
   });
 });

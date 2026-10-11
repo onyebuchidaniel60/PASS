@@ -30,8 +30,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
-import { ConnectKitButton } from "connectkit";
+import { useAccount, useConnect, useSignMessage, useSignTypedData } from "wagmi";
 
 import {
   ChamferPanel,
@@ -67,6 +66,7 @@ import { hasAgentKeyInMemory } from "@/lib/agent-keystore";
 import { runApproveAgent } from "@/lib/approve-agent";
 import { buildExchangeRequest, signExchangeRequest } from "@/lib/signer";
 import {
+  connectFailureMessage,
   entrySourceLabel,
   executionBody,
   floorBaseSize,
@@ -166,8 +166,10 @@ export function TakeFlowClient({
   const [agentNote, setAgentNote] = useState<string | null>(null);
 
   const { address, isConnected: browserConnected } = useAccount();
+  const { connect, connectors, isPending: connectPending } = useConnect();
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -418,6 +420,7 @@ export function TakeFlowClient({
   useEffect(() => {
     if (!browserConnected || !needWallet || !pending || busy) return;
     setNeedWallet(false);
+    setConnectError(null);
     const next = pending;
     setPending(null);
     if (next === "preview") void submitPreview();
@@ -432,9 +435,11 @@ export function TakeFlowClient({
   // Displayed in steps 2–3; authorize() signs exactly this (D-025).
   const nums = preview ? takeNumbers() : null;
 
-  // Lazy-wallet gate (D-023): the same launcher everywhere, PASS chrome.
-  // No injected provider at all means the modal cannot succeed, so say so
-  // specifically instead of opening ConnectKit's generic error screen.
+  // Lazy-wallet gate (D-023): one tile per configured connector, each
+  // naming its wallet, driven by wagmi directly so a failure surfaces as
+  // a specific message instead of ConnectKit's generic error screen.
+  // No injected provider at all means no tile can succeed, so say so
+  // specifically instead of offering a doomed chooser.
   const hasInjectedWallet =
     typeof window !== "undefined" &&
     Boolean((window as unknown as { ethereum?: unknown }).ethereum);
@@ -455,20 +460,40 @@ export function TakeFlowClient({
     <Stack gap="3">
       <p className="pass-thesis">
         Connect your wallet to continue — the flow resumes where it left
-        off. PASS never receives a private key.
+        off. PASS never receives a private key. Pick the wallet you want
+        to sign with; with several extensions installed, choose exactly
+        one here.
       </p>
       <Inline gap="3">
-        <ConnectKitButton.Custom>
-          {({ show }) => (
-            <Button variant="primary" size="lg" onClick={() => show?.()}>
-              Connect wallet
-            </Button>
-          )}
-        </ConnectKitButton.Custom>
+        {connectors.map((c) => (
+          <Button
+            key={c.id}
+            variant="secondary"
+            size="md"
+            disabledReason={connectPending ? "Connecting…" : undefined}
+            onClick={() => {
+              setConnectError(null);
+              connect(
+                { connector: c },
+                {
+                  onError: (e) =>
+                    setConnectError(connectFailureMessage(e, c.name)),
+                },
+              );
+            }}
+          >
+            {c.name}
+          </Button>
+        ))}
         <Link href={`/p/${publicId}`} className="pass-link-btn">
           Back to Pass
         </Link>
       </Inline>
+      {connectError ? (
+        <p role="alert" className="pass-validation">
+          {connectError}
+        </p>
+      ) : null}
     </Stack>
   );
 
