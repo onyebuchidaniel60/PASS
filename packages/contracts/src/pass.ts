@@ -190,6 +190,13 @@ export const ExecutionPreviewDto = z.object({
   entryType: PassEntryType,
   /** The resolved trading-account row (D-026: created user-less for anonymous Takes). */
   accountId: Uuid,
+  /**
+   * Venue-approved agent on the resolved row, if any. Lets a signed-out
+   * Taker skip re-approval when it matches their stable client agent —
+   * anonymous rows carry no other channel for this (D-026 + approval
+   * skip). An address, never key material.
+   */
+  agentAddress: z.string().nullable(),
   positionSize: DecimalString,
   leverage: DecimalString.nullable(),
   requestedEntry: DecimalString.nullable(),

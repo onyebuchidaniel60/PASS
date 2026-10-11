@@ -793,6 +793,31 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
     expect(mockRunApprove).not.toHaveBeenCalled();
   });
+
+  it("passes the known agent through so a matching stable key can skip", async () => {
+    // Row approved server-side but this browser holds no key yet (new
+    // session): approval must run, carrying the known agent for comparison.
+    // With the real runApproveAgent, a restored matching key would skip
+    // here with zero popups; a lost key re-prompts (changed-wallet case).
+    mockHasKey.mockReturnValue(false);
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ executionId: "ex-6", providerOrderId: "hl-14", status: "open" });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    mockHasKey.mockImplementation(() => mockRunApprove.mock.calls.length > 0);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
+    expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({
+      accountId: "acct-1",
+      knownAgentAddress: AGENT,
+    });
+  });
 });
 /**
  * §14 assertions for the Take flow. Added 2026-10-07 on the visual rebuild.

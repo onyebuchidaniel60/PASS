@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { forgetAgentKey, hasAgentKeyInMemory } from "../lib/agent-keystore";
+import { clearSessionKeys } from "../lib/agent-keystore";
 import {
   buildApproveAgentTypedData,
   runApproveAgent,
@@ -112,6 +113,72 @@ describe("runApproveAgent", () => {
     ).rejects.toThrow("SIGNATURE_REJECTED");
     // persistAgentKey never ran, so no generated key lingers in memory.
     expect(hasAgentKeyInMemory()).toBe(false);
+  });
+});
+
+/**
+ * Popup table (D-019.1/D-019.2): derivation signs once per session, the
+ * agent key is stable, and an already-approved agent is skipped with zero
+ * wallet interaction. Sign-out clears the session keys, so derivation
+ * prompts again afterwards.
+ */
+describe("runApproveAgent session behaviour (popup table)", () => {
+  beforeEach(async () => {
+    await forgetAgentKey();
+  });
+
+  const deps = () => ({
+    accountId: "acct-1",
+    address: ADDR,
+    signMessageAsync: vi.fn(async () => "0xderivationsecret"),
+    signTypedDataAsync: vi.fn(async () => FLAT_SIG),
+    postApprove: vi.fn(async () => ({})),
+  });
+
+  it("second Take in the same session fires zero wallet popups", async () => {
+    const d = deps();
+    const first = await runApproveAgent(d);
+    expect(d.signMessageAsync).toHaveBeenCalledTimes(1);
+    expect(d.signTypedDataAsync).toHaveBeenCalledTimes(1);
+    expect(d.postApprove).toHaveBeenCalledTimes(1);
+    expect(first.skipped).toBeUndefined();
+
+    // Same session, venue already knows this exact agent: derivation comes
+    // from the session cache and approval is skipped — no popup at all.
+    const second = await runApproveAgent({
+      ...deps(),
+      signMessageAsync: d.signMessageAsync,
+      signTypedDataAsync: d.signTypedDataAsync,
+      postApprove: d.postApprove,
+      knownAgentAddress: first.agentAddress,
+    });
+    expect(second.skipped).toBe(true);
+    expect(second.agentAddress).toBe(first.agentAddress);
+    expect(d.signMessageAsync).toHaveBeenCalledTimes(1);
+    expect(d.signTypedDataAsync).toHaveBeenCalledTimes(1);
+    expect(d.postApprove).toHaveBeenCalledTimes(1);
+  });
+
+  it("sign-out clears the session keys so derivation prompts again", async () => {
+    const d = deps();
+    await runApproveAgent(d);
+    expect(d.signMessageAsync).toHaveBeenCalledTimes(1);
+
+    // What XIdentityControl.disconnect does on sign-out (D-024).
+    clearSessionKeys();
+
+    const after = await runApproveAgent({
+      ...deps(),
+      signMessageAsync: d.signMessageAsync,
+      signTypedDataAsync: d.signTypedDataAsync,
+      postApprove: d.postApprove,
+    });
+    // Derivation cache gone: the wallet is asked again. The stored key is
+    // also gone from memory (and unreachable in this runner), so a fresh
+    // agent is approved rather than silently reusing a dead one.
+    expect(d.signMessageAsync).toHaveBeenCalledTimes(2);
+    expect(after.skipped).toBeUndefined();
+    expect(d.postApprove).toHaveBeenCalledTimes(2);
   });
 });
 

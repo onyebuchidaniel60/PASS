@@ -19,6 +19,36 @@ import { bytesToHex } from "viem";
 /** Session-only. Never persisted without encryption. */
 let memoryKey: `0x${string}` | null = null;
 
+/**
+ * Derivation-secret cache, one entry per master address (D-019.2: the
+ * derivation runs once per session). Memory only — never localStorage,
+ * sessionStorage, or IndexedDB. Cleared on sign-out with the agent key
+ * (D-024) via `clearSessionKeys`.
+ */
+const derivationCache = new Map<string, string>();
+
+/** Returns the cached derivation secret for this master address, if any. */
+export function getCachedDerivationSecret(accountAddress: string): string | null {
+  return derivationCache.get(accountAddress.toLowerCase()) ?? null;
+}
+
+/** Caches the derivation secret for this master address for the session. */
+export function cacheDerivationSecret(accountAddress: string, secret: string): void {
+  derivationCache.set(accountAddress.toLowerCase(), secret);
+}
+
+/**
+ * Ends the session's key material: the in-memory agent key and every
+ * cached derivation secret. The encrypted IndexedDB record is
+ * deliberately kept: it is opaque without a fresh master-wallet
+ * signature, and D-019.2 requires cross-visit recovery without
+ * re-approval. Call this on sign-out (D-024).
+ */
+export function clearSessionKeys(): void {
+  memoryKey = null;
+  derivationCache.clear();
+}
+
 const DB_NAME = "pass-agent-keystore";
 const STORE = "keys";
 const RECORD = "agent-key";
@@ -193,6 +223,7 @@ export async function restoreAgentKey(derivationSecret: string | null): Promise<
 
 export async function forgetAgentKey(): Promise<void> {
   memoryKey = null;
+  derivationCache.clear();
   await idbDelete(RECORD).catch(() => {});
 }
 

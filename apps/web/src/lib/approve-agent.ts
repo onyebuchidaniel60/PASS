@@ -1,10 +1,15 @@
 "use client";
 
 import { parseSignature } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import {
+  cacheDerivationSecret,
   generateAgentKey,
+  getCachedDerivationSecret,
+  getMemoryAgentKey,
   messageForDerivation,
   persistAgentKey,
+  restoreAgentKey,
 } from "./agent-keystore";
 import {
   APPROVE_AGENT_PRIMARY_TYPE,
@@ -64,15 +69,23 @@ export function buildApproveAgentTypedData(params: {
  *
  * The same steps `ApproveAgentControl` performs, extracted so the Take flow
  * can run them inline before signing its first order:
- *  1. generate a fresh agent key in the browser (viem generatePrivateKey);
- *  2. derive the storage secret from a master-wallet message signature
- *     (non-fatal — without it the key stays in memory only, D-019.2);
- *  3. the MASTER wallet signs the approveAgent EIP-712 payload;
- *  4. POST only { agentAddress, nonce, signature } — the key never leaves.
+ *  1. the derivation secret comes from the per-session memory cache when
+ *     this wallet already derived it (one popup per session, D-019.2);
+ *     otherwise the MASTER wallet signs the derivation message;
+ *  2. the agent key is RESTORED from the encrypted store when present, so
+ *     it is stable across Takes and sessions — a fresh key is generated
+ *     only when nothing is stored (regenerating per Take orphaned the
+ *     previously approved agent and re-prompted every time);
+ *  3. when the caller already knows the venue-approved agent
+ *     (`knownAgentAddress`, from /me or the preview) and it matches this
+ *     client's stable agent, approval is skipped with `skipped: true` —
+ *     no popup at all;
+ *  4. otherwise the MASTER wallet signs the approveAgent EIP-712 payload;
+ *  5. POST only { agentAddress, nonce, signature } — the key never leaves.
  *     The wallet returns a flat 0x signature; it is split into { r, s, v }
  *     before POSTing because that is the shape API_CONTRACTS.md §8 pins
  *     (a flat string fails the server's record schema with a 400);
- *  5. persist the key encrypted after the provider accepts (never before).
+ *  6. persist the key encrypted after the provider accepts (never before).
  *
  * Signing is injected so this is unit-testable without a wallet.
  */
@@ -85,22 +98,59 @@ export interface ApproveAgentPostBody {
 export async function runApproveAgent(deps: {
   accountId: string;
   address: `0x${string}`;
+  /** Venue-approved agent this client knows about (/me row or preview). */
+  knownAgentAddress?: `0x${string}` | string | null;
   signMessageAsync: (args: { message: string }) => Promise<string>;
   signTypedDataAsync: (args: unknown) => Promise<`0x${string}`>;
   postApprove: (
     accountId: string,
     body: ApproveAgentPostBody,
   ) => Promise<{ agentAddress?: string }>;
-}): Promise<{ agentAddress: `0x${string}`; persisted: boolean; warning?: string }> {
-  const { privateKey, agentAddress } = generateAgentKey();
+}): Promise<{
+  agentAddress: `0x${string}`;
+  persisted: boolean;
+  warning?: string;
+  /** True when approval was correctly skipped — no wallet popup fired. */
+  skipped?: boolean;
+}> {
+  // D-019.2: one derivation popup per session per wallet. Memory only —
+  // never localStorage/sessionStorage/IndexedDB; cleared on sign-out.
+  let derivationSecret = getCachedDerivationSecret(deps.address);
+  if (!derivationSecret) {
+    try {
+      derivationSecret = await deps.signMessageAsync({
+        message: messageForDerivation(deps.address),
+      });
+    } catch {
+      derivationSecret = null;
+    }
+    if (derivationSecret) cacheDerivationSecret(deps.address, derivationSecret);
+  }
 
-  let derivationSecret: string | null = null;
-  try {
-    derivationSecret = await deps.signMessageAsync({
-      message: messageForDerivation(deps.address),
-    });
-  } catch {
-    derivationSecret = null;
+  // Stable key: the stored key decrypts to the same agent every session,
+  // so the venue approval stays valid. A fresh key is minted only when
+  // nothing is stored. Memory is untouched until the provider accepts,
+  // so a rejected approval leaves no key behind.
+  let freshKey: `0x${string}` | null = null;
+  let agentAddress: `0x${string}`;
+  if (derivationSecret && (await restoreAgentKey(derivationSecret))) {
+    const mem = getMemoryAgentKey();
+    if (!mem) throw new Error("Agent key restore failed.");
+    agentAddress = privateKeyToAccount(mem).address;
+  } else {
+    const fresh = generateAgentKey();
+    freshKey = fresh.privateKey;
+    agentAddress = fresh.agentAddress;
+  }
+
+  // Already approved: the venue knows exactly the agent this client would
+  // sign with, and its key is in memory. Skip — no popup, no POST.
+  if (
+    !freshKey &&
+    deps.knownAgentAddress &&
+    deps.knownAgentAddress.toLowerCase() === agentAddress.toLowerCase()
+  ) {
+    return { agentAddress, persisted: true, skipped: true };
   }
 
   const nonce = nowNonce();
@@ -120,12 +170,15 @@ export async function runApproveAgent(deps: {
     signature: { r, s, v: Number(v) },
   });
 
+  const finalAddress = (res.agentAddress ?? agentAddress) as `0x${string}`;
+  const keyToStore = freshKey ?? getMemoryAgentKey();
+  if (!keyToStore) throw new Error("No agent key is available in this session.");
   const stored = await persistAgentKey(
-    privateKey,
-    (res.agentAddress ?? agentAddress) as `0x${string}`,
+    keyToStore,
+    finalAddress,
     deps.address,
     derivationSecret,
   );
 
-  return { agentAddress, persisted: stored.persisted, warning: stored.warning };
+  return { agentAddress: finalAddress, persisted: stored.persisted, warning: stored.warning };
 }

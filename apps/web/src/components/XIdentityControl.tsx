@@ -122,11 +122,16 @@ export function XIdentityControl() {
       // a failed delete leaves the chip connected, which is the truth.
       await clientPost("/api/v1/auth/x/disconnect");
       ended = true;
+      // D-024: the session is over, so its key material ends with it. The
+      // in-memory agent key and cached derivation secrets are dropped; the
+      // encrypted IndexedDB record stays (opaque without a fresh wallet
+      // signature) so a returning wallet recovers without re-approval.
+      const { clearSessionKeys } = await import("@/lib/agent-keystore");
+      clearSessionKeys();
     } catch {
       // Stay put: the session is still alive, and navigating away would show
       // a signed-out view that contradicts the live session.
-    } finally {
-      // Re-read from the server rather than optimistically flipping local state:
+    } finally {      // Re-read from the server rather than optimistically flipping local state:
       // if the delete partially failed, an optimistic update would show
       // "signed out" while X is still connected.
       await load();

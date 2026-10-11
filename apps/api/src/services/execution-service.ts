@@ -202,6 +202,7 @@ export async function buildExecutionPreview(
     direction: pass.direction,
     entryType: pass.entryType,
     accountId: account.id,
+    agentAddress: account.agentAddress,
     positionSize,
     leverage,
     requestedEntry: snapshot.entryPrice,

@@ -39,7 +39,7 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
     setMsg(null);
 
     try {
-      const { persisted, warning } = await runApproveAgent({
+      const { persisted, warning, skipped } = await runApproveAgent({
         accountId,
         address,
         signMessageAsync: (args) => signMessageAsync(args),
@@ -53,9 +53,11 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
 
       setApproved(true);
       setMsg(
-        persisted
-          ? "Agent approved. Its key is stored encrypted in this browser."
-          : (warning ?? "Agent approved for this session."),
+        skipped
+          ? "This agent is already approved — no new signature was needed."
+          : persisted
+            ? "Agent approved. Its key is stored encrypted in this browser."
+            : (warning ?? "Agent approved for this session."),
       );
     } catch (err) {
       const e = err as Error & { code?: string };

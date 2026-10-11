@@ -96,6 +96,8 @@ interface Preview {
   passPublicId?: string;
   /** The resolved trading-account row (D-026: created user-less for anonymous Takes). */
   accountId?: string;
+  /** Venue-approved agent on the resolved row, if any (approval skip). */
+  agentAddress?: string | null;
   requestedEntry?: string | null;
   markPrice?: string | null;
   positionSize?: string;
@@ -349,7 +351,9 @@ export function TakeFlowClient({
   /**
    * First-execution agent approval (D-019.1): the master wallet signs
    * approveAgent, the agent key signs everything after. Skipped whenever
-   * this browser already holds the approved key.
+   * this browser already holds the approved key — via the owned row, via
+   * an approval earlier this page load, or via the stable-key match
+   * inside runApproveAgent (no popup, no POST).
    */
   async function ensureAgent(row: {
     id: string | null;
@@ -374,6 +378,10 @@ export function TakeFlowClient({
       const done = await runApproveAgent({
         accountId,
         address,
+        // The venue-approved agent this client knows: the owned row, else
+        // the preview's row. A match against the stable client agent skips
+        // approval entirely (changed wallets re-prompt).
+        knownAgentAddress: row.agentAddress ?? preview?.agentAddress ?? null,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
         postApprove: (id, body) =>
@@ -382,11 +390,15 @@ export function TakeFlowClient({
             body as unknown as Record<string, unknown>,
           ),
       });
-      setAgentNote(
-        done.persisted
-          ? null
-          : (done.warning ?? "Agent approved for this session."),
-      );
+      if (done.skipped) {
+        setAgentNote(null);
+      } else {
+        setAgentNote(
+          done.persisted
+            ? null
+            : (done.warning ?? "Agent approved for this session."),
+        );
+      }
       setAgentReady(true);
       return hasAgentKeyInMemory();
     } catch (e) {

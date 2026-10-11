@@ -199,6 +199,9 @@ Response must include:
 - account/available-margin checks where available;
 - warnings;
 - whether user confirmation is required.
+- the resolved trading-account row id (`accountId`) and its
+  venue-approved agent (`agentAddress`, null when none) so a signed-out
+  Taker can skip re-approval against a matching stable agent (D-026).
 
 ### POST `/passes/{id}/executions`
 
