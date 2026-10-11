@@ -42,6 +42,7 @@ import {
   CoordinatePair,
   SignalLine,
 } from "@/components/wave1/signature";
+import { Tag } from "@/components/wave3/cells";
 import {
   Button,
   Checkbox,
@@ -57,7 +58,6 @@ import {
   RejectedBlock,
   StatusChip,
 } from "@/components/wave3/data";
-import { SignInXButton } from "@/components/SignInX";
 
 import { Surface } from "@/components/reference";
 import { clientGet, clientPost } from "@/lib/client";
@@ -94,6 +94,8 @@ interface PassView {
 interface Preview {
   passVersion: number;
   passPublicId?: string;
+  /** The resolved trading-account row (D-026: created user-less for anonymous Takes). */
+  accountId?: string;
   requestedEntry?: string | null;
   markPrice?: string | null;
   positionSize?: string;
@@ -149,9 +151,11 @@ export function TakeFlowClient({
   const [busy, setBusy] = useState(false);
   const [rejected, setRejected] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<{ orderId?: string; status?: string } | null>(
-    null,
-  );
+  const [receipt, setReceipt] = useState<{
+    orderId?: string;
+    status?: string;
+    simulated?: boolean;
+  } | null>(null);
 
   // Stage F session: the market's asset meta (index + szDecimals for
   // D-025.2) and the deployed execution mode. The linked account row is
@@ -159,6 +163,14 @@ export function TakeFlowClient({
   const [boot, setBoot] = useState<"loading" | "ready" | "denied">("loading");
   const [assetMeta, setAssetMeta] = useState<MarketMeta | null>(null);
   const [execMode, setExecMode] = useState<"live" | "mock">("mock");
+  // D-026: the resolved trading-account row id from the preview. Signed-in
+  // Takers resolve via /me; anonymous Takers learn it from the preview
+  // response (the server resolves by wallet address).
+  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
+  // D-026: an anonymous approval completed this page load. The key in
+  // memory implies the completed approval; signed-in rows additionally
+  // carry their agent address from /me.
+  const [agentReady, setAgentReady] = useState(false);
   // Lazy wallet (D-023): when an action needs the browser wallet and it is
   // not connected, the flow parks here and resumes after connect.
   const [needWallet, setNeedWallet] = useState(false);
@@ -175,15 +187,18 @@ export function TakeFlowClient({
     let cancelled = false;
     (async () => {
       try {
-        // /me first: any failure means signed-out, and the flow gates on it.
+        // D-026: no session is required to take. /me failing means
+        // signed-out, and the flow proceeds without it; only markets or
+        // health failing denies the flow.
         const [, markets, health] = await Promise.all([
-          clientGet<MePayload>("/api/v1/me"),
+          clientGet<MePayload>("/api/v1/me").catch(() => null),
           clientGet<{ assets?: MarketMeta[] }>("/api/v1/markets"),
           clientGet<Health>("/health"),
         ]);
         if (cancelled) return;
         // The linked row is re-read fresh at preview/authorize time, so
-        // boot only verifies the session; nothing account-like is cached.
+        // boot only verifies market data and mode; nothing account-like
+        // is cached.
         const meta =
           (markets.assets ?? []).find(
             (a) => a.asset.toUpperCase() === initialPass.asset.toUpperCase(),
@@ -202,27 +217,38 @@ export function TakeFlowClient({
     };
   }, [initialPass.asset]);
 
-  /** Fresh /me, returning the primary (else first) trading account row. */
+  /**
+   * Fresh /me, returning the primary (else first) trading account row.
+   * Null signed-out: anonymous Takers resolve by wallet address instead
+   * (D-026) and never touch this.
+   */
   async function refreshAccount(): Promise<MeTradingAccount | null> {
-    const me = await clientGet<MePayload>("/api/v1/me");
+    const me = await clientGet<MePayload>("/api/v1/me").catch(() => null);
+    if (!me) return null;
     const list = me.tradingAccounts ?? [];
     return list.find((a) => a.isPrimary) ?? list[0] ?? null;
   }
 
   /**
-   * Take-time account linking (D-023): the connected wallet address must
-   * have a PASS trading-account row before preview or authorize can run.
-   * Returns the row, or null when the wallet still needs connecting (the
-   * caller parks and resumes after connect in that case).
+   * Take-time account resolution (D-023 wallet-at-Take, D-026 no session).
+   * Returns the row id when the wallet maps to a known row, else the bare
+   * address for the server to resolve by address alone. Null only when the
+   * wallet still needs connecting (the caller parks and resumes after
+   * connect in that case).
    */
-  async function ensureLinkedAccount(): Promise<MeTradingAccount | null> {
+  async function ensureLinkedAccount(): Promise<{
+    id: string | null;
+    accountAddress: string;
+    agentAddress: string | null;
+  } | null> {
     if (!browserConnected || !address) return null;
-    const me = await clientGet<MePayload>("/api/v1/me");
+    const me = await clientGet<MePayload>("/api/v1/me").catch(() => null);
     const found =
-      (me.tradingAccounts ?? []).find(
+      (me?.tradingAccounts ?? []).find(
         (a) => a.accountAddress.toLowerCase() === address.toLowerCase(),
       ) ?? null;
     if (found) return found;
+    if (!me) return { id: null, accountAddress: address, agentAddress: null };
     await clientPost("/api/v1/me/trading-accounts", { accountAddress: address });
     return refreshAccount();
   }
@@ -297,17 +323,21 @@ export function TakeFlowClient({
         setNeedWallet(true);
         return;
       }
+      // D-026: signed-in Takers preview against their owned row id;
+      // anonymous Takers preview against the wallet address and learn the
+      // resolved row id from the response.
       const p = await clientPost<Preview>(
         `/api/v1/passes/${publicId}/execution-preview`,
         {
           passVersion: initialPass.version,
-          accountId: row.id,
+          ...(row.id ? { accountId: row.id } : { accountAddress: row.accountAddress }),
           positionSize: size.trim(),
           leverage: String(leverage),
           slippageToleranceBps: 50,
         },
       );
       setPreview(p);
+      setPreviewAccountId(p.accountId ?? row.id);
       goto(2);
     } catch (e) {
       setFailed(e instanceof Error ? e.message : "Preview failed.");
@@ -321,13 +351,28 @@ export function TakeFlowClient({
    * approveAgent, the agent key signs everything after. Skipped whenever
    * this browser already holds the approved key.
    */
-  async function ensureAgent(row: MeTradingAccount): Promise<boolean> {
-    if (row.agentAddress && hasAgentKeyInMemory()) return true;
+  async function ensureAgent(row: {
+    id: string | null;
+    accountAddress: string;
+    agentAddress: string | null;
+  }): Promise<boolean> {
+    if (row.agentAddress && hasAgentKeyInMemory()) {
+      setAgentReady(true);
+      return true;
+    }
+    // D-026: an anonymous approval completed earlier this page load counts —
+    // the key in memory implies it, since anonymous rows carry no agent
+    // address for this client to re-read.
+    if (agentReady && hasAgentKeyInMemory()) return true;
     if (!browserConnected || !address) return false;
+    // The approve URL needs the row id: the linked id, else the id the
+    // preview resolved for this wallet. Fail closed without one.
+    const accountId = row.id ?? previewAccountId;
+    if (!accountId) return false;
     setAgentNote("Approving the agent wallet — your master wallet signs once.");
     try {
       const done = await runApproveAgent({
-        accountId: row.id,
+        accountId,
         address,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
@@ -342,8 +387,8 @@ export function TakeFlowClient({
           ? null
           : (done.warning ?? "Agent approved for this session."),
       );
-      const fresh = await refreshAccount();
-      return Boolean(fresh && fresh.agentAddress && hasAgentKeyInMemory());
+      setAgentReady(true);
+      return hasAgentKeyInMemory();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Agent approval failed.";
       setAgentNote(null);
@@ -390,11 +435,17 @@ export function TakeFlowClient({
       });
       // Live mode without a key throws here; nothing is sent (fail closed).
       const signed = await signExchangeRequest(execMode, request);
-      const r = await clientPost<{ executionId?: string; providerOrderId?: string; status?: string }>(
+      const r = await clientPost<{
+        executionId?: string;
+        providerOrderId?: string;
+        status?: string;
+        simulated?: boolean;
+      }>(
         `/api/v1/passes/${publicId}/executions`,
         executionBody({
           passVersion: preview?.passVersion ?? initialPass.version,
-          accountId: row.id,
+          // D-026: linked rows submit by id; anonymous wallets by address.
+          ...(row.id ? { accountId: row.id } : { accountAddress: row.accountAddress }),
           clientRequestId: newClientRequestId(),
           signedPayload: {
             exchangeRequest: signed.exchangeRequest,
@@ -402,7 +453,12 @@ export function TakeFlowClient({
           },
         }),
       );
-      setReceipt({ orderId: r.providerOrderId, status: r.status });
+      // A simulated relay is a demo, never a real trade. The receipt must
+      // say so inline with the order id — the top-level DemoBanner is not
+      // enough for a user reading only the receipt.
+      const simulated =
+        r.simulated === true || (r.providerOrderId?.startsWith("mock_") ?? false);
+      setReceipt({ orderId: r.providerOrderId, status: r.status, simulated });
       goto(4);
     } catch (e) {
       // A provider rejection is first-class and carries the provider's reason
@@ -510,13 +566,19 @@ export function TakeFlowClient({
   }
 
   if (boot === "denied") {
+    // D-026: signed-out is no longer a denial — only unreachable market
+    // data or health lands here, and no X sign-in fixes that.
     return (
       <div className="pass-page">
         <div className="pass-shell">
           <main className="pass-shell-content pass-stack pass-stack-6">
             <PermissionBlock
-              reason="Taking a Pass needs a connected X identity. Connect to continue."
-              action={<SignInXButton />}
+              reason="Market data could not be loaded, so this Pass cannot be taken safely right now."
+              action={
+                <Link href={`/p/${publicId}`} className="pass-link-btn">
+                  Back to Pass
+                </Link>
+              }
             />
           </main>
         </div>
@@ -629,6 +691,11 @@ export function TakeFlowClient({
 
           {step === 2 ? (
             <Stack gap="5">
+              {execMode === "mock" ? (
+                <p className="pass-stale">
+                  This order will be simulated. No funds will move.
+                </p>
+              ) : null}
               <ChamferPanel label="Order summary">
                 <Stack gap="4">
                   <CoordinateGrid>
@@ -788,15 +855,48 @@ export function TakeFlowClient({
                 <>
                   <ChamferPanel label="Order receipt">
                     <CoordinateGrid>
-                      <CoordinatePair
-                        label="Provider order id"
-                        value={receipt?.orderId ?? "—"}
-                      />
+                      {receipt?.simulated ? (
+                        // Simulated ids reuse the pair's own classes in a muted
+                        // tone with a demo tag, so the id reads as reference
+                        // data rather than a venue order. No new visual
+                        // language: same classes, same grid.
+                        <div
+                          className="pass-coordinate-pair pass-stale"
+                          data-size="m"
+                        >
+                          <span className="pass-coordinate-pair-label">
+                            Provider order id
+                          </span>
+                          <span
+                            className="pass-coordinate-pair-value"
+                            title={receipt?.orderId}
+                          >
+                            {receipt?.orderId ?? "—"} <Tag>demo</Tag>
+                          </span>
+                        </div>
+                      ) : (
+                        <CoordinatePair
+                          label="Provider order id"
+                          value={receipt?.orderId ?? "—"}
+                        />
+                      )}
                       <CoordinatePair
                         label="Provider status"
                         value={receipt?.status ?? "—"}
                       />
                     </CoordinateGrid>
+                    {receipt?.simulated ? (
+                      <Stack gap="2">
+                        <p role="note" className="pass-note pass-note-status">
+                          SIMULATED — no funds moved, no order sent to
+                          Hyperliquid.
+                        </p>
+                        <p className="pass-stale">
+                          This is a demo execution. A funded Hyperliquid
+                          account enables the same flow against mainnet.
+                        </p>
+                      </Stack>
+                    ) : null}
                   </ChamferPanel>
 
                   <Inline gap="3">

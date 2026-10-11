@@ -138,17 +138,15 @@ export class MockAccountData implements AccountDataPort {
 }
 
 /**
- * Deterministic order ids so a repeated relay of the same clientRequestId
- * resolves to the same provider order id in mock mode.
+ * Synthetic provider ids for the simulated relay. Clearly labelled so a demo
+ * can never be confused with a real trade. Random per call: idempotency is
+ * enforced by the service layer via clientRequestId, not by adapter
+ * determinism.
  */
-function mockOrderId(signed: SignedPayload): string {
-  const src = JSON.stringify(signed);
-  let h = 2166136261;
-  for (let i = 0; i < src.length; i += 1) {
-    h ^= src.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return String(1_000_000_000 + (Math.abs(h) % 8_999_999_999));
+function mockOrderId(_signed: SignedPayload): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c && typeof c.randomUUID === "function") return `mock_${c.randomUUID()}`;
+  return `mock_${Date.now().toString(36)}${Math.floor(Math.random() * 0xffffffff).toString(16)}`;
 }
 
 export class MockExchange implements ExchangePort {
@@ -156,10 +154,20 @@ export class MockExchange implements ExchangePort {
   private readonly known = new Map<string, { status: string }>();
   private readonly approvedAgents = new Map<string, number>();
 
+  /**
+   * Simulated order relay (Stage F closure). Makes no network call.
+   * Returns synthetic success with a `mock_<uuid>` id and `pending` status
+   * so the Take flow completes end to end in mock deployments.
+   */
   async relaySignedAction(signed: SignedPayload): Promise<HLRelayResult> {
     const providerOrderId = mockOrderId(signed);
-    this.known.set(providerOrderId, { status: "open" });
-    return { providerOrderId, status: "open" };
+    this.known.set(providerOrderId, { status: "pending" });
+    return {
+      providerOrderId,
+      status: "pending",
+      simulated: true,
+      rawStatus: { mock: true, reason: "Simulated relay: no order was placed." },
+    };
   }
 
   /**

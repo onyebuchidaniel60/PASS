@@ -92,14 +92,22 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     expect(banner.textContent).not.toMatch(/Demo mode\./);
   });
 
-  it("states plainly that taking a Pass is simulated", async () => {
+  it("states plainly that execution is simulated and orders are not placed", async () => {
     mockHealth({
       modes: { hyperliquidReads: "live", hyperliquidExecution: "mock", ethos: "live", x: "mock" },
     });
     render(<DemoBanner />);
-    // The single most important sentence on the screen: a reader must never
-    // think a Take would move real money.
-    expect(await screen.findByText(/taking a Pass is simulated/i)).toBeInTheDocument();
+    // The most important sentences on the screen: a reader must never
+    // think a Take would move real money, and must know the live path is
+    // one flag away rather than a rebuild.
+    expect(
+      await screen.findByText(/Hyperliquid execution is simulated/i),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/Market data is live/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Orders are not placed/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/one environment flag away/i),
+    ).toBeInTheDocument();
   });
 
   it("omits the execution sentence when execution really is live", async () => {
@@ -113,7 +121,7 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     });
     render(<DemoBanner />);
     await screen.findByRole("status");
-    expect(screen.queryByText(/taking a Pass is simulated/i)).toBeNull();
+    expect(screen.queryByText(/Hyperliquid execution is simulated/i)).toBeNull();
     // Ethos alone is still demo, so the banner stays.
     expect(screen.getByRole("status").textContent).toMatch(/ethos reputation/);
   });

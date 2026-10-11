@@ -95,6 +95,13 @@ export const HLRelayResult = z.object({
   providerOrderId: z.string(),
   status: z.string(),
   rawStatus: z.unknown().optional(),
+  /**
+   * True when the relay was simulated (HYPERLIQUID_MODE=mock). The mock
+   * branches set this with a `mock_<uuid>` provider id and status `pending`
+   * and make no network call. Live relays set false (or leave undefined,
+   * treated as false).
+   */
+  simulated: z.boolean().optional(),
 });
 export type HLRelayResult = z.infer<typeof HLRelayResult>;
 

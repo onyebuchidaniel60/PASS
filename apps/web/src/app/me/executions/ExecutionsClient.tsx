@@ -45,6 +45,8 @@ export interface Execution {
   providerOrderId: string | null;
   providerStatus: string;
   status: string;
+  /** True when the execution was simulated in mock mode. Never a real trade. */
+  simulated?: boolean;
   asset?: string;
   direction?: string;
   positionSize: string;
@@ -86,7 +88,12 @@ const COLUMNS: DataTableColumn<Execution>[] = [
   {
     key: "status",
     label: "STATUS",
-    render: (e) => <DataCell>{statusLabel(e.status)}</DataCell>,
+    render: (e) => (
+      <DataCell>
+        {statusLabel(e.status)}
+        {e.simulated || e.providerOrderId?.startsWith("mock_") ? " — SIMULATED" : ""}
+      </DataCell>
+    ),
   },
   {
     key: "pnl",
@@ -188,6 +195,17 @@ export function ExecutionsClient({
                 onChange={setPeriod}
               />
 
+              {rows.some(
+                (e) => e.simulated || e.providerOrderId?.startsWith("mock_"),
+              ) ? (
+                <Panel>
+                  <p className="pass-stale">
+                    Some executions below are simulated for demo purposes.
+                    They are labelled.
+                  </p>
+                </Panel>
+              ) : null}
+
               {rows.length === 0 ? (
                 <EmptyBlock title="Nothing in this period">
                   Widen the period to see earlier executions.
@@ -231,6 +249,9 @@ export function ExecutionsClient({
                         <DataCell tone="muted">Provider order</DataCell>
                         <Tag title={e.providerOrderId ?? undefined}>
                           {e.providerOrderId ?? "not assigned"}
+                          {e.simulated || e.providerOrderId?.startsWith("mock_")
+                            ? " — SIMULATED"
+                            : ""}
                         </Tag>
                         <DataCell tone="muted">Pass version</DataCell>
                         <Tag>v{e.passVersion}</Tag>

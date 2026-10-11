@@ -162,7 +162,11 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
   app.post<{ Params: { id: string } }>(
     "/api/v1/me/trading-accounts/:id/approve-agent",
     async (req) => {
-    const userId = await requireUser(req);
+    // D-026: session-optional for anonymous rows only. A row carrying a
+    // user_id keeps the existing behaviour (session + server-side
+    // ownership, SECURITY_SPEC.md §10). A row with user_id NULL belongs
+    // to no one, so no session is required — and it is never reassigned.
+    const userId = req.sessionUserId ?? null;
     const body = z
       .object({
         agentAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
@@ -174,11 +178,21 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
       .strict()
       .parse(req.body);
 
-    const accounts = await getTradingAccounts(ctx, userId);
-    const account = accounts.find((a) => a.id === req.params.id);
+    const { tradingAccounts } = await import("@pass/db");
+    const { eq } = await import("drizzle-orm");
+    const found = await ctx.db
+      .select()
+      .from(tradingAccounts)
+      .where(eq(tradingAccounts.id, req.params.id))
+      .limit(1);
+    const row = found[0];
     // Ownership is resolved server-side, never trusted from the client
-    // (docs/SECURITY_SPEC.md §10).
-    if (!account) throw new AppError("FORBIDDEN", "That trading account is not yours.");
+    // (docs/SECURITY_SPEC.md §10). Unknown ids and other users' rows
+    // stay indistinguishable.
+    if (!row) throw new AppError("FORBIDDEN", "That trading account is not yours.");
+    if (row.userId !== null && row.userId !== userId) {
+      throw new AppError("FORBIDDEN", "That trading account is not yours.");
+    }
 
     const agentAddress = body.agentAddress.toLowerCase();
 
@@ -199,13 +213,19 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
     }
 
     // Recorded only after the provider accepted it, so a rejected approval
-    // never leaves a stored agent association behind.
-    await recordAgentApproval(ctx, userId, account.accountAddress, agentAddress);
+    // never leaves a stored agent association behind. Anonymous rows are
+    // recorded by id and never gain a user_id.
+    if (row.userId === null) {
+      const { recordAgentApprovalById } = await import("../services/profile-service.js");
+      await recordAgentApprovalById(ctx, row.id, agentAddress);
+    } else {
+      await recordAgentApproval(ctx, row.userId, row.accountAddress, agentAddress);
+    }
 
     return {
       ok: true,
       agentAddress,
-      accountAddress: account.accountAddress,
+      accountAddress: row.accountAddress,
       mode: ctx.adapters.hyperliquid.mode,
     };
     },

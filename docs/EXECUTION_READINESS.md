@@ -221,3 +221,52 @@ mainnet test; all of them are blockers for real users at real size.
    linking have not been exercised against the real provider.
 8. **No end-to-end test against mainnet.** Every test either mocks `fetch` or runs
    against mock adapters. Nothing asserts that a real relay succeeds.
+
+---
+
+## 7. Live-signature verification without funds (Stage F closure)
+
+`scripts/verify-live-signature.mjs` proves the client's order shape and L1
+signing are accepted by Hyperliquid directly, without touching the PASS
+server and without funds.
+
+Invocation (keys are operator-supplied per run, throwaway, never committed):
+
+```bash
+VERIFY_AGENT_KEY=0x... VERIFY_ACCOUNT_ADDRESS=0x... node scripts/verify-live-signature.mjs
+```
+
+What it does:
+
+1. Reads `VERIFY_AGENT_KEY` (agent private key) and `VERIFY_ACCOUNT_ADDRESS`
+   (master address, logging only) from env.
+2. Fetches the live BTC mid from the Info API (read-only).
+3. Builds a minimal $10 BTC long via the same `buildOrderAction` the Take
+   flow signs (imported from `apps/web/src/lib/hyperliquid.ts`, not
+   duplicated).
+4. Signs it via the same L1 flow `signExchangeRequest("live", …)` uses
+   (`privateKeyToAccount` + `signL1Action` — Exchange domain, phantom
+   agent, never user-signed typed data).
+5. POSTs `{ action, nonce, signature }` directly to
+   `https://api.hyperliquid.xyz/exchange`.
+6. Prints the full response body verbatim.
+
+Interpretation:
+
+- Exit `0` with a balance-related rejection (`insufficient margin`,
+  `not enough balance`, or HL's actual unfunded-account wording) means
+  **pass**: HL validated the signature and order schema before checking
+  balance, so the code is complete and only money is missing.
+- Exit `1` with `User or API Wallet … does not exist` means the agent was
+  never approved and/or the account never touched HL. Approve the agent
+  from the master account first, then re-run. This is an authorization
+  rejection, not the balance proof.
+- Exit `1` with a signature/schema/viem primary-type error means the
+  signing path or order shape is wrong. Do not attempt the server relay
+  until this is fixed.
+- Exit `2` means the network call to HL failed.
+
+Orders are L1 actions (`signL1Action`, Exchange domain, chain 1337).
+`approveAgent` is a user-signed action (`HyperliquidSignTransaction`).
+The two flows must not be confused: signing an order as user-signed typed
+data will be rejected by HL before any balance check.

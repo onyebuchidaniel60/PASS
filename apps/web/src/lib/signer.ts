@@ -44,13 +44,17 @@ export interface OrderIntent {
 }
 
 /**
- * Builds the EIP-712 payload for an order action.
+ * Builds the order action and nonce for an L1 order.
  *
- * REASONING: the Exchange endpoint page documents the signing domain and the
- * primaryType naming pattern "HyperliquidTransaction:<ActionTypeName>", and
- * defers the exact trading-action struct to the official SDK. The domain below
- * is the documented one; the Exchange struct mirrors the documented `action`
- * field list. Verify against the SDK before any live mainnet submission.
+ * Orders are L1 actions, not user-signed actions: the action is hashed via
+ * the phantom-agent construction (msgpack + keccak) and signed with the
+ * Exchange domain (chain 1337), per the official Python SDK
+ * (`sign_l1_action`) and the documented `@nktkas/hyperliquid` flow. The
+ * `domain`/`types`/`primaryType`/`message` fields below are retained only so
+ * existing callers keep compiling; live signing ignores them and uses
+ * `signL1Action` instead. Do not sign orders as
+ * `HyperliquidTransaction:Exchange` user-signed typed data — Hyperliquid
+ * will reject the signature.
  */
 export function buildExchangeRequest(intent: OrderIntent): {
   action: Record<string, unknown>;
@@ -100,8 +104,11 @@ export function buildExchangeRequest(intent: OrderIntent): {
  *
  * In mock mode the provider is simulated, so a deterministic placeholder
  * signature is generated to exercise the relay, validation order, and
- * idempotency end to end. In live mode the real agent-key EIP-712 signature
- * is used via `agent-keystore.signWithAgentKey`.
+ * idempotency end to end. In live mode the action is signed as an L1 action
+ * with the client-held agent key via the documented `signL1Action` flow
+ * (Exchange domain, phantom agent — never the user-signed
+ * HyperliquidSignTransaction struct). The envelope is `{ action, nonce }`
+ * plus `{ r, s, v }`, which is exactly what the Exchange endpoint expects.
  */
 export async function signExchangeRequest(
   mode: "mock" | "live",
@@ -115,16 +122,24 @@ export async function signExchangeRequest(
   },
 ): Promise<SignedPayload> {
   if (mode === "live") {
-    const { signWithAgentKey } = await import("./agent-keystore");
-    const signature = await signWithAgentKey({
-      domain: request.domain,
-      types: request.types,
-      primaryType: request.primaryType,
-      message: request.message,
+    const { getMemoryAgentKey } = await import("./agent-keystore");
+    const key = getMemoryAgentKey();
+    if (!key) {
+      throw new Error("No agent key is available in this session.");
+    }
+    const [{ privateKeyToAccount }, { signL1Action }] = await Promise.all([
+      import("viem/accounts"),
+      import("@nktkas/hyperliquid/signing"),
+    ]);
+    const wallet = privateKeyToAccount(key);
+    const signature = await signL1Action({
+      wallet,
+      action: request.action as Record<string, unknown>,
+      nonce: request.nonce,
     });
     return {
       exchangeRequest: { action: request.action, nonce: request.nonce },
-      signature: { signature, source: "agent" },
+      signature: { r: signature.r, s: signature.s, v: signature.v },
     };
   }
 

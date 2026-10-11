@@ -58,7 +58,7 @@ UNIQUE(provider, provider_subject_id)
 
 ```text
 id UUID PK
-user_id UUID FK users.id
+user_id UUID FK users.id NULLABLE (D-026)
 provider enum(hyperliquid)
 account_address text
 agent_address text nullable
@@ -69,6 +69,12 @@ UNIQUE(provider, account_address)
 ```
 
 `account_address` is queried for account state. `agent_address` is a signer and must never be treated as the account itself.
+
+D-026: `user_id` is nullable. An anonymous wallet may own a trading
+account row keyed only by `(provider, account_address)` — the row is the
+execution target for signed-out Takes and is never reassigned to another
+user. A signed-in user's rows keep their `user_id`; sessionless access
+is allowed only to rows with `user_id IS NULL`.
 
 ### passes
 
@@ -132,11 +138,12 @@ References a specific `(pass_id, pass_version)`; historical execution must remai
 id UUID PK
 pass_id UUID FK passes.id
 pass_version integer
-taker_user_id UUID FK users.id
+taker_user_id UUID FK users.id NULLABLE (D-026)
 account_id UUID FK trading_accounts.id
 client_request_id text UNIQUE
 provider_order_id text nullable
 provider_status text
+simulated boolean NOT NULL DEFAULT false
 side text
 position_size numeric
 leverage numeric nullable
@@ -151,6 +158,20 @@ fees numeric nullable
 created_at timestamptz
 updated_at timestamptz
 ```
+
+`simulated` is true when the execution was produced by the mock relay
+(`HYPERLIQUID_MODE=mock`). The mock relay returns a synthetic
+`providerOrderId` of the form `mock_<uuid>` with status `pending` and makes
+no network call to Hyperliquid. A simulated row is a demo, never a real
+trade: the Take receipt and the Executions page must render a "SIMULATED"
+marker inline with the provider order id. Live relays set `simulated: false`.
+Added by migration `0003_executions_simulated.sql` (Stage F closure).
+
+D-026: `taker_user_id` is nullable. An anonymous (signed-out) Take writes
+`NULL` — the wallet address on the referenced `trading_accounts` row is the
+Taker's identity for that execution. `GET /me/executions` returns only rows
+for the signed-in user; anonymous rows never appear there and are never
+retroactively attached to a user who signs in later.
 
 ### ethos_profiles
 

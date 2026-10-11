@@ -99,12 +99,12 @@ describe("OnboardingGate", () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
   });
 
-  it("redirects a signed-out visitor off a take route to landing", async () => {
+  it("leaves a signed-out visitor on a take route (D-026: Take needs a wallet, not a session)", async () => {
     mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
     path = "/passes/abc123/take";
     render(<OnboardingGate />);
     await settled();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("redirects a profile-less session off /passes/new to onboarding", async () => {

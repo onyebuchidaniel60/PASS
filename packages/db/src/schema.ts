@@ -137,9 +137,7 @@ export const tradingAccounts = pgTable(
   "trading_accounts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id),
+    userId: uuid("user_id").references(() => users.id),
     provider: providerEnum("provider").notNull().default("hyperliquid"),
     accountAddress: text("account_address").notNull(),
     agentAddress: text("agent_address"),
@@ -242,15 +240,20 @@ export const executions = pgTable(
       .notNull()
       .references(() => passes.id),
     passVersion: integer("pass_version").notNull(),
-    takerUserId: uuid("taker_user_id")
-      .notNull()
-      .references(() => users.id),
+    takerUserId: uuid("taker_user_id").references(() => users.id),
     accountId: uuid("account_id")
       .notNull()
       .references(() => tradingAccounts.id),
     clientRequestId: text("client_request_id").notNull().unique(),
     providerOrderId: text("provider_order_id"),
     providerStatus: text("provider_status").notNull().default("unknown"),
+    /**
+     * True when the relay was simulated (HYPERLIQUID_MODE=mock). A simulated
+     * row is a demo, never a real trade. Set together with a `mock_<uuid>`
+     * providerOrderId by the mock relay branches; live relays set false.
+     * See docs/DATA_MODEL.md §2.
+     */
+    simulated: boolean("simulated").notNull().default(false),
     side: text("side").notNull(),
     positionSize: numeric("position_size").notNull(),
     leverage: numeric("leverage"),

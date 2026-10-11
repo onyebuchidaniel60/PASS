@@ -224,6 +224,88 @@ describe("Take flow step 1 — choose size (§10.6)", () => {
   });
 });
 
+describe("Anonymous Take — no PASS session (D-026)", () => {
+  const ANON_PREVIEW = { ...PREVIEW, accountId: "acct-anon-1" };
+  const ANON_ADDR = ADDR;
+
+  function signedOutMocks() {
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path === "/api/v1/me") return Promise.reject(new Error("AUTH_REQUIRED"));
+      if (path.includes("/api/v1/markets")) return Promise.resolve(MARKETS);
+      if (path.includes("/health")) return Promise.resolve(HEALTH_MOCK);
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+  }
+
+  function previewCalls() {
+    return mockPost.mock.calls.filter(([url]) =>
+      String(url).endsWith("/execution-preview"),
+    );
+  }
+
+  function executionsCalls() {
+    return mockPost.mock.calls.filter(([url]) => String(url).endsWith("/executions"));
+  }
+
+  it("a signed-out visitor reaches size selection with no sign-in gate", async () => {
+    signedOutMocks();
+    mockPost.mockResolvedValue(ANON_PREVIEW);
+    renderFlow();
+    await screen.findByText("STEP 1 / 4");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Choose your size",
+    );
+    expect(screen.queryByText(/connected X identity/i)).toBeNull();
+  });
+
+  it("walks preview to SIMULATED receipt against the wallet address", async () => {
+    signedOutMocks();
+    mockPost
+      .mockResolvedValueOnce(ANON_PREVIEW)
+      .mockResolvedValueOnce({
+        executionId: "ex-anon",
+        providerOrderId: "mock_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        status: "pending",
+        simulated: true,
+      });
+    renderFlow();
+    await screen.findByText("STEP 1 / 4");
+    const user = await typeSize("100");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+
+    // Preview resolves by wallet address, not by a session-owned row id.
+    await waitFor(() => expect(previewCalls()).toHaveLength(1));
+    const previewBody = previewCalls()[0]?.[1] as Record<string, unknown>;
+    expect(previewBody.accountAddress).toBe(ANON_ADDR);
+    expect(previewBody).not.toHaveProperty("accountId");
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+
+    // First-execution agent approval still runs (wallet popup), then the
+    // execution posts against the same address.
+    await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(executionsCalls()).toHaveLength(1));
+    const execBody = executionsCalls()[0]?.[1] as Record<string, unknown>;
+    expect(execBody.accountAddress).toBe(ANON_ADDR);
+    expect(execBody).not.toHaveProperty("accountId");
+
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+    expect(
+      screen.getByText(
+        "SIMULATED — no funds moved, no order sent to Hyperliquid.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/mock_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("Take flow step 2 — execution preview (§10.6)", () => {
   it("requests a preview and shows the order summary as a document", async () => {
     mockPost.mockResolvedValue(PREVIEW);
@@ -279,6 +361,36 @@ describe("Take flow step 2 — execution preview (§10.6)", () => {
     await waitFor(() =>
       expect(screen.getByText("Price is far from entry.")).toBeInTheDocument(),
     );
+  });
+
+  it("says the order will be simulated when execution is mock", async () => {
+    mockPost.mockResolvedValue(PREVIEW);
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+    expect(
+      screen.getByText("This order will be simulated. No funds will move."),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the simulation line when execution is live", async () => {
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path === "/api/v1/me") return Promise.resolve(meResponse);
+      if (path.includes("/api/v1/markets")) return Promise.resolve(MARKETS);
+      if (path.includes("/health"))
+        return Promise.resolve({ modes: { hyperliquidExecution: "live" } });
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    mockPost.mockResolvedValue(PREVIEW);
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+    expect(
+      screen.queryByText("This order will be simulated. No funds will move."),
+    ).toBeNull();
   });
 });
 
@@ -403,6 +515,62 @@ describe("Take flow step 4 — confirmation (§10.6)", () => {
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
     expect(screen.queryByText("STEP 4 / 4")).toBeNull();
     expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument();
+  });
+
+  it("marks a simulated relay inline with the order id", async () => {
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({
+        executionId: "ex-sim",
+        providerOrderId: "mock_11111111-2222-3333-4444-555555555555",
+        status: "pending",
+        simulated: true,
+      });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+    expect(
+      screen.getByText(
+        "SIMULATED — no funds moved, no order sent to Hyperliquid.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/mock_11111111-2222-3333-4444-555555555555/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("demo")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This is a demo execution. A funded Hyperliquid account enables the same flow against mainnet.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not mark a live receipt as simulated", async () => {
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({
+        executionId: "ex-live",
+        providerOrderId: "987654321",
+        status: "open",
+        simulated: false,
+      });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+    expect(screen.getByText("987654321")).toBeInTheDocument();
+    expect(screen.queryByText(/SIMULATED/)).toBeNull();
   });
 });
 

@@ -136,25 +136,37 @@ export class SplitHyperliquid implements HyperliquidPort {
   }
 
   /**
-   * The only method that submits an order. Gated on the WRITES flag alone, and
-   * unreachable while that flag is mock — which is the default and the state
-   * this repository is deployed in.
+   * The only method that submits an order. Gated on the WRITES flag alone.
+   *
+   * Mock writes (the deployed default) SIMULATE success: a synthetic
+   * `mock_<uuid>` provider id with `pending` status and `simulated: true`,
+   * with no network call. This mirrors the approve-agent mock path, which
+   * records the agent and returns 200 without contacting the venue, so the
+   * Take flow completes end to end in mock deployments. A simulated row is
+   * a demo, never a real trade (see executions.simulated).
+   *
+   * Live writes forward to the real Exchange API unchanged.
    */
   async relaySignedAction(signed: SignedPayload): Promise<HLRelayResult> {
     if (!this.exchange) {
-      // A rejection, not a throw: the Take flow surfaces this in its normal
-      // rejection path (§10.6 Step 4) instead of an error page, which is the
-      // right treatment for "this deployment does not place orders".
+      const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+      const providerOrderId =
+        c && typeof c.randomUUID === "function"
+          ? `mock_${c.randomUUID()}`
+          : `mock_${Date.now().toString(36)}${Math.floor(Math.random() * 0xffffffff).toString(16)}`;
       return {
-        providerOrderId: "",
-        status: "rejected",
+        providerOrderId,
+        status: "pending",
+        simulated: true,
         rawStatus: {
+          mock: true,
           reason:
-            "HYPERLIQUID_MODE=mock — order relay is disabled in this deployment.",
+            "HYPERLIQUID_MODE=mock — simulated relay. No order was placed on Hyperliquid.",
         },
       };
     }
-    return this.exchange.relaySignedAction(signed);
+    const result = await this.exchange.relaySignedAction(signed);
+    return { ...result, simulated: result.simulated ?? false };
   }
 
   async relayApproveAgent(params: {

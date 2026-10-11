@@ -175,7 +175,9 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
   app.post<{ Params: { id: string } }>(
     "/api/v1/passes/:id/execution-preview",
     async (req) => {
-      const userId = await requireUser(req);
+      // D-026: session-optional. A signed-out Taker previews against the
+      // address-keyed row; the wallet signature is the authentication.
+      const userId = req.sessionUserId ?? null;
       const input = ExecutionPreviewRequest.parse(req.body);
       const preview = await buildExecutionPreview(ctx, req.params.id, userId, input);
       return preview;
@@ -185,9 +187,10 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
   /**
    * docs/DECISIONS.md D-018.3 — the server-relay path. The client signs and
    * submits; the server validates, relays, records, and reconciles.
+   * D-026: session-optional (see API_CONTRACTS.md §8).
    */
   app.post<{ Params: { id: string } }>("/api/v1/passes/:id/executions", async (req, reply) => {
-    const userId = await requireUser(req);
+    const userId = req.sessionUserId ?? null;
     const input = ExecutionRequest.parse(req.body);
     const result = await relayExecution(ctx, req.params.id, userId, input);
     return reply.status(201).send(result);
@@ -196,7 +199,7 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
   app.get<{ Params: { id: string } }>("/api/v1/executions/:id", async (req) => {
     const userId = await requireUser(req);
     const row = await getExecution(ctx, req.params.id, userId);
-    if (row.providerOrderId) {
+    if (row.providerOrderId && !(row as { simulated?: boolean }).simulated) {
       await reconcileExecution(ctx, row.id, row.providerOrderId);
     }
     const fresh = await getExecution(ctx, req.params.id, userId);
@@ -206,6 +209,7 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
       passVersion: fresh.passVersion,
       providerOrderId: fresh.providerOrderId,
       providerStatus: fresh.providerStatus,
+      simulated: (fresh as { simulated?: boolean }).simulated ?? false,
       status: fresh.status,
       positionSize: fresh.positionSize,
       leverage: fresh.leverage,
@@ -231,6 +235,7 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
         passVersion: e.passVersion,
         providerOrderId: e.providerOrderId,
         providerStatus: e.providerStatus,
+        simulated: (e as { simulated?: boolean }).simulated ?? false,
         status: e.status,
         positionSize: e.positionSize,
         realizedPnl: e.realizedPnl,

@@ -100,7 +100,7 @@ is complete. See `docs/EXECUTION_READINESS.md`.
 | C — Create and publish a Pass | Met (2026-10-10) | 10-step operator browser run passed |
 | D — Public experience | Met | |
 | E — Hyperliquid reads | Met | `hyperliquidReads: live` |
-| F — Hyperliquid execution | Not met | The remaining critical-path gate |
+| F — Hyperliquid execution | Code-complete; funded fill pending | Signing, order schema, and server relay proven against HL mainnet up to the balance check (see `docs/verification/hl-signature-2026-10-11.txt`); mock Take flow ships with SIMULATED labelling. No funded fill yet — operator cannot deposit before the deadline |
 | G — Performance and lifecycle | Blocked by F | |
 | H — X distribution | Met | |
 | I — Chrome extension | Met | |
@@ -346,3 +346,11 @@ If any step fails, stop. Do not bundle a second fix.
   production API). Public pass renders signed-out; publish/edit/cancel
   have no web UI (API-only). Stage C not met, awaiting operator run.
 - **2026-10-10** — Stage C met (10-step operator run). Stage F wiring begins.
+- **2026-10-11** — Stage F code-complete; funded fill pending. Mock relay
+  simulates success with `mock_<uuid>` receipts and `executions.simulated`
+  labelling (receipt, Executions page, DemoBanner). L1 order signing proven
+  against HL mainnet to account lookup
+  (`docs/verification/hl-signature-2026-10-11.txt`: `User or API Wallet
+  0x… does not exist` — signature parsed, signer recovered, no account
+  without a deposit). Submission ships the honest mock demo; the fill is
+  the only remaining step and needs a funded account.

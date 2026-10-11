@@ -159,12 +159,21 @@ export type PassEventDto = z.infer<typeof PassEventDto>;
 export const ExecutionPreviewRequest = z
   .object({
     passVersion: z.number().int().positive(),
-    accountId: Uuid,
+    /** Session-owned row (existing behaviour). Exactly one of the two. */
+    accountId: Uuid.optional(),
+    /** Wallet address for a signed-out Take (D-026). Exactly one of the two. */
+    accountAddress: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/, "accountAddress must be a 0x EVM address")
+      .optional(),
     positionSize: z.union([DecimalString, z.number().positive()]),
     leverage: z.union([DecimalString, z.number().positive()]).optional(),
     slippageToleranceBps: z.number().int().min(0).max(10_000).default(50),
   })
-  .strict();
+  .strict()
+  .refine((v) => (v.accountId ? !v.accountAddress : !!v.accountAddress), {
+    message: "Exactly one of accountId, accountAddress is required.",
+  });
 export type ExecutionPreviewRequest = z.infer<typeof ExecutionPreviewRequest>;
 
 export const ExecutionWarning = z.object({
@@ -179,6 +188,8 @@ export const ExecutionPreviewDto = z.object({
   asset: z.string(),
   direction: PassDirection,
   entryType: PassEntryType,
+  /** The resolved trading-account row (D-026: created user-less for anonymous Takes). */
+  accountId: Uuid,
   positionSize: DecimalString,
   leverage: DecimalString.nullable(),
   requestedEntry: DecimalString.nullable(),
@@ -208,11 +219,20 @@ export type SignedPayload = z.infer<typeof SignedPayload>;
 export const ExecutionRequest = z
   .object({
     passVersion: z.number().int().positive(),
-    accountId: Uuid,
+    /** Session-owned row (existing behaviour). Exactly one of the two. */
+    accountId: Uuid.optional(),
+    /** Wallet address for a signed-out Take (D-026). Exactly one of the two. */
+    accountAddress: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/, "accountAddress must be a 0x EVM address")
+      .optional(),
     clientRequestId: z.string().min(8).max(128),
     signedPayload: SignedPayload,
   })
-  .strict();
+  .strict()
+  .refine((v) => (v.accountId ? !v.accountAddress : !!v.accountAddress), {
+    message: "Exactly one of accountId, accountAddress is required.",
+  });
 export type ExecutionRequest = z.infer<typeof ExecutionRequest>;
 
 /** docs/API_CONTRACTS.md §8 response shape. */
@@ -220,6 +240,12 @@ export const ExecutionResponseDto = z.object({
   executionId: Uuid,
   providerOrderId: z.string(),
   status: z.string(),
+  /**
+   * True when the execution was simulated (HYPERLIQUID_MODE=mock). The client
+   * must render a "SIMULATED" marker inline with the provider order id;
+   * a simulated row is a demo, never a real trade.
+   */
+  simulated: z.boolean(),
 });
 export type ExecutionResponseDto = z.infer<typeof ExecutionResponseDto>;
 
@@ -237,6 +263,8 @@ export const ExecutionRecordDto = z.object({
   providerOrderId: z.string().nullable(),
   providerStatus: z.string(),
   status: PassStatus,
+  /** True when the execution was simulated in mock mode. Never a real trade. */
+  simulated: z.boolean(),
   openedAt: IsoDateTime.nullable(),
   closedAt: IsoDateTime.nullable(),
   realizedPnl: DecimalString.nullable(),

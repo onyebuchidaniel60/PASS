@@ -512,3 +512,31 @@ first and fall back to `public_id`. The canonical share URL is
 unchanged, ownership and idempotency checks are unchanged, and the
 public DTO still carries no internal id. Operator to ratify or replace
 with a dedicated resolution endpoint.
+
+## D-026 — Taker does not need a PASS account
+
+**Decision:** Taking a Pass requires a wallet signature, not a PASS
+session. A signed-out visitor can open a Pass, choose a size, and
+take the trade with their own wallet. Creating a Pass requires X
+sign-in; taking a Pass does not.
+
+**Rationale:**
+- The Taker's wallet signature is the authentication for their own
+  trade. There is no product value in requiring a second identity.
+- PRODUCT_PRD §6 (Taker persona) and §8.3 (Take flow) already
+  describe a Taker journey with no sign-in step. The current code
+  drifted.
+- UX_SPEC §8 begins at "choose size". No sign-in gate.
+- D-023 already removed wallet from identity. This is the matching
+  conclusion: identity (X) is for Traders, wallet is for Takers.
+
+**Consequences:**
+- trading_accounts.user_id becomes nullable — an anonymous wallet
+  may have a trading account row keyed only by address.
+- executions.taker_user_id becomes nullable.
+- Rate limiting for Take moves to per-wallet, not per-session.
+- GET /me/executions shows only executions for the signed-in user.
+  Anonymous executions remain visible on the Pass page.
+- If a signed-out Taker later signs in, their prior anonymous
+  executions do not retroactively attach to their account. Deferred
+  as a possible future feature.

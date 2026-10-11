@@ -80,6 +80,7 @@ export class HyperliquidExchangeClient {
       providerOrderId: providerOrderId ?? "",
       status: "open",
       rawStatus: parsed,
+      simulated: false,
     };
   }
 

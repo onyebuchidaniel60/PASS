@@ -73,8 +73,8 @@ describe("SplitHyperliquid mode matrix", () => {
   });
 });
 
-describe("SplitHyperliquid keeps execution unreachable in the split state", () => {
-  it("rejects an order instead of posting it", async () => {
+describe("SplitHyperliquid simulates execution in the split state", () => {
+  it("simulates a successful relay instead of posting it", async () => {
     const fetchMock = stubFetch();
     const hl = new SplitHyperliquid({
       infoUrl: INFO,
@@ -88,10 +88,9 @@ describe("SplitHyperliquid keeps execution unreachable in the split state", () =
       signature: { r: "0x0", s: "0x0", v: 27 },
     } as never);
 
-    expect(result.status).toBe("rejected");
-    expect(
-      String((result.rawStatus as Record<string, unknown> | undefined)?.reason ?? ""),
-    ).toMatch(/HYPERLIQUID_MODE=mock/);
+    expect(result.status).toBe("pending");
+    expect(result.providerOrderId.startsWith("mock_")).toBe(true);
+    expect(result.simulated).toBe(true);
     // The decisive assertion: nothing was sent anywhere.
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -113,6 +112,33 @@ describe("SplitHyperliquid keeps execution unreachable in the split state", () =
 
     expect(result.ok).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("live mode still attempts the real request path", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({ status: "ok", response: { type: "order", data: { statuses: [{ resting: { oid: 123 } }] } } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const hl = new SplitHyperliquid({
+      infoUrl: INFO,
+      exchangeUrl: EXCHANGE,
+      readsLive: true,
+      writesLive: true,
+    });
+
+    await hl.relaySignedAction({
+      exchangeRequest: {
+        action: { type: "order", orders: [], grouping: "na" },
+        nonce: Date.now(),
+      },
+      signature: { r: "0x0", s: "0x0", v: 27 },
+    } as never);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0] ?? "")).toContain("exchange");
   });
 });
 

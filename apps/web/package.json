@@ -11,6 +11,7 @@
     "verify": "playwright test e2e/verify-screens.spec.ts"
   },
   "dependencies": {
+    "@nktkas/hyperliquid": "^0.33.3",
     "@pass/contracts": "workspace:*",
     "@pass/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.7",

@@ -1,0 +1,61 @@
+# Hyperliquid direct-signature dry run — 2026-10-11
+
+Command (keys redacted; both values were throwaway test values supplied
+per-run, never persisted, never committed):
+
+```bash
+VERIFY_AGENT_KEY=<redacted-throwaway-0x-32-byte-key> \
+VERIFY_ACCOUNT_ADDRESS=<redacted-throwaway-0x-20-byte-address> \
+  node scripts/verify-live-signature.mjs
+```
+
+Script: `scripts/verify-live-signature.mjs` (Task 2 of the Stage F closure).
+Order built via the same `buildOrderAction` the Take flow signs; signed via
+the same L1 flow `signExchangeRequest("live", …)` uses; POSTed directly to
+`https://api.hyperliquid.xyz/exchange` as `{ action, nonce, signature }`.
+The PASS server was not involved.
+
+## Console output (verbatim except for the redacted env values)
+
+```text
+Account (master, for approval mapping): 0x1234567890123456789012345678901234567890
+Agent (signer): 0x2e988A386a799F506693793c6A5AF6b54dfAaBfB
+BTC mid (live): 82992.5
+Order: BTC long 0.00012 @ 82992.5 (~$10)
+Nonce: 1791699957089
+Signature: r=0xcad4a876… s=0x2c908c84… v=27
+
+--- Hyperliquid response (HTTP 200, verbatim) ---
+{"status":"err","response":"User or API Wallet 0x2e988a386a799f506693793c6a5af6b54dfaabfb does not exist."}
+--- end response ---
+
+RESULT: Hyperliquid reports the signer as unknown (never approved and/or never funded). Approve this agent from the master account first, then re-run: a balance rejection is the proof; an unknown-signer rejection is not.
+```
+
+Exit code: `1`.
+
+## What this proves
+
+- The order action shape was accepted far enough for Hyperliquid to
+  attempt signer recovery: the response names the recovered agent address
+  (`0x2e98…bfb`), which matches the key that signed. A malformed EIP-712
+  payload or a wrong signing domain fails before recovery with
+  `Unable to recover signer` — that is not what happened.
+- The L1 phantom-agent signing path (Exchange domain, chain 1337,
+  `signL1Action`) works end to end against mainnet from this codebase.
+- The request reached Hyperliquid's account lookup over the live
+  Exchange API. The lookup found no such user or agent.
+- The only missing piece is the deposit that creates the account on
+  Hyperliquid: an unfunded, never-approved throwaway wallet has no
+  on-chain record, so there is no balance to check yet. With the same
+  agent approved from a funded master account, the next rejection past
+  this point is the balance check — which is the acceptance proof for a
+  funded fill.
+
+## What this does not prove
+
+- The fill, the position, or the TP/SL legs. Those require a funded
+  account and remain unproven (see `docs/EXECUTION_READINESS.md`).
+- Anything about the PASS server relay beyond the shared signing code:
+  the relay was deliberately bypassed here. The relay proof awaits a
+  funded account (Stage F acceptance test).

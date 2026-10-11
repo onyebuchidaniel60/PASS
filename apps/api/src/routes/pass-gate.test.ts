@@ -168,18 +168,6 @@ describe("signed-out mutations are rejected", () => {
       url: "/api/v1/passes/00000000-0000-0000-0000-000000000000/cancel",
       body: {},
     },
-    {
-      name: "POST execution-preview",
-      method: "POST",
-      url: "/api/v1/passes/00000000-0000-0000-0000-000000000000/execution-preview",
-      body: {},
-    },
-    {
-      name: "POST executions",
-      method: "POST",
-      url: "/api/v1/passes/00000000-0000-0000-0000-000000000000/executions",
-      body: {},
-    },
     { name: "POST /profiles", method: "POST", url: "/api/v1/profiles", body: {} },
     { name: "PATCH /profiles/me", method: "PATCH", url: "/api/v1/profiles/me", body: {} },
     {
@@ -215,6 +203,28 @@ describe("signed-out mutations are rejected", () => {
     });
   }
 }, 180_000);
+
+describe("Take endpoints are session-optional (D-026)", () => {
+  it("signed-out malformed preview -> 400 INVALID_REQUEST, not 401", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/passes/00000000-0000-0000-0000-000000000000/execution-preview",
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+    expect(await code(res)).toBe("INVALID_REQUEST");
+  });
+
+  it("signed-out malformed executions -> 400 INVALID_REQUEST, not 401", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/passes/00000000-0000-0000-0000-000000000000/executions",
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+    expect(await code(res)).toBe("INVALID_REQUEST");
+  });
+});
 
 describe("Pass authoring requires an X identity, not just a session", () => {
   it("session without identity -> 409 IDENTITY_NOT_CONNECTED", async () => {

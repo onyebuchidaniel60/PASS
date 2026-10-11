@@ -94,13 +94,18 @@ export function buildTakeAction(params: {
 /** Exact POST body for /passes/{id}/executions. No `signedAction`. */
 export function executionBody(params: {
   passVersion: number;
-  accountId: string;
+  /** Owned row (signed-in path). Exactly one of the two (D-026). */
+  accountId?: string;
+  /** Wallet address (anonymous path). Exactly one of the two (D-026). */
+  accountAddress?: string;
   clientRequestId: string;
   signedPayload: { exchangeRequest: Record<string, unknown>; signature: Record<string, unknown> };
 }) {
   return {
     passVersion: params.passVersion,
-    accountId: params.accountId,
+    ...(params.accountId
+      ? { accountId: params.accountId }
+      : { accountAddress: params.accountAddress }),
     clientRequestId: params.clientRequestId,
     signedPayload: params.signedPayload,
   };

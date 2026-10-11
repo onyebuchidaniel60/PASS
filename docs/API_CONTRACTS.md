@@ -169,12 +169,22 @@ A user-cancelled wallet signature produces no request. A provider rejection retu
 
 ### POST `/passes/{id}/execution-preview`
 
-Request:
+Request (exactly one of `accountId`, `accountAddress`):
 
 ```json
 {
   "passVersion": 2,
   "accountId": "acct_123",
+  "positionSize": "250",
+  "leverage": "5",
+  "slippageToleranceBps": 50
+}
+```
+
+```json
+{
+  "passVersion": 2,
+  "accountAddress": "0x…",
   "positionSize": "250",
   "leverage": "5",
   "slippageToleranceBps": 50
@@ -192,7 +202,7 @@ Response must include:
 
 ### POST `/passes/{id}/executions`
 
-Request:
+Request (exactly one of `accountId`, `accountAddress`):
 
 ```json
 {
@@ -206,7 +216,28 @@ Request:
 }
 ```
 
+```json
+{
+  "passVersion": 2,
+  "accountAddress": "0x…",
+  "clientRequestId": "req_abc123",
+  "signedPayload": {
+    "exchangeRequest": {},
+    "signature": {}
+  }
+}
+```
+
 This is the **server-relay path** (see `docs/DECISIONS.md` D-018.3). The client signs the Hyperliquid action and submits the signed payload here; the server validates it and relays it to the Hyperliquid Exchange API. Server-relay is the only supported path in the MVP — the client must not submit directly to Hyperliquid.
+
+**Session is optional** (see `docs/DECISIONS.md` D-026). Taking a Pass
+requires a wallet signature, not a PASS session. The Taker is resolved
+from the request: `accountId` must name a trading account the session
+user owns (existing behaviour); `accountAddress` resolves the
+`(provider, account_address)` row by address alone, creating it with
+`user_id = null` on first anonymous use, and never reassigning an
+existing row. Anonymous executions are written with
+`taker_user_id = null`.
 
 `{id}` is the internal `passes.id` UUID. Authenticated mutations use the internal UUID; `passes.public_id` is for public reads only (D-018.4).
 
@@ -216,13 +247,19 @@ Response:
 {
   "executionId": "exec_123",
   "providerOrderId": "987654321",
-  "status": "pending"
+  "status": "pending",
+  "simulated": false
 }
 ```
 
+`simulated` is true when the relay was simulated (`HYPERLIQUID_MODE=mock`):
+the `providerOrderId` is a synthetic `mock_<uuid>`, no order left this
+deployment, and the client must render a "SIMULATED" marker inline with the
+order id. Live relays set `simulated: false`.
+
 The server performs these steps, in this order:
 
-1. authenticates the Taker;
+1. resolves the Taker — from the session-owned trading account when `accountId` is given, else from the wallet address when `accountAddress` is given (D-026);
 2. verifies the Pass exists and is active;
 3. verifies the Pass version in the request matches the current published version (or an explicitly allowed prior version);
 4. verifies the referenced trading account belongs to the Taker;
@@ -291,6 +328,11 @@ Apply rate limits at least to:
 - extension resolution endpoints.
 
 Do not over-rate-limit public Pass reads to the point that normal social sharing becomes unusable.
+
+Take endpoints (execution preview, execution submission) are limited
+per wallet address (D-026), not per session: 120 previews and 60
+submissions per address per minute. Excess returns `429
+PROVIDER_RATE_LIMITED`.
 
 ## 14. Stable error codes
 

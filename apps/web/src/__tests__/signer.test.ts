@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { generatePrivateKey } from "viem/accounts";
 
 import { buildExchangeRequest, signExchangeRequest } from "../lib/signer";
+import { persistAgentKey, forgetAgentKey } from "../lib/agent-keystore";
 
 /**
  * Signing boundary: mock envelopes are correctly shaped placeholders;
@@ -31,8 +33,22 @@ describe("signExchangeRequest", () => {
 
   it("live mode without an agent key throws; no request exists to send", async () => {
     // Fresh module state holds no key (nothing persisted it in this file).
+    await forgetAgentKey();
     await expect(signExchangeRequest("live", REQUEST())).rejects.toThrow(
       /No agent key/,
     );
+  });
+
+  it("live mode with an agent key produces an L1 { r, s, v } signature", async () => {
+    const key = generatePrivateKey();
+    await persistAgentKey(key, "0x0000000000000000000000000000000000000000", "0xtest", null);
+    const signed = await signExchangeRequest("live", REQUEST());
+    expect(Object.keys(signed).sort()).toEqual(["exchangeRequest", "signature"]);
+    expect(signed.signature).toMatchObject({ v: expect.any(Number) });
+    expect(signed.signature.r).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(signed.signature.s).toMatch(/^0x[0-9a-f]{64}$/);
+    expect([27, 28]).toContain(signed.signature.v);
+    expect((signed.signature as { mock?: boolean }).mock).toBeUndefined();
+    await forgetAgentKey();
   });
 });

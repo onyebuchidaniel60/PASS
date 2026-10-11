@@ -116,10 +116,18 @@ export function DemoBanner() {
         {demoed.map((s) => s.label.toLowerCase()).join(", ")}.
       </span>{" "}
       {/* Execution gets its own sentence regardless, because it is the surface
-          that would move money if it were live. */}
+          that would move money if it were live. Mock execution simulates
+          success with a clearly labelled SIMULATED receipt — no order leaves
+          this deployment. Funded execution is one environment flag away
+          (D-021: HYPERLIQUID_MODE=live with live reads). */}
       {surfaces.some((s) => s.key === "execution" && s.mode !== "live") ? (
         <span className="pass-demo-banner-note">
-          Orders cannot be placed in this deployment: taking a Pass is simulated.
+          Hyperliquid execution is simulated in this deployment.
+          {surfaces.some((s) => s.key === "reads" && s.mode === "live") ? (
+            <> Market data is live.</>
+          ) : null}{" "}
+          Orders are not placed. Funded execution is one environment flag
+          away.
         </span>
       ) : null}
     </div>

@@ -48,6 +48,11 @@ X post
   -> Execution confirmation
 ```
 
+The demo walk is the mock walk: every step above runs for real except the
+venue submission, which is simulated and shown with a SIMULATED label on
+the receipt and on the Executions page. The video keeps the label visible
+throughout — the honesty of the label is part of the demo.
+
 ## 5. Demo discipline
 
 Do not spend the pitch explaining every feature.
@@ -68,6 +73,36 @@ Do not fabricate traction, users, volume, performance, or reputation.
 
 Do not imply guaranteed returns.
 
+### Verification status (2026-10-11)
+
+Proven:
+
+- Order signing: the client's L1 order signature is parsed by Hyperliquid
+  mainnet and the signer is recovered (direct dry run reaches HL's
+  account lookup — see `docs/verification/hl-signature-2026-10-11.txt`).
+- Order schema: the bracket action built by `buildOrderAction`
+  (entry + reduce-only TP/SL, `grouping: "normalTpsl"`) is accepted by
+  Hyperliquid's validation past signature recovery.
+- Server relay: the signed payload travels client → PASS API → Hyperliquid
+  Exchange API unchanged (D-018.3), validated in mock with `mock_<uuid>`
+  receipts and idempotent `clientRequestId` handling.
+- Hyperliquid reachability: live Info API reads (mids, books, account
+  state) and live Exchange API responses verified from this codebase.
+- Account lookup: Hyperliquid resolves the recovered signer against its
+  account/agent records.
+
+Not proven (requires a funded Hyperliquid account):
+
+- The fill: no order has rested on or matched against the live book.
+- The position: nothing has been opened on Hyperliquid.
+- The TP/SL legs: the bracket exits have never triggered live.
+
+The submission claim is therefore: PASS executes the full Take pipeline
+up to Hyperliquid's own balance check; the fill is the only remaining
+step and it needs a funded account. Nothing in the demo implies funds
+moved — simulated executions are labelled SIMULATED in the UI, the
+database (`executions.simulated`), and these docs.
+
 ## 8. Submission assets checklist
 
 - project name;
@@ -76,7 +111,7 @@ Do not imply guaranteed returns.
 - blockchain/ecosystem selection;
 - GitHub repository;
 - live demo URL;
-- demo video;
+- demo video (mock walk, simulated execution clearly labelled);
 - pitch video if required;
 - logo/graphic;
 - team/background information;

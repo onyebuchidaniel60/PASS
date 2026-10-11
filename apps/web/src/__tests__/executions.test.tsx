@@ -202,10 +202,36 @@ describe("Executions (§10.9)", () => {
     render(<ExecutionsClient probe={authed} load={async () => [future]} />);
     expect(await screen.findByText("Nothing in this period")).toBeInTheDocument();
   });
+
+  it("banners the list and labels the row when an execution is simulated", async () => {
+    const sim: Execution = {
+      ...EXEC,
+      id: "e-sim",
+      providerOrderId: "mock_11111111-2222-3333-4444-555555555555",
+      simulated: true,
+      createdAt: ago(10),
+    };
+    render(<ExecutionsClient probe={authed} load={async () => [EXEC, sim]} />);
+    expect(
+      await screen.findByText(
+        /Some executions below are simulated for demo purposes/,
+      ),
+    ).toBeInTheDocument();
+    // Inline in the row, not in a tooltip: the status cell carries it.
+    expect((await screen.findAllByText(/SIMULATED/)).length).toBeGreaterThan(0);
+  });
+
+  it("shows no banner and no label when every execution is live", async () => {
+    render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);
+    await screen.findAllByTestId("data-table");
+    expect(
+      screen.queryByText(/Some executions below are simulated/),
+    ).toBeNull();
+    expect(screen.queryByText(/SIMULATED/)).toBeNull();
+  });
 });
 
-describe("Executions — single-state rule (D-023, X-only)", () => {
-  it("hides the history and shows the CTA when X is disconnected", async () => {
+describe("Executions — single-state rule (D-023, X-only)", () => {  it("hides the history and shows the CTA when X is disconnected", async () => {
     mockMeGet.mockResolvedValue(ME_OFF);
     render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);
     expect(

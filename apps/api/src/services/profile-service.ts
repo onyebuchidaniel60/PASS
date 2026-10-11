@@ -317,6 +317,95 @@ export async function recordAgentApproval(
 }
 
 /**
+ * D-026: resolve a trading account by wallet address alone, creating it with
+ * `user_id = null` on first anonymous use. An existing row is NEVER
+ * reassigned: whatever `user_id` it carries (null or another user) is left
+ * exactly as-is and the row is returned as the execution target.
+ */
+export async function resolveTradingAccountByAddress(
+  ctx: AppContext,
+  accountAddress: string,
+): Promise<{
+  id: string;
+  accountAddress: string;
+  agentAddress: string | null;
+  userId: string | null;
+}> {
+  const addr = accountAddress.trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(addr)) {
+    throw new AppError("INVALID_REQUEST", "That is not a valid EVM address.");
+  }
+  const found = await ctx.db
+    .select({
+      id: tradingAccounts.id,
+      accountAddress: tradingAccounts.accountAddress,
+      agentAddress: tradingAccounts.agentAddress,
+      userId: tradingAccounts.userId,
+    })
+    .from(tradingAccounts)
+    .where(
+      and(
+        eq(tradingAccounts.provider, "hyperliquid"),
+        eq(tradingAccounts.accountAddress, addr),
+      ),
+    )
+    .limit(1);
+  if (found[0]) return found[0];
+  const inserted = await ctx.db
+    .insert(tradingAccounts)
+    .values({
+      userId: null,
+      provider: "hyperliquid",
+      accountAddress: addr,
+      isPrimary: false,
+    })
+    .onConflictDoNothing({
+      target: [tradingAccounts.provider, tradingAccounts.accountAddress],
+    })
+    .returning();
+  const row = inserted[0];
+  if (row) {
+    return {
+      id: row.id,
+      accountAddress: row.accountAddress,
+      agentAddress: row.agentAddress,
+      userId: row.userId,
+    };
+  }
+  // Lost a creation race with a concurrent first take: re-read the winner.
+  const retry = await ctx.db
+    .select({
+      id: tradingAccounts.id,
+      accountAddress: tradingAccounts.accountAddress,
+      agentAddress: tradingAccounts.agentAddress,
+      userId: tradingAccounts.userId,
+    })
+    .from(tradingAccounts)
+    .where(
+      and(
+        eq(tradingAccounts.provider, "hyperliquid"),
+        eq(tradingAccounts.accountAddress, addr),
+      ),
+    )
+    .limit(1);
+  const winner = retry[0];
+  if (!winner) throw new AppError("INTERNAL_ERROR", "Trading account resolve failed.");
+  return winner;
+}
+
+/** D-026: record approval on a row by id (anonymous rows have no user scope). */
+export async function recordAgentApprovalById(
+  ctx: AppContext,
+  accountId: string,
+  agentAddress: string,
+): Promise<void> {
+  await ctx.db
+    .update(tradingAccounts)
+    .set({ agentAddress: agentAddress.toLowerCase(), agentApprovedAt: new Date() })
+    .where(eq(tradingAccounts.id, accountId));
+}
+
+/**
  * Resolves Ethos reputation for the user's own linked identity and caches it.
  * D-018.7: refresh operates only on the caller's own identity.
  */

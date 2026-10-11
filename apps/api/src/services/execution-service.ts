@@ -1,10 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
+import { checkTakeRateLimit } from "../take-limiter.js";
 import { aggregatePassPerformance, sideFor, toDecimalStringSafe } from "./helpers.js";
 import { isStaleVersion } from "@pass/domain";
 import { executions, passEvents, tradingAccounts, type PassRow } from "@pass/db";
 import { getPassById, getPassVersion } from "./pass-service.js";
+import { resolveTradingAccountByAddress } from "./profile-service.js";
 import type {
   ExecutionPreviewRequest,
   ExecutionRequest,
@@ -45,6 +47,34 @@ export async function resolvePassForExecution(
   return getPassByPublicId(ctx, idOrPublicId);
 }
 
+/**
+ * D-026 account resolution for the Take path (preview + executions).
+ *
+ * - `accountId` keeps the existing behaviour: it names a session-owned row,
+ *   so a session is required and ownership is verified server-side
+ *   (docs/SECURITY_SPEC.md §10).
+ * - `accountAddress` resolves the `(provider, account_address)` row by
+ *   address alone, creating it with `user_id = null` on first anonymous
+ *   use. An existing row is never reassigned. When a session is present
+ *   and the row belongs to another user, the request is refused rather
+ *   than silently borrowing their row.
+ */
+async function resolveExecutionAccount(
+  ctx: AppContext,
+  takerId: string | null,
+  input: { accountId?: string; accountAddress?: string },
+): Promise<{ id: string; accountAddress: string; agentAddress: string | null }> {
+  if (input.accountId) {
+    if (!takerId) throw new AppError("AUTH_REQUIRED");
+    return assertAccountOwnership(ctx, input.accountId, takerId);
+  }
+  const row = await resolveTradingAccountByAddress(ctx, input.accountAddress ?? "");
+  if (row.userId !== null && takerId !== null && row.userId !== takerId) {
+    throw new AppError("FORBIDDEN", "That trading account is not yours.");
+  }
+  return { id: row.id, accountAddress: row.accountAddress, agentAddress: row.agentAddress };
+}
+
 function assertAccountOwnership(
   ctx: AppContext,
   accountId: string,
@@ -75,7 +105,7 @@ function assertAccountOwnership(
 export async function buildExecutionPreview(
   ctx: AppContext,
   passId: string,
-  takerId: string,
+  takerId: string | null,
   input: ExecutionPreviewRequest,
 ): Promise<ExecutionPreviewDto> {
   const pass = await resolvePassForExecution(ctx, passId);
@@ -83,14 +113,15 @@ export async function buildExecutionPreview(
   if (pass.status !== "active" && pass.status !== "entry_pending") {
     throw new AppError("PASS_NOT_ACTIVE", `This Pass is ${pass.status}.`);
   }
-  if (pass.traderId === takerId) {
+  if (takerId !== null && pass.traderId === takerId) {
     throw new AppError(
       "FORBIDDEN",
       "You cannot take your own Pass. Publish it and let another Trader take it.",
     );
   }
 
-  await assertAccountOwnership(ctx, input.accountId, takerId);
+  const account = await resolveExecutionAccount(ctx, takerId, input);
+  checkTakeRateLimit("preview", account.accountAddress);
 
   const positionSize = toDecimalStringSafe(input.positionSize);
   if (Number(positionSize) <= 0) {
@@ -170,6 +201,7 @@ export async function buildExecutionPreview(
     asset: pass.asset,
     direction: pass.direction,
     entryType: pass.entryType,
+    accountId: account.id,
     positionSize,
     leverage,
     requestedEntry: snapshot.entryPrice,
@@ -192,9 +224,9 @@ export async function buildExecutionPreview(
 export async function relayExecution(
   ctx: AppContext,
   passId: string,
-  takerId: string,
+  takerId: string | null,
   input: ExecutionRequest,
-): Promise<{ executionId: string; providerOrderId: string; status: string }> {
+): Promise<{ executionId: string; providerOrderId: string; status: string; simulated: boolean }> {
   // Step 5 is checked first as a cheap idempotency guard, then re-checked at
   // its documented position. This never changes observable behaviour: a
   // duplicate returns the original record instead of submitting a second order.
@@ -204,12 +236,16 @@ export async function relayExecution(
       executionId: existing.id,
       providerOrderId: existing.providerOrderId ?? "",
       status: existing.providerStatus,
+      simulated: (existing as { simulated?: boolean }).simulated ?? false,
     };
   }
 
-  // 1. authenticate the Taker (done by the route; asserted here).
-  if (!takerId) throw new AppError("AUTH_REQUIRED");
-
+  // 1. resolve the Taker (D-026): the session-owned row for `accountId`,
+  // or the wallet address for `accountAddress`. No session is required;
+  // the wallet signature on the relayed payload is the authentication.
+  // (Live verification stays where it is: Hyperliquid verifies the L1
+  // signature on relay, exactly as before. The server holds no signing
+  // secrets and recovers no signers.)
   // 2. verify the Pass exists and is active.
   const pass: PassRow = await resolvePassForExecution(ctx, passId);
   if (pass.status !== "active" && pass.status !== "entry_pending") {
@@ -231,8 +267,11 @@ export async function relayExecution(
     );
   }
 
-  // 4. verify the referenced trading account belongs to the Taker.
-  const account = await assertAccountOwnership(ctx, input.accountId, takerId);
+  // 4. resolve the trading account: owned row for `accountId`, or the
+  // address-keyed row (created user-less on first anonymous use) for
+  // `accountAddress`. An existing row is never reassigned.
+  const account = await resolveExecutionAccount(ctx, takerId, input);
+  checkTakeRateLimit("execution", account.accountAddress);
 
   // 5. verify the clientRequestId has not been seen before.
   const dup = await findByClientRequestId(ctx, input.clientRequestId);
@@ -241,6 +280,7 @@ export async function relayExecution(
       executionId: dup.id,
       providerOrderId: dup.providerOrderId ?? "",
       status: dup.providerStatus,
+      simulated: (dup as { simulated?: boolean }).simulated ?? false,
     };
   }
 
@@ -267,12 +307,15 @@ export async function relayExecution(
   }
 
   /**
-   * A relay can come back REJECTED without throwing — `SplitHyperliquid` does
-   * exactly that when writes are gated off, and Hyperliquid itself answers 200
-   * with a rejection status for some order errors. Only the `catch` above was
-   * handled, so a rejected order would have been inserted as a real execution
-   * row with an empty provider_order_id. A Take must never be recorded as
-   * filled when the venue refused it.
+   * A relay can come back REJECTED without throwing — Hyperliquid itself
+   * answers 200 with a rejection status for some order errors. Only the
+   * `catch` above was handled, so a rejected order would have been inserted
+   * as a real execution row with an empty provider_order_id. A Take must
+   * never be recorded as filled when the venue refused it.
+   *
+   * Simulated relays (mock mode) return `mock_<uuid>` / `pending` /
+   * `simulated: true` with no network call. They are synthetic success and
+   * must be recorded with `simulated: true`, never confused with a live fill.
    */
   if (!relayed.providerOrderId || /reject|error|fail/i.test(relayed.status)) {
     ctx.log.warn("hyperliquid relay returned a rejection", {
@@ -288,6 +331,9 @@ export async function relayExecution(
     );
   }
 
+  const simulated =
+    relayed.simulated === true || relayed.providerOrderId.startsWith("mock_");
+
   // 7. record the provider_order_id and the execution row.
   const inserted = await ctx.db
     .insert(executions)
@@ -299,6 +345,7 @@ export async function relayExecution(
       clientRequestId: input.clientRequestId,
       providerOrderId: relayed.providerOrderId,
       providerStatus: relayed.status,
+      simulated,
       side: sideFor(pass.direction),
       positionSize: toDecimalStringSafe(
         (input.signedPayload.exchangeRequest as { sz?: number | string } | undefined)?.sz ?? "0",
@@ -326,8 +373,12 @@ export async function relayExecution(
     },
   });
 
-  // 8. reconcile status via the Info API.
-  await reconcileExecution(ctx, row.id, relayed.providerOrderId);
+  // 8. reconcile status via the Info API. Simulated rows skip the live
+  // lookup: a `mock_` id is not a real oid, and mock mode must never make
+  // a network call to Hyperliquid.
+  if (!simulated) {
+    await reconcileExecution(ctx, row.id, relayed.providerOrderId);
+  }
 
   const fresh = await ctx.db
     .select()
@@ -339,6 +390,7 @@ export async function relayExecution(
     executionId: row.id,
     providerOrderId: relayed.providerOrderId,
     status: fresh[0]?.providerStatus ?? relayed.status,
+    simulated,
   };
 }
 
