@@ -90,6 +90,11 @@ Proven:
   state) and live Exchange API responses verified from this codebase.
 - Account lookup: Hyperliquid resolves the recovered signer against its
   account/agent records.
+- Stage G performance aggregation runs end to end over simulated
+  execution data: deterministic bracket-leg closes, Pass lifecycle
+  transitions with event rows, trader metrics with a `simulated` flag,
+  and profile/Pass surfaces that label the data source. The same code
+  path will compute over real executions.
 
 Not proven (requires a funded Hyperliquid account):
 

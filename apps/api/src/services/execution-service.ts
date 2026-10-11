@@ -336,6 +336,14 @@ export async function relayExecution(
     relayed.simulated === true || relayed.providerOrderId.startsWith("mock_");
 
   // 7. record the provider_order_id and the execution row.
+  // positionSize is the base size the Taker signed: the entry leg of the
+  // bracket action. Older mock fixtures carry a top-level `sz` instead,
+  // which is honored as a fallback so their history keeps its meaning.
+  const signedReq = input.signedPayload.exchangeRequest as {
+    sz?: number | string;
+    action?: { orders?: Array<{ s?: number | string }> };
+  };
+  const signedBaseSize = signedReq?.action?.orders?.[0]?.s ?? signedReq?.sz ?? "0";
   const inserted = await ctx.db
     .insert(executions)
     .values({
@@ -348,9 +356,7 @@ export async function relayExecution(
       providerStatus: relayed.status,
       simulated,
       side: sideFor(pass.direction),
-      positionSize: toDecimalStringSafe(
-        (input.signedPayload.exchangeRequest as { sz?: number | string } | undefined)?.sz ?? "0",
-      ),
+      positionSize: toDecimalStringSafe(signedBaseSize),
       leverage: snapshot.leverage,
       requestedEntry: snapshot.entryPrice,
       stopLoss: snapshot.stopLoss,

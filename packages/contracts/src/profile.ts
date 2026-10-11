@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IsoDateTime, PublicId, Slug, Uuid } from "./common.js";
+import { DecimalString, IsoDateTime, PublicId, Slug, Uuid } from "./common.js";
 import { PassPerformance, ReputationContext } from "./pass.js";
 
 export const CreateProfileRequest = z
@@ -89,6 +89,26 @@ export const TradingAccountDto = z.object({
   isPrimary: z.boolean(),
 });
 export type TradingAccountDto = z.infer<typeof TradingAccountDto>;
+
+/**
+ * Stage G: trader-level PASS performance (docs/IMPLEMENTATION_PLAN.md).
+ * Computed by the same aggregation over simulated rows today and real
+ * rows later. `simulated` labels the data source: true when every
+ * contributing execution is simulated, false when any is real, null
+ * when the trader has no executions yet. Never merged with reputation.
+ */
+export const TraderPerformanceDto = z.object({
+  slug: z.string(),
+  publishedPasses: z.number().int().nonnegative(),
+  completedPasses: z.number().int().nonnegative(),
+  passSuccessMetric: z.number().nullable(),
+  successMetricWindow: z.literal("all time"),
+  averageRMultiple: z.number().nullable(),
+  totalRealizedPnl: DecimalString.nullable(),
+  simulated: z.boolean().nullable(),
+  updatedAt: IsoDateTime,
+});
+export type TraderPerformanceDto = z.infer<typeof TraderPerformanceDto>;
 
 /** Resolution outcome for an address the user typed. Never holds a key. */
 export const AgentApprovalDto = z.object({

@@ -101,7 +101,7 @@ is complete. See `docs/EXECUTION_READINESS.md`.
 | D — Public experience | Met | |
 | E — Hyperliquid reads | Met | `hyperliquidReads: live` |
 | F — Hyperliquid execution | Code-complete; funded fill pending | Signing, order schema, and server relay proven against HL mainnet up to the balance check (see `docs/verification/hl-signature-2026-10-11.txt`); mock Take flow ships with SIMULATED labelling. No funded fill yet — operator cannot deposit before the deadline |
-| G — Performance and lifecycle | Blocked by F | |
+| G — Performance and lifecycle | Met over simulated executions; real aggregation pending funding | Simulated rows close on bracket legs via the live mid, first close flips the Pass + writes the event, trader aggregation/profile/timeline live with SIMULATED labelling |
 | H — X distribution | Met | |
 | I — Chrome extension | Met | |
 | J — Deployment | Partial | Deployed, but execution leg blocked by F |
@@ -246,6 +246,16 @@ These are known and accepted. They are not blockers for the hackathon.
    pre-fallback build, and every Take preview 500'd with `invalid
    input syntax for type uuid` until the API was redeployed. Verify
    the Railway deployment list after every API change.
+9. **Stage G metrics are computed from simulated executions until a
+   funded account lands.** The aggregation code is simulation-blind by
+   design; every contributing row today carries `simulated: true` and
+   the UI says so.
+10. **Pre-`mock_` legacy execution rows stay open.** Rows created before
+    the synthetic `mock_<uuid>` ids carry `simulated: false` (migration
+    default) and numeric provider ids, so the reconciler keeps them on
+    the Hyperliquid lookup path (422s in the logs). They are
+    indistinguishable by SQL from a hypothetical real row, so no
+    backfill was applied; fresh Takes close cleanly.
 
 ## 9. Definition of done (unchanged)
 
@@ -354,3 +364,11 @@ If any step fails, stop. Do not bundle a second fix.
   0x… does not exist` — signature parsed, signer recovered, no account
   without a deposit). Submission ships the honest mock demo; the fill is
   the only remaining step and needs a funded account.
+- **2026-10-11** — Stage G met over simulated executions. The reconciler
+  closes simulated rows on bracket legs against the live mid (fees `"0"`,
+  PnL from size × signed move), the first close flips the Pass and writes
+  the event, and `GET /api/v1/profiles/:slug/performance` aggregates with
+  a `simulated` flag wired through the profile and Pass pages. Verified
+  live in production with a fresh mock Take (sl_hit close, Pass flipped,
+  `simulated: true` metrics). Pre-`mock_` legacy rows stay open (residual
+  10).

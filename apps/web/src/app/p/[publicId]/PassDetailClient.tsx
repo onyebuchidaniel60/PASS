@@ -190,6 +190,13 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | undefined>();
   const [missing, setMissing] = useState(false);
+  /**
+   * Pass history for the activity timeline (Stage G). Supplementary
+   * context like the market card: a failure degrades to no timeline,
+   * never to an error screen. Event types come from the API verbatim —
+   * the client invents none.
+   */
+  const [events, setEvents] = useState<Array<{ eventType: string; eventAt: string }>>([]);
   /** The version this client actually reviewed. §10.7 stale detection. */
   const [reviewed, setReviewed] = useState<number | null>(null);
   const [stale, setStale] = useState(false);
@@ -198,10 +205,19 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
     setState("loading");
     setError(undefined);
     setMissing(false);
+    setEvents([]);
     try {
       const p = await clientGet<PassDetail>(`/api/v1/passes/${publicId}`);
       setData(p);
       setReviewed(p.version);
+      try {
+        const history = await clientGet<{ events?: Array<{ eventType: string; eventAt: string }> }>(
+          `/api/v1/passes/${publicId}/events`,
+        );
+        setEvents(Array.isArray(history.events) ? history.events.slice(0, 10) : []);
+      } catch {
+        setEvents([]);
+      }
       setState("ready");
     } catch (e) {
       // A 404 and an unreachable API are DIFFERENT situations. The previous
@@ -514,6 +530,25 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                   <MetricCard label="TP hit" value={fmt(data.performance.tpHitCount)} />
                   <MetricCard label="SL hit" value={fmt(data.performance.slHitCount)} />
                 </MetricCardRow>
+              </Stack>
+            </Section>
+          ) : null}
+
+          {/* Stage G activity timeline. No timeline primitive exists, so this
+              composes the existing Section + Stack + Timestamp with the
+              event-type words the API returns verbatim — composition, not a
+              new primitive, and deliberately NOT a NumberedEyebrow: the
+              01–06 section numbering is pinned by test and this list sits
+              outside it. */}
+          {events.length > 0 ? (
+            <Section label="Activity">
+              <Stack gap="2">
+                {events.map((e) => (
+                  <Inline key={`${e.eventType}-${e.eventAt}`} gap="3">
+                    <Timestamp value={e.eventAt} />
+                    <span className="pass-stale">{e.eventType.replace(/_/g, " ")}</span>
+                  </Inline>
+                ))}
               </Stack>
             </Section>
           ) : null}

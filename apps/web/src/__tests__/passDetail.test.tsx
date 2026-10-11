@@ -530,3 +530,62 @@ describe("Pass detail — terminal states offer no Take action (Stage C)", () =>
     );
   });
 });
+
+describe("Pass activity timeline (Stage G)", () => {
+  const EVENTS = [
+    { id: "e1", passVersion: 1, eventType: "published", eventAt: "2026-10-10T10:00:00.000Z", metadata: null },
+    { id: "e2", passVersion: 1, eventType: "execution_recorded", eventAt: "2026-10-10T11:00:00.000Z", metadata: null },
+    { id: "e3", passVersion: 1, eventType: "tp_hit", eventAt: "2026-10-10T12:00:00.000Z", metadata: null },
+  ];
+
+  function renderWithEvents(
+    pass: Record<string, unknown> = {},
+    events: unknown = EVENTS,
+  ) {
+    mockGet.mockImplementation((url?: unknown) =>
+      Promise.resolve(
+        typeof url === "string" && url.endsWith("/events")
+          ? { events }
+          : { ...PASS, ...pass },
+      ),
+    );
+    return render(<PassDetailClient publicId="UvvuxpWPZ4" />);
+  }
+
+  it("renders the event history in the API's own vocabulary", async () => {
+    renderWithEvents();
+    await screen.findByRole("heading", { level: 1 });
+    // Underscores become spaces (the status-label convention); no type is
+    // invented client-side.
+    expect(screen.getByText("published")).toBeInTheDocument();
+    expect(screen.getByText("execution recorded")).toBeInTheDocument();
+    expect(screen.getByText("tp hit")).toBeInTheDocument();
+  });
+
+  it("shows a terminal outcome in the status block with no Take action", async () => {
+    renderWithEvents({ status: "tp_hit" });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getAllByText("TP Hit").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Take Pass" })).toBeNull();
+    expect(screen.getByText(/cannot be taken/)).toBeInTheDocument();
+  });
+
+  it("omits the timeline when history is unavailable, without failing the page", async () => {
+    mockGet.mockImplementation((url?: unknown) => {
+      if (typeof url === "string" && url.endsWith("/events")) {
+        // Same no-op-catch discipline as the Take flow's rejection helper:
+        // an unobserved rejection fails the runner before the component's
+        // own catch can record it.
+        const p: Promise<unknown> = Promise.reject(new Error("history down"));
+        p.catch(() => {});
+        return p;
+      }
+      return Promise.resolve(PASS);
+    });
+    render(<PassDetailClient publicId="UvvuxpWPZ4" />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("published")).toBeNull();
+    // The Pass itself still reads.
+    expect(screen.getByText(/reclaiming the 113.4k range top/)).toBeInTheDocument();
+  });
+});

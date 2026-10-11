@@ -152,6 +152,16 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
     return { passes: rows.map((r) => passToSummary(r as unknown as Record<string, unknown>)) };
   });
 
+  /**
+   * Stage G: trader-level PASS performance aggregation. PASS-owned
+   * figures only (D-014); the `simulated` flag tells the UI whether the
+   * contributing executions are simulated, real, or absent.
+   */
+  app.get<{ Params: { slug: string } }>("/api/v1/profiles/:slug/performance", async (req) => {
+    const { traderPerformance } = await import("../services/performance.js");
+    return traderPerformance(ctx, req.params.slug);
+  });
+
   app.get<{ Params: { publicId: string } }>(
     "/api/v1/passes/:publicId/events",
     async (req) => {

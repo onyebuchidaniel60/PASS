@@ -86,6 +86,38 @@ interface PassSummary {
   stopLoss?: string;
 }
 
+/**
+ * Stage G trader performance (`GET /api/v1/profiles/:slug/performance`).
+ * Accepted only in the DTO shape — anything else (including a legacy
+ * payload echoed back by a stub) degrades to the legacy counts UI rather
+ * than rendering a half figure.
+ */
+interface TraderPerformance {
+  slug: string;
+  publishedPasses: number;
+  completedPasses: number;
+  passSuccessMetric: number | null;
+  successMetricWindow: string;
+  averageRMultiple: number | null;
+  totalRealizedPnl: string | null;
+  simulated: boolean | null;
+}
+
+function isTraderPerformance(v: unknown): v is TraderPerformance {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.publishedPasses === "number" &&
+    (typeof o.simulated === "boolean" || o.simulated === null)
+  );
+}
+
+function numOrUndef(v: string | number | null | undefined): number | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function fmt(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";
   const [w, f] = String(v).split(".");
@@ -113,12 +145,14 @@ function toneFor(status: string): StatusTone {
 export function TraderProfileClient({ slug }: { slug: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [passes, setPasses] = useState<PassSummary[]>([]);
+  const [perf, setPerf] = useState<TraderPerformance | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | undefined>();
 
   const load = useCallback(async () => {
     setState("loading");
     setError(undefined);
+    setPerf(null);
     try {
       const p = await clientGet<Profile>(`/api/v1/profiles/${slug}`);
       setProfile(p);
@@ -134,6 +168,16 @@ export function TraderProfileClient({ slug }: { slug: string }) {
         // The Pass list is supplementary context. A failure to load it must not
         // take the identity surface down with it, so it degrades to empty.
         setPasses([]);
+      }
+      try {
+        // Stage G metrics. Supplementary like the Pass list: a failure (or
+        // an unexpected shape) keeps the legacy counts UI, never a crash.
+        const raw = await clientGet<unknown>(
+          `/api/v1/profiles/${encodeURIComponent(slug)}/performance`,
+        );
+        setPerf(isTraderPerformance(raw) ? raw : null);
+      } catch {
+        setPerf(null);
       }
       setState("ready");
     } catch (e) {
@@ -304,18 +348,36 @@ export function TraderProfileClient({ slug }: { slug: string }) {
           {/* ── §14.4 PASS performance card ──────────────────────────
               PASS-owned counters only. Nothing here is derived from the
               trader's account, because a Taker's own fills are their own
-              business (PRD §13). */}
+              business (PRD §13). Stage G figures (success, average R,
+              realized) render only when the performance route computed
+              them; otherwise the omission note below stands. */}
           <Panel className="pass-data-card">
             <PerformanceBlock
               publishedPassCount={profile.publishedPassCount}
               completedPassCount={profile.completedPassCount}
               activePassCount={profile.activePassCount}
+              successMetricPct={perf?.passSuccessMetric ?? undefined}
+              averageRMultiple={perf?.averageRMultiple ?? undefined}
+              totalRealizedPnl={numOrUndef(perf?.totalRealizedPnl)}
             />
-            <p className="pass-stale">
-              Win rate, average R and TP-hit rate are not reported by the PASS
-              API for this account yet, so they are omitted rather than
-              estimated.
-            </p>
+            {perf ? (
+              <>
+                {perf.simulated === true ? (
+                  <p className="pass-stale">
+                    Performance computed from simulated executions.
+                  </p>
+                ) : null}
+                {perf.simulated === null ? (
+                  <p className="pass-stale">No completed Passes yet.</p>
+                ) : null}
+              </>
+            ) : (
+              <p className="pass-stale">
+                Win rate, average R and TP-hit rate are not reported by the PASS
+                API for this account yet, so they are omitted rather than
+                estimated.
+              </p>
+            )}
           </Panel>
 
           {/* ── §14.4 Active Passes ──────────────────────────────────

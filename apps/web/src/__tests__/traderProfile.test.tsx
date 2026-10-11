@@ -362,6 +362,72 @@ const DISCONNECTED = {
   ],
 };
 
+describe("Stage G performance over simulated executions", () => {
+  const PERF = {
+    slug: "turnttfup99",
+    publishedPasses: 2,
+    completedPasses: 2,
+    passSuccessMetric: 50,
+    successMetricWindow: "all time",
+    averageRMultiple: 0.37,
+    totalRealizedPnl: "0",
+    simulated: true,
+    updatedAt: "2026-10-11T10:00:00.000Z",
+  };
+
+  async function renderWithPerf(perf: unknown) {
+    mockGet.mockImplementation((url?: unknown) => {
+      const u = String(url ?? "");
+      if (u.endsWith("/performance")) return Promise.resolve(perf);
+      if (u.includes("/passes")) return Promise.resolve({ passes: [] });
+      return Promise.resolve(PROFILE);
+    });
+    let result!: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(<TraderProfileClient slug="turnttfup99" />);
+    });
+    return result;
+  }
+
+  it("renders computed figures with the simulated note", async () => {
+    await renderWithPerf(PERF);
+    await waitFor(() => expect(screen.getByText("50%")).toBeInTheDocument());
+    expect(screen.getByText("0.37R")).toBeInTheDocument();
+    expect(screen.getByText("Realized (completed Passes)")).toBeInTheDocument();
+    expect(
+      screen.getByText("Performance computed from simulated executions."),
+    ).toBeInTheDocument();
+    // The legacy omission note stands down once figures exist.
+    expect(screen.queryByText(/not reported by the PASS API/i)).toBeNull();
+  });
+
+  it("shows the empty state with no executions and no crash", async () => {
+    await renderWithPerf({
+      ...PERF,
+      publishedPasses: 1,
+      completedPasses: 0,
+      passSuccessMetric: null,
+      averageRMultiple: null,
+      totalRealizedPnl: null,
+      simulated: null,
+    });
+    await waitFor(() =>
+      expect(screen.getByText("No completed Passes yet.")).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText("Performance computed from simulated executions."),
+    ).toBeNull();
+  });
+
+  it("renders no simulated note when every execution is real", async () => {
+    await renderWithPerf({ ...PERF, simulated: false });
+    await waitFor(() => expect(screen.getByText("50%")).toBeInTheDocument());
+    expect(
+      screen.queryByText("Performance computed from simulated executions."),
+    ).toBeNull();
+  });
+});
+
 describe("Trader profile — disconnected author (single-state rule)", () => {
   it("hides handle link, address and reputation but keeps everything published", async () => {
     await renderProfile(

@@ -266,6 +266,10 @@ export interface PerformanceProps {
   slHitCount?: number;
   /** Realized PnL across COMPLETED passes only. Never merged with account PnL. */
   totalRealizedPnl?: number | null;
+  /** TP / completed, all time. Rendered only when the API computed it. */
+  successMetricPct?: number | null;
+  /** Mean realized-PnL-over-risk across closed executions. Null when none. */
+  averageRMultiple?: number | null;
 }
 
 /**
@@ -294,6 +298,12 @@ export function PerformanceBlock(props: PerformanceProps) {
         ) : null}
         {props.totalRealizedPnl !== undefined ? (
           <StatBlock label="Realized (completed Passes)" value={<Pnl value={props.totalRealizedPnl} />} />
+        ) : null}
+        {props.successMetricPct !== undefined && props.successMetricPct !== null ? (
+          <StatBlock label="Success" value={`${props.successMetricPct}%`} caption="TP / completed · All time" />
+        ) : null}
+        {props.averageRMultiple !== undefined && props.averageRMultiple !== null ? (
+          <StatBlock label="Average R" value={`${props.averageRMultiple}R`} caption="Closed executions" />
         ) : null}
       </div>
     </section>

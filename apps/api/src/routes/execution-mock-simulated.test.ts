@@ -231,4 +231,37 @@ describe("mock execution relay simulates success", () => {
     expect(second.json().providerOrderId).toBe(first.json().providerOrderId);
     expect(second.json().simulated).toBe(true);
   });
+
+  it("records the signed entry-leg base size, not zero (Stage G PnL input)", async () => {
+    // The real client sends exchangeRequest { action, nonce } with no
+    // top-level sz; the row must carry action.orders[0].s or every
+    // realized-PnL computation multiplies by zero.
+    const { publicId } = await traderWithPass();
+    const { cookie, accountId } = await takerWithAccount();
+    const clientRequestId = `req_mocksz_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/passes/${publicId}/executions`,
+      headers: { cookie, "content-type": "application/json" },
+      payload: {
+        passVersion: 1,
+        accountId,
+        clientRequestId,
+        signedPayload: {
+          exchangeRequest: {
+            action: { type: "order", orders: [{ a: 0, b: true, p: "113400", s: "0.01102", r: false }], grouping: "na" },
+            nonce: Date.now(),
+          },
+          signature: { mock: true },
+        },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(executions)
+      .where(eq(executions.clientRequestId, clientRequestId))
+      .limit(1);
+    expect(rows[0]!.positionSize).toBe("0.01102");
+  });
 });
