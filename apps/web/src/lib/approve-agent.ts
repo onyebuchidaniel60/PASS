@@ -9,16 +9,61 @@ import {
   APPROVE_AGENT_PRIMARY_TYPE,
   APPROVE_AGENT_TYPES,
   HL_DOMAIN,
-  buildApproveAgentAction,
   nowNonce,
+  type HLChain,
 } from "./hyperliquid";
+
+/**
+ * The exact EIP-712 payload the master wallet signs for agent approval.
+ *
+ * Shape verified against the official Python SDK (`sign_agent`) and the
+ * nktkas TS SDK (`ApproveAgentTypes`): the types object carries the
+ * primary type's own entry plus EIP712Domain, and the message carries
+ * exactly those four fields with `agentName: ""` for an unnamed agent
+ * (the SDK signs `agentName: name or ""`; an absent name is the empty
+ * string on the wire, never a missing field).
+ *
+ * Domain chainId is 42161 deliberately, NOT the 0x66eee the Python SDK
+ * hardcodes: Hyperliquid derives the verification domain from the
+ * `signatureChainId` our own server posts alongside the signature
+ * (`relayApproveAgent` posts 0xa4b1), so the signed domain must match
+ * OUR posted action. Self-consistency between signed message and posted
+ * action is the invariant; either value verifies iff both sides agree.
+ */
+export function buildApproveAgentTypedData(params: {
+  agentAddress: `0x${string}`;
+  nonce: number;
+  chain?: HLChain;
+}): {
+  domain: typeof HL_DOMAIN;
+  types: typeof APPROVE_AGENT_TYPES;
+  primaryType: typeof APPROVE_AGENT_PRIMARY_TYPE;
+  message: {
+    hyperliquidChain: HLChain;
+    agentAddress: `0x${string}`;
+    agentName: string;
+    nonce: bigint;
+  };
+} {
+  return {
+    domain: HL_DOMAIN,
+    types: APPROVE_AGENT_TYPES,
+    primaryType: APPROVE_AGENT_PRIMARY_TYPE,
+    message: {
+      hyperliquidChain: params.chain ?? "Mainnet",
+      agentAddress: params.agentAddress,
+      agentName: "",
+      nonce: BigInt(params.nonce),
+    },
+  };
+}
 
 /**
  * First-execution agent approval (docs/DECISIONS.md D-019.1), as a callable.
  *
  * The same steps `ApproveAgentControl` performs, extracted so the Take flow
  * can run them inline before signing its first order:
- *  1. generate a fresh agent key in the browser (viem);
+ *  1. generate a fresh agent key in the browser (viem generatePrivateKey);
  *  2. derive the storage secret from a master-wallet message signature
  *     (non-fatal — without it the key stays in memory only, D-019.2);
  *  3. the MASTER wallet signs the approveAgent EIP-712 payload;
@@ -49,24 +94,13 @@ export async function runApproveAgent(deps: {
   }
 
   const nonce = nowNonce();
-  const action = buildApproveAgentAction({ agentAddress, nonce });
+  const typed = buildApproveAgentTypedData({ agentAddress, nonce });
 
   // wagmi's typed-data generics are narrowed to standard EIP-712 primary
   // types; Hyperliquid's is documented as
   // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
   // through structurally.
-  const signature = await deps.signTypedDataAsync({
-    domain: HL_DOMAIN,
-    types: APPROVE_AGENT_TYPES,
-    primaryType: APPROVE_AGENT_PRIMARY_TYPE,
-    message: {
-      hyperliquidChain: action.hyperliquidChain,
-      signatureChainId: action.signatureChainId,
-      agentAddress: action.agentAddress,
-      nonce: BigInt(action.nonce),
-      isMainnet: true,
-    },
-  } as never);
+  const signature = await deps.signTypedDataAsync(typed as never);
 
   const res = await deps.postApprove(deps.accountId, {
     agentAddress,

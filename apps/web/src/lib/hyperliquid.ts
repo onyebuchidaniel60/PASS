@@ -58,32 +58,33 @@ export function nowNonce(): number {
 }
 
 /**
- * approveAgent action. Field names and semantics are exactly as documented.
- * The inner nonce must match the outer request nonce.
+ * approveAgent signing types. The EIP-712 payload itself is built by
+ * `buildApproveAgentTypedData` (lib/approve-agent.ts) — there is exactly
+ * one construction point, so the message can never again drift from the
+ * types the way the old inline message did.
  */
-export function buildApproveAgentAction(params: {
-  agentAddress: `0x${string}`;
-  nonce: number;
-  chain?: HLChain;
-  agentName?: string;
-}) {
-  return {
-    type: "approveAgent" as const,
-    hyperliquidChain: params.chain ?? ("Mainnet" as const),
-    signatureChainId: HL_SIGNATURE_CHAIN_ID,
-    agentAddress: params.agentAddress,
-    nonce: params.nonce,
-    ...(params.agentName ? { agentName: params.agentName } : {}),
-  };
-}
 
 export const APPROVE_AGENT_TYPES = {
-  HyperliquidTransaction: [
+  EIP712Domain: [
+    { name: "name", type: "string" },
+    { name: "version", type: "string" },
+    { name: "chainId", type: "uint256" },
+    { name: "verifyingContract", type: "address" },
+  ],
+  // The key MUST equal the primaryType verbatim. viem rejects a primary
+  // type that is not a key in `types` (TypedDataInvalidPrimaryTypeError) —
+  // a previous revision keyed this struct "HyperliquidTransaction" while
+  // the primary type read "HyperliquidTransaction:ApproveAgent", which is
+  // exactly the failure the first Take produced. Verified against the
+  // official Python SDK (sign_agent) and the nktkas TS SDK
+  // (ApproveAgentTypes): struct
+  // "HyperliquidTransaction:ApproveAgent(string hyperliquidChain,address
+  // agentAddress,string agentName,uint64 nonce)".
+  "HyperliquidTransaction:ApproveAgent": [
     { name: "hyperliquidChain", type: "string" },
-    { name: "signatureChainId", type: "string" },
     { name: "agentAddress", type: "address" },
+    { name: "agentName", type: "string" },
     { name: "nonce", type: "uint64" },
-    { name: "isMainnet", type: "bool" },
   ],
 } as const;
 

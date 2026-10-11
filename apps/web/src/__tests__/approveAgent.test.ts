@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { forgetAgentKey, hasAgentKeyInMemory } from "../lib/agent-keystore";
-import { runApproveAgent } from "../lib/approve-agent";
+import {
+  buildApproveAgentTypedData,
+  runApproveAgent,
+} from "../lib/approve-agent";
 
 /**
  * First-execution approval with injected signing: no wallet, no network.
@@ -35,6 +39,14 @@ describe("runApproveAgent", () => {
       | undefined;
     const typed = typedCall?.[0];
     expect(typed?.primaryType).toBe("HyperliquidTransaction:ApproveAgent");
+    // viem rejects a primaryType that is not a key in `types`
+    // (TypedDataInvalidPrimaryTypeError — the exact operator failure).
+    // The types object must carry the primary type's own entry.
+    const keyed = typed as unknown as {
+      primaryType: string;
+      types: Record<string, unknown>;
+    };
+    expect(keyed.types[keyed.primaryType]).toBeDefined();
     expect(typeof typed?.message.nonce).toBe("bigint");
 
     // Only the address and the signature leave the client.
@@ -90,5 +102,85 @@ describe("runApproveAgent", () => {
     ).rejects.toThrow("SIGNATURE_REJECTED");
     // persistAgentKey never ran, so no generated key lingers in memory.
     expect(hasAgentKeyInMemory()).toBe(false);
+  });
+});
+
+/**
+ * EIP-712 validity against the real viem (2.57.2), not a mock. The first
+ * Take failed here: the types object keyed the struct "HyperliquidTransaction"
+ * while primaryType read "HyperliquidTransaction:ApproveAgent", and viem
+ * threw before any wallet popup could open.
+ */
+const TEST_KEY = generatePrivateKey();
+const AGENT = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8" as const;
+
+describe("approveAgent typed data vs viem", () => {
+  it("reproduces the operator failure: legacy key throws the exact viem error", async () => {
+    const account = privateKeyToAccount(TEST_KEY);
+    // The pre-fix shape, inlined so this test pins the diagnosis even
+    // after the constant is corrected.
+    const legacy = {
+      domain: {
+        name: "HyperliquidSignTransaction",
+        version: "1",
+        chainId: 42161,
+        verifyingContract: "0x0000000000000000000000000000000000000000" as const,
+      },
+      types: {
+        HyperliquidTransaction: [
+          { name: "hyperliquidChain", type: "string" },
+          { name: "signatureChainId", type: "string" },
+          { name: "agentAddress", type: "address" },
+          { name: "nonce", type: "uint64" },
+          { name: "isMainnet", type: "bool" },
+        ],
+      },
+      primaryType: "HyperliquidTransaction:ApproveAgent",
+      message: {
+        hyperliquidChain: "Mainnet",
+        signatureChainId: "0xa4b1",
+        agentAddress: AGENT,
+        nonce: 1760000000000n,
+        isMainnet: true,
+      },
+    } as const;
+    await expect(
+      (account.signTypedData as (args: unknown) => Promise<`0x${string}`>)({
+        domain: legacy.domain,
+        types: legacy.types,
+        primaryType: legacy.primaryType,
+        message: legacy.message,
+      }),
+    ).rejects.toThrow(
+      /Invalid primary type `HyperliquidTransaction:ApproveAgent` must be one of/,
+    );
+  });
+
+  it("the built payload carries its primary type and signs cleanly", async () => {
+    const payload = buildApproveAgentTypedData({
+      agentAddress: AGENT,
+      nonce: 1760000000000,
+    });
+    expect(payload.primaryType).toBe("HyperliquidTransaction:ApproveAgent");
+    expect(payload.types[payload.primaryType]).toBeDefined();
+    expect(payload.message).toEqual({
+      hyperliquidChain: "Mainnet",
+      agentAddress: AGENT,
+      agentName: "",
+      nonce: 1760000000000n,
+    });
+
+    const account = privateKeyToAccount(TEST_KEY);
+    const sig = await (
+      account.signTypedData as (args: unknown) => Promise<`0x${string}`>
+    )({
+      domain: payload.domain,
+      types: payload.types,
+      primaryType: payload.primaryType,
+      message: payload.message,
+    });
+    // 65-byte ECDSA signature as 0x hex. That it exists means viem
+    // accepted domain, types, primary type and message together.
+    expect(sig).toMatch(/^0x[0-9a-f]{130}$/);
   });
 });
