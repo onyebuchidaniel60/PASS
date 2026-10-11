@@ -334,7 +334,7 @@ export function TakeFlowClient({
         postApprove: (id, body) =>
           clientPost<{ agentAddress: string; mode: string }>(
             `/api/v1/me/trading-accounts/${id}/approve-agent`,
-            body as Record<string, unknown>,
+            body as unknown as Record<string, unknown>,
           ),
       });
       setAgentNote(

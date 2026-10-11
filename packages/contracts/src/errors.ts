@@ -28,6 +28,7 @@ export const ERROR_CODES = [
   "PROVIDER_UNAVAILABLE",
   "PROVIDER_RATE_LIMITED",
   "DUPLICATE_REQUEST",
+  "INVALID_REQUEST",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -63,6 +64,7 @@ export const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   PROVIDER_UNAVAILABLE: "The upstream provider is unavailable.",
   PROVIDER_RATE_LIMITED: "The upstream provider rate limited the request.",
   DUPLICATE_REQUEST: "This request was already submitted.",
+  INVALID_REQUEST: "Request validation failed.",
   INTERNAL_ERROR: "Something went wrong.",
 };
 
@@ -91,5 +93,6 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   PROVIDER_UNAVAILABLE: 503,
   PROVIDER_RATE_LIMITED: 429,
   DUPLICATE_REQUEST: 409,
+  INVALID_REQUEST: 400,
   INTERNAL_ERROR: 500,
 };

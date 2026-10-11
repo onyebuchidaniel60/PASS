@@ -48,8 +48,11 @@ export function toErrorResponse(err: unknown): {
     };
   }
 
-  // Zod validation failures surface as INVALID_* where we can map them,
-  // otherwise they are a bad request. We never invent a code.
+  // Zod validation failures are malformed requests, not price errors.
+  // A previous revision mapped every schema failure to INVALID_PRICE,
+  // which mislabelled (for example) a misshapen approve-agent signature.
+  // SIGNATURE_REJECTED is also wrong here: it means the provider refused
+  // a well-formed signature. Schema failures get the generic code.
   if (
     typeof err === "object" &&
     err !== null &&
@@ -60,7 +63,7 @@ export function toErrorResponse(err: unknown): {
       status: 400,
       body: {
         error: {
-          code: "INVALID_PRICE",
+          code: "INVALID_REQUEST",
           message: "Request validation failed.",
           details: { issues: (err as { issues: unknown }).issues },
         },

@@ -1,5 +1,6 @@
 "use client";
 
+import { parseSignature } from "viem";
 import {
   generateAgentKey,
   messageForDerivation,
@@ -67,11 +68,20 @@ export function buildApproveAgentTypedData(params: {
  *  2. derive the storage secret from a master-wallet message signature
  *     (non-fatal — without it the key stays in memory only, D-019.2);
  *  3. the MASTER wallet signs the approveAgent EIP-712 payload;
- *  4. POST only { agentAddress, nonce, signature } — the key never leaves;
+ *  4. POST only { agentAddress, nonce, signature } — the key never leaves.
+ *     The wallet returns a flat 0x signature; it is split into { r, s, v }
+ *     before POSTing because that is the shape API_CONTRACTS.md §8 pins
+ *     (a flat string fails the server's record schema with a 400);
  *  5. persist the key encrypted after the provider accepts (never before).
  *
  * Signing is injected so this is unit-testable without a wallet.
  */
+export interface ApproveAgentPostBody {
+  agentAddress: `0x${string}`;
+  nonce: number;
+  signature: { r: `0x${string}`; s: `0x${string}`; v: number };
+}
+
 export async function runApproveAgent(deps: {
   accountId: string;
   address: `0x${string}`;
@@ -79,7 +89,7 @@ export async function runApproveAgent(deps: {
   signTypedDataAsync: (args: unknown) => Promise<`0x${string}`>;
   postApprove: (
     accountId: string,
-    body: { agentAddress: `0x${string}`; nonce: number; signature: `0x${string}` },
+    body: ApproveAgentPostBody,
   ) => Promise<{ agentAddress?: string }>;
 }): Promise<{ agentAddress: `0x${string}`; persisted: boolean; warning?: string }> {
   const { privateKey, agentAddress } = generateAgentKey();
@@ -102,10 +112,12 @@ export async function runApproveAgent(deps: {
   // through structurally.
   const signature = await deps.signTypedDataAsync(typed as never);
 
+  // viem returns a flat 0x signature; the §8 body carries { r, s, v }.
+  const { r, s, v } = parseSignature(signature);
   const res = await deps.postApprove(deps.accountId, {
     agentAddress,
     nonce,
-    signature,
+    signature: { r, s, v: Number(v) },
   });
 
   const stored = await persistAgentKey(

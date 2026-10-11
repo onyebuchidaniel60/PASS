@@ -12,6 +12,13 @@ import {
  * The key never appears in the posted body — only its address does.
  */
 const ADDR = "0x1234567890abcdef1234567890abcdef12345678" as const;
+/** A well-formed flat 65-byte wallet signature (r, s, v=27). */
+const FLAT_SIG = `0x${"22".repeat(64)}1b` as `0x${string}`;
+const SPLIT_SIG = {
+  r: `0x${"22".repeat(32)}`,
+  s: `0x${"22".repeat(32)}`,
+  v: 27,
+};
 
 describe("runApproveAgent", () => {
   beforeEach(async () => {
@@ -21,7 +28,7 @@ describe("runApproveAgent", () => {
   it("posts only address/nonce/signature and holds the key in memory", async () => {
     const postApprove = vi.fn(async () => ({ agentAddress: undefined }));
     const signMessageAsync = vi.fn(async () => "0xderivationsecret");
-    const signTypedDataAsync = vi.fn(async () => "0xsignature" as const);
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
 
     const done = await runApproveAgent({
       accountId: "acct-1",
@@ -57,7 +64,10 @@ describe("runApproveAgent", () => {
     const [id, body] = postCall ?? ["", {}];
     expect(id).toBe("acct-1");
     expect(body.agentAddress).toBe(done.agentAddress);
-    expect(body.signature).toBe("0xsignature");
+    // API_CONTRACTS §8 pins { r, s, v } — a flat string fails the server's
+    // record schema with a 400 (the exact operator failure). The wallet's
+    // flat output is split before POSTing.
+    expect(body.signature).toEqual(SPLIT_SIG);
     expect(typeof body.nonce).toBe("number");
     expect(JSON.stringify(body)).not.toContain("0xderivationsecret");
     expect(hasAgentKeyInMemory()).toBe(true);
@@ -70,7 +80,7 @@ describe("runApproveAgent", () => {
     const signMessageAsync = vi.fn(async () => {
       throw new Error("rejected");
     });
-    const signTypedDataAsync = vi.fn(async () => "0xsig" as const);
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
 
     const done = await runApproveAgent({
       accountId: "acct-1",
@@ -96,7 +106,7 @@ describe("runApproveAgent", () => {
         accountId: "acct-1",
         address: ADDR,
         signMessageAsync: async () => "0xderivationsecret",
-        signTypedDataAsync: async () => "0xsig" as const,
+        signTypedDataAsync: async () => FLAT_SIG,
         postApprove,
       }),
     ).rejects.toThrow("SIGNATURE_REJECTED");
