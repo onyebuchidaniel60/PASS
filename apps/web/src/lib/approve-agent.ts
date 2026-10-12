@@ -14,7 +14,7 @@ import {
 import {
   APPROVE_AGENT_PRIMARY_TYPE,
   APPROVE_AGENT_TYPES,
-  HL_DOMAIN,
+  approveAgentDomain,
   nowNonce,
   type HLChain,
 } from "./hyperliquid";
@@ -29,8 +29,9 @@ import {
  * (the SDK signs `agentName: name or ""`; an absent name is the empty
  * string on the wire, never a missing field).
  *
- * The HyperliquidSignTransaction domain is FIXED (chainId 42161 on both
- * venues — it is Hyperliquid's own domain, not the wallet's chain). What
+ * The HyperliquidSignTransaction domain follows the venue's
+ * signatureChainId numerically (42161 on mainnet, 421614 on testnet —
+ * `approveAgentDomain`), exactly as both reference SDKs derive it. What
  * follows the venue is the message hyperliquidChain ("Mainnet"/"Testnet");
  * the server posts the matching action signatureChainId (0xa4b1/0x66eee).
  * A Mainnet-labelled approval on testnet is rejected or misfiled, so the
@@ -41,7 +42,7 @@ export function buildApproveAgentTypedData(params: {
   nonce: number;
   chain?: HLChain;
 }): {
-  domain: typeof HL_DOMAIN;
+  domain: ReturnType<typeof approveAgentDomain>;
   types: typeof APPROVE_AGENT_TYPES;
   primaryType: typeof APPROVE_AGENT_PRIMARY_TYPE;
   message: {
@@ -53,7 +54,7 @@ export function buildApproveAgentTypedData(params: {
 } {
   const chain = params.chain ?? "Mainnet";
   return {
-    domain: HL_DOMAIN,
+    domain: approveAgentDomain(chain),
     types: APPROVE_AGENT_TYPES,
     primaryType: APPROVE_AGENT_PRIMARY_TYPE,
     message: {

@@ -48,6 +48,36 @@ export const HL_DOMAIN = {
   verifyingContract: "0x0000000000000000000000000000000000000000",
 } as const;
 
+/**
+ * EIP-712 domain chain id for user-signed actions (approveAgent).
+ *
+ * The domain is NOT fixed at 42161: both reference SDKs derive it
+ * numerically from the action's own signatureChainId — the Python SDK's
+ * `user_signed_payload` uses `int(action["signatureChainId"], 16)` and
+ * nktkas `signUserSignedAction` uses `parseInt(action.signatureChainId)`.
+ * Mainnet posts "0xa4b1" (→ 42161); testnet posts "0x66eee" (→ 421614,
+ * Arbitrum Sepolia). Hyperliquid reconstructs the hash with that venue
+ * domain, so a testnet approval signed under 42161 recovers to a different
+ * garbage address on every attempt ("Must deposit … User: 0x…").
+ *
+ * `HL_DOMAIN` above stays the mainnet/default domain for the order
+ * envelope; approveAgent resolves its domain through this function.
+ */
+export const HL_MAINNET_DOMAIN_CHAIN_ID = 42161;
+export const HL_TESTNET_DOMAIN_CHAIN_ID = 421614;
+
+export function approveAgentDomain(chain: HLChain): {
+  name: string;
+  version: string;
+  chainId: number;
+  verifyingContract: string;
+} {
+  return {
+    ...HL_DOMAIN,
+    chainId: chain === "Testnet" ? HL_TESTNET_DOMAIN_CHAIN_ID : HL_MAINNET_DOMAIN_CHAIN_ID,
+  };
+}
+
 /** hex form of 42161, as the docs require for signatureChainId. */
 export const HL_SIGNATURE_CHAIN_ID = "0xa4b1";
 

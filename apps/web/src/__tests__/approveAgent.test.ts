@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { recoverTypedDataAddress } from "viem";
+import { signUserSignedAction } from "@nktkas/hyperliquid/signing";
+import { ApproveAgentTypes } from "@nktkas/hyperliquid/api/exchange";
 
 import { forgetAgentKey, hasAgentKeyInMemory } from "../lib/agent-keystore";
 import { clearSessionKeys } from "../lib/agent-keystore";
@@ -283,15 +286,18 @@ describe("approveAgent typed data vs viem", () => {
     expect(sig).toMatch(/^0x[0-9a-f]{130}$/);
   });
 
-  it("builds a Testnet-labelled payload when asked (domain stays 42161)", () => {
+  it("builds a Testnet-labelled payload when asked (domain follows the venue)", () => {
     const payload = buildApproveAgentTypedData({
       agentAddress: AGENT,
       nonce: 1760000000000,
       chain: "Testnet",
     });
-    // The HyperliquidSignTransaction domain is fixed (42161, both venues);
-    // only the message label follows the venue.
-    expect(payload.domain.chainId).toBe(42161);
+    // The HyperliquidSignTransaction domain chain id follows the action's
+    // signatureChainId numerically (both reference SDKs): testnet posts
+    // "0x66eee", so the domain is 421614 — NOT the mainnet 42161. Signing
+    // testnet under 42161 was the live "Must deposit … User: 0x<garbage>"
+    // failure: HL reconstructs with 421614 and recovery misses every time.
+    expect(payload.domain.chainId).toBe(421614);
     expect(payload.message.hyperliquidChain).toBe("Testnet");
   });
 
@@ -435,6 +441,26 @@ describe("runApproveAgent venue chain", () => {
     const typed = typedCall?.[0];
     expect(typed?.message.hyperliquidChain).toBe("Mainnet");
   });
+
+  it("passes the venue domain into the wallet signature (421614 on testnet)", async () => {
+    // Regression guard for the live failure: the builder fix is worthless
+    // if runApproveAgent signed a differently-domained payload. The wallet
+    // must receive domain 421614 with the Testnet label together.
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      chain: "Testnet",
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync,
+      postApprove: async () => ({}),
+    });
+    const typedCall = signTypedDataAsync.mock.calls[0] as unknown as
+      | [{ domain: { chainId: number }; message: { hyperliquidChain: string } }]
+      | undefined;
+    expect(typedCall?.[0].domain.chainId).toBe(421614);
+    expect(typedCall?.[0].message.hyperliquidChain).toBe("Testnet");
+  });
 });
 
 /**
@@ -505,5 +531,159 @@ describe("runApproveAgent signer guard", () => {
       | [{ account: string }]
       | undefined;
     expect(typedCall?.[0].account).toBe(ADDR);
+  });
+});
+
+/**
+ * Canonical-shape regression (testnet "Must deposit … User: 0x<garbage>").
+ *
+ * Hyperliquid reconstructs the signed hash from the relayed action with the
+ * reference-SDK rules: the EIP-712 domain chain id is the action's
+ * signatureChainId parsed numerically (42161 on mainnet, 421614 on
+ * testnet), and the message is exactly the four typed fields. Any
+ * divergence — a fixed 42161 domain on testnet, a renamed/retyped field —
+ * recovers to a different garbage address on every attempt. These tests pin
+ * PASS's built payload against a fixed fixture, against the SDK's own
+ * `ApproveAgentTypes`, and against a signature produced the SDK way.
+ */
+const FIXTURE_AGENT = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as const;
+const FIXTURE_NONCE = 1760000000000;
+
+describe("approveAgent canonical shape (fixture pin)", () => {
+  it("builds the exact mainnet typed data for the fixture", () => {
+    expect(buildApproveAgentTypedData({ agentAddress: FIXTURE_AGENT, nonce: FIXTURE_NONCE })).toEqual({
+      domain: {
+        name: "HyperliquidSignTransaction",
+        version: "1",
+        chainId: 42161,
+        verifyingContract: "0x0000000000000000000000000000000000000000",
+      },
+      types: {
+        EIP712Domain: [
+          { name: "name", type: "string" },
+          { name: "version", type: "string" },
+          { name: "chainId", type: "uint256" },
+          { name: "verifyingContract", type: "address" },
+        ],
+        "HyperliquidTransaction:ApproveAgent": [
+          { name: "hyperliquidChain", type: "string" },
+          { name: "agentAddress", type: "address" },
+          { name: "agentName", type: "string" },
+          { name: "nonce", type: "uint64" },
+        ],
+      },
+      primaryType: "HyperliquidTransaction:ApproveAgent",
+      message: {
+        hyperliquidChain: "Mainnet",
+        agentAddress: FIXTURE_AGENT,
+        agentName: "",
+        nonce: BigInt(FIXTURE_NONCE),
+      },
+    });
+  });
+
+  it("builds the exact testnet typed data for the fixture", () => {
+    const payload = buildApproveAgentTypedData({
+      agentAddress: FIXTURE_AGENT,
+      nonce: FIXTURE_NONCE,
+      chain: "Testnet",
+    });
+    // Only the venue-driven fields move: domain 421614 (= 0x66eee) and the
+    // "Testnet" label. Everything else is byte-identical to mainnet.
+    expect(payload.domain).toEqual({
+      name: "HyperliquidSignTransaction",
+      version: "1",
+      chainId: 421614,
+      verifyingContract: "0x0000000000000000000000000000000000000000",
+    });
+    expect(payload.message).toEqual({
+      hyperliquidChain: "Testnet",
+      agentAddress: FIXTURE_AGENT,
+      agentName: "",
+      nonce: BigInt(FIXTURE_NONCE),
+    });
+    expect(payload.primaryType).toBe("HyperliquidTransaction:ApproveAgent");
+  });
+
+  it("matches the SDK's ApproveAgentTypes field for field", () => {
+    const payload = buildApproveAgentTypedData({
+      agentAddress: FIXTURE_AGENT,
+      nonce: FIXTURE_NONCE,
+      chain: "Testnet",
+    });
+    expect(payload.types["HyperliquidTransaction:ApproveAgent"]).toEqual(
+      ApproveAgentTypes["HyperliquidTransaction:ApproveAgent"],
+    );
+  });
+
+  it("signs and recovers to the test key on both venues", async () => {
+    const account = privateKeyToAccount(TEST_KEY);
+    for (const chain of ["Mainnet", "Testnet"] as const) {
+      const payload = buildApproveAgentTypedData({
+        agentAddress: FIXTURE_AGENT,
+        nonce: FIXTURE_NONCE,
+        chain,
+      });
+      const signature = await (
+        account.signTypedData as (args: unknown) => Promise<`0x${string}`>
+      )({
+        domain: payload.domain,
+        types: payload.types,
+        primaryType: payload.primaryType,
+        message: payload.message,
+      });
+      const recovered = await recoverTypedDataAddress({
+        domain: payload.domain,
+        types: payload.types,
+        primaryType: payload.primaryType,
+        message: payload.message,
+        signature,
+      } as never);
+      expect(recovered.toLowerCase()).toBe(account.address.toLowerCase());
+    }
+  });
+
+  it("an SDK-produced signature verifies against PASS's built payload", async () => {
+    // The strongest hash-equality proof available without funds: sign the
+    // canonical way (SDK builds domain from signatureChainId, filters the
+    // full action down to the four typed fields) and recover against the
+    // payload PASS asks Rabby to sign. If either side hashed differently,
+    // recovery misses.
+    const account = privateKeyToAccount(TEST_KEY);
+    for (const [chain, signatureChainId] of [
+      ["Mainnet", "0xa4b1"],
+      ["Testnet", "0x66eee"],
+    ] as const) {
+      const passPayload = buildApproveAgentTypedData({
+        agentAddress: FIXTURE_AGENT,
+        nonce: FIXTURE_NONCE,
+        chain,
+      });
+      // The SDK rule, asserted as a rule rather than a constant: the domain
+      // PASS builds must equal parseInt of the relayed signatureChainId.
+      expect(passPayload.domain.chainId).toBe(Number.parseInt(signatureChainId, 16));
+      const sdkSignature = await signUserSignedAction({
+        wallet: account,
+        action: {
+          type: "approveAgent",
+          signatureChainId,
+          hyperliquidChain: chain,
+          agentAddress: FIXTURE_AGENT,
+          agentName: "",
+          nonce: FIXTURE_NONCE,
+        },
+        types: ApproveAgentTypes,
+      });
+      const flat =
+        `0x${sdkSignature.r.slice(2)}${sdkSignature.s.slice(2)}${sdkSignature.v.toString(16).padStart(2, "0")}` as `0x${string}`;
+      const recovered = await recoverTypedDataAddress({
+        domain: passPayload.domain,
+        types: passPayload.types,
+        primaryType: passPayload.primaryType,
+        message: passPayload.message,
+        signature: flat,
+      } as never);
+      expect(recovered.toLowerCase()).toBe(account.address.toLowerCase());
+    }
   });
 });

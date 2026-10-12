@@ -200,12 +200,29 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
     // label travels with the action: testnet requires hyperliquidChain
     // "Testnet" (a "Mainnet" approval is rejected or misfiled there), and it
     // must match the label the client signed.
+    //
+    // TEMP diagnostic (remove once the testnet approval is confirmed): the
+    // exact action Hyperliquid reconstructs the signature hash from. The
+    // signature itself is never logged (SECURITY_SPEC.md §16) — only the
+    // public action fields the hash is built over.
+    const relayLabel = currentVenue(ctx) === "testnet" ? "Testnet" : "Mainnet";
+    ctx.log.info("approveAgent relay body", {
+      action: {
+        type: "approveAgent",
+        hyperliquidChain: relayLabel,
+        signatureChainId: relayLabel === "Testnet" ? "0x66eee" : "0xa4b1",
+        agentAddress,
+        agentName: "",
+        nonce: body.nonce,
+      },
+      nonce: body.nonce,
+    });
     try {
       await ctx.adapters.hyperliquid.relayApproveAgent({
         agentAddress,
         nonce: body.nonce,
         signature: body.signature,
-        hyperliquidChain: currentVenue(ctx) === "testnet" ? "Testnet" : "Mainnet",
+        hyperliquidChain: relayLabel,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
