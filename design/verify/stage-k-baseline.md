@@ -65,6 +65,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
   (deferred with reason). Skill: none applied — left untouched
   pre-submission. SIMULATED labelling untouched.
 - Steps are distinct routes with mono `STEP n / 4`; size field empty by default (D-015); slider adjunct only. Detailed step-by-step (context strip, ChamferPanel order summary, plain-language authorization, receipt with provider order id, `RejectedBlock` + re-enter-Step-2 retry) deferred to an authenticated wallet walk — no code change proposed without observing the flow. SIMULATED labelling untouched by any polish.
+- ✓ Stage K complete 2026-10-12: desktop screenshot of step 1 viewed vs §10.6 — size field first/largest/empty (`0.00` placeholder, "Your size. PASS never chooses one for you."), leverage stepper with permitted range, context strip, accent `Review order`; mono `STEP 1 / 4`. Nice-to-fix-later: hand-rolled `// Take a Pass` eyebrow could use NumberedEyebrow (one-line reason: cosmetic consistency only, funnel copy untouched pre-submission). Expired pass still opens step 1 — execution gating lives in preview/validation (behavior, hard-constraint, untouched). Harness clean both viewports. No code change.
 
 ## 5. Trader profile (`/u/{slug}`)
 
