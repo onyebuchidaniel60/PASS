@@ -6,6 +6,7 @@ import { clearSessionKeys } from "../lib/agent-keystore";
 import {
   buildApproveAgentTypedData,
   isMemoryKeyApprovedFor,
+  isUserRejection,
   runApproveAgent,
 } from "../lib/approve-agent";
 
@@ -299,6 +300,34 @@ describe("isMemoryKeyApprovedFor", () => {
     expect(isMemoryKeyApprovedFor(null, TEST_KEY)).toBe(false);
     expect(isMemoryKeyApprovedFor(AGENT, null)).toBe(false);
     expect(isMemoryKeyApprovedFor(AGENT, "0xdead" as `0x${string}`)).toBe(false);
+  });
+});
+
+describe("isUserRejection", () => {
+  it("recognizes wallet-reported cancellations", () => {
+    expect(
+      isUserRejection(
+        Object.assign(new Error("User rejected the request."), {
+          name: "UserRejectedRequestError",
+          code: 4001,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("does NOT mistake a server rejection for a cancellation", () => {
+    // The exact failure this mislabelled: the signatures succeeded, the
+    // relay failed, and the message contains "rejected".
+    expect(
+      isUserRejection(
+        Object.assign(
+          new Error("Hyperliquid rejected the agent approval: Invalid signature."),
+          { code: "SIGNATURE_REJECTED" },
+        ),
+      ),
+    ).toBe(false);
+    expect(isUserRejection(new Error("Request failed"))).toBe(false);
+    expect(isUserRejection(null)).toBe(false);
   });
 });
 

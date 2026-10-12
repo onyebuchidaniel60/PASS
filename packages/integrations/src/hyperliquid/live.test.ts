@@ -218,6 +218,7 @@ describe("approveAgent venue label", () => {
     expect(String(fetchMock.mock.calls[0]?.[0] ?? "")).toBe(TESTNET_EXCHANGE);
     expect(postedAction(fetchMock).hyperliquidChain).toBe("Testnet");
     expect(postedAction(fetchMock).signatureChainId).toBe("0x66eee");
+    expect(postedAction(fetchMock).agentName).toBe("");
   });
 
   it("defaults the label to Mainnet for callers with no venue context", async () => {

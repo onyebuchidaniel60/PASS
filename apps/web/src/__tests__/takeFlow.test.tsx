@@ -869,8 +869,7 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
   });
 
-  it("labels the approval for testnet when /health says testnet", async () => {
-    // The chain comes from the server's current venue (/health), never the
+  it("labels the approval for testnet when /health says testnet", async () => {    // The chain comes from the server's current venue (/health), never the
     // row's stored venue (stale across switches) and never a default.
     mockGet.mockImplementation((url?: unknown) => {
       const path = String(url ?? "");
@@ -894,6 +893,30 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
     expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({ chain: "Testnet" });
+  });
+
+  it("surfaces a server approval rejection verbatim, never as a cancellation", async () => {
+    // Both wallet popups succeeded; the relay failed. The old catch read
+    // "rejected" in the server text and blamed the user's popup.
+    meResponse = ME_NO_AGENT;
+    mockMemoryKey.mockReturnValue(null);
+    mockRunApprove.mockRejectedValueOnce(
+      Object.assign(
+        new Error("Hyperliquid rejected the agent approval: Invalid signature."),
+        { code: "SIGNATURE_REJECTED" },
+      ),
+    );
+    mockPost.mockResolvedValueOnce(PREVIEW);
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    expect(await screen.findByText(/SIGNATURE_REJECTED/)).toBeInTheDocument();
+    expect(screen.queryByText(/You cancelled the wallet signature/)).toBeNull();
   });
 });
 /**

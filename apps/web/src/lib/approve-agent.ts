@@ -112,6 +112,22 @@ export function isMemoryKeyApprovedFor(
   }
 }
 
+/**
+ * True only when the WALLET reports the user cancelled (EIP-1193 4001 /
+ * UserRejectedRequestError). Anything else — a server rejection, a network
+ * failure, a malformed signature — is a REAL error and must surface
+ * verbatim. Matching /rejected|cancelled/ against the message mislabels
+ * "Hyperliquid rejected the agent approval" as a user cancellation, which
+ * sends the operator chasing a popup they already approved.
+ */
+export function isUserRejection(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { name?: string; code?: number | string; message?: string };
+  if (e.code === 4001 || e.code === "4001") return true;
+  if (/UserRejected/i.test(e.name ?? "")) return true;
+  return /user rejected/i.test(e.message ?? "");
+}
+
 export interface ApproveAgentPostBody {
   agentAddress: `0x${string}`;
   nonce: number;

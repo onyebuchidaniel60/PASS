@@ -5,7 +5,7 @@ import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
 import { Button } from "@pass/ui";
 import { clientPost } from "@/lib/client";
 import { hasAgentKeyInMemory } from "@/lib/agent-keystore";
-import { runApproveAgent } from "@/lib/approve-agent";
+import { isUserRejection, runApproveAgent } from "@/lib/approve-agent";
 
 /**
  * Approve a Hyperliquid API/agent wallet (docs/DECISIONS.md D-019.1).
@@ -61,12 +61,13 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
       );
     } catch (err) {
       const e = err as Error & { code?: string };
-      const text =
-        e.code === "SIGNATURE_REJECTED" || e.code === "ORDER_REJECTED"
-          ? `Hyperliquid rejected the agent approval: ${e.message}`
-          : /rejected|denied|cancell?ed/i.test(e.message)
-            ? "You cancelled the wallet signature. No agent was approved."
-            : e.message;
+      // Only a wallet-reported cancellation reads as one; a provider
+      // rejection surfaces verbatim with its code.
+      const text = isUserRejection(err)
+        ? "You cancelled the wallet signature. No agent was approved."
+        : e.code
+          ? `${e.code}: ${e.message}`
+          : e.message;
       setMsg(text);
     } finally {
       setBusy(false);

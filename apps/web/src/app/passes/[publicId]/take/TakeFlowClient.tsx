@@ -63,7 +63,7 @@ import { NumberedEyebrow, Surface } from "@/components/reference";
 import { clientGet, clientPost } from "@/lib/client";
 import type { MePayload, MeTradingAccount } from "@/lib/me";
 import { hasAgentKeyInMemory, getMemoryAgentKey } from "@/lib/agent-keystore";
-import { isMemoryKeyApprovedFor, runApproveAgent } from "@/lib/approve-agent";
+import { isMemoryKeyApprovedFor, isUserRejection, runApproveAgent } from "@/lib/approve-agent";
 import { buildExchangeRequest, signExchangeRequest } from "@/lib/signer";
 import {
   connectFailureMessage,
@@ -402,8 +402,8 @@ export function TakeFlowClient({
     try {
       // Venue label for the approval, from /health (the server's current
       // venue — not the row's stored venue, which goes stale across venue
-      // switches). Testnet requires hyperliquidChain "Testnet" with the
-      // 421614 domain; mainnet takes 42161/"Mainnet".
+      // switches). Testnet signs hyperliquidChain "Testnet" under the
+      // fixed 42161 domain; mainnet takes "Mainnet".
       const approvalChain = venue === "testnet" ? "Testnet" : "Mainnet";
       const done = await runApproveAgent({
         accountId,
@@ -433,12 +433,18 @@ export function TakeFlowClient({
       setAgentReady(true);
       return hasAgentKeyInMemory();
     } catch (e) {
+      // Only a wallet-reported cancellation reads as one. A server
+      // rejection ("Hyperliquid rejected the agent approval: …") must
+      // surface verbatim, or the next attempt chases a popup that already
+      // succeeded.
       const msg = e instanceof Error ? e.message : "Agent approval failed.";
+      const code = (e as { code?: string }).code;
+      const detail = code ? `${code}: ${msg}` : msg;
       setAgentNote(null);
       setFailed(
-        /rejected|denied|cancell?ed/i.test(msg)
+        isUserRejection(e)
           ? "You cancelled the wallet signature. No agent was approved and nothing was submitted."
-          : msg,
+          : detail,
       );
       return false;
     }
