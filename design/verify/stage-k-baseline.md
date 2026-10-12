@@ -85,6 +85,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 8. Executions (`/me/executions`)
 
 - Auth-gated; harness clean. Table (Pass/asset/size/fill/status/realized-PnL/timestamp), `PnlCell` sign+glyph (colour never sole carrier), row-detail provider-order-id + Pass version (PRD §15), `SegmentedControl` period using offset-from-now half-open windows — source-conformant. Cross-surface figure check (Pass PnL vs Executions row) deferred to authenticated fixture with simulated rows.
+- ✓ Stage K complete 2026-10-12: signed-out fallback is a connect CTA with no rows (D-024, test-asserted); executions.test 19/19 green (row shape, PnlCell sign, provider-order-id + version detail, period control). Screenshots captured both viewports. Harness clean both viewports. No code change.
 
 ## 9. Onboarding (3 steps)
 
