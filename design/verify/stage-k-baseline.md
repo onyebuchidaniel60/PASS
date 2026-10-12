@@ -105,6 +105,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 12. Error / 404
 
 - `/gallery` correctly 404s in production at both viewports (expected-404 ok — dev gate verified anonymously). Plain-statement + single accent action + mono request-id tertiary per §10.12 — source-conformant. A dedicated nonexistent-Pass rendering check (`/p/does-not-exist`) deferred to final verification.
+- ✓ Stage K complete 2026-10-12: live check of `/p/does-not-exist-xyz` renders loading → not-found statement with `Explore Passes` / `Go to the start` actions (test-asserted in errorRoutes.test: plain display-size statement, no provider message leak, Retry wired); screenshots captured both viewports. Harness clean both viewports. No code change.
 
 ## 13. OG preview (social card, not a screen)
 
