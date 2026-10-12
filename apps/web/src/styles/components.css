@@ -772,12 +772,21 @@
 /* ï¿½8.2 the grid is 12 columns; the loop is a statement strip, not a card grid. */
 .pass-loop-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--rhythm-block);
   list-style: none;
   margin: 0;
   padding: 0;
   min-width: 0;
+}
+
+/* Five-across returns at and above the tablet breakpoint. Below it the
+   equal-track grid squeezes every CoordinatePair into an unreadable stub
+   (X… P… t… t… H…): information loss, not truncation. Single column first. */
+@media (min-width: 768px) {
+  .pass-loop-strip {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .pass-landing-support {
