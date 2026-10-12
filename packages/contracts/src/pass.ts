@@ -197,6 +197,13 @@ export const ExecutionPreviewDto = z.object({
    * skip). An address, never key material.
    */
   agentAddress: z.string().nullable(),
+  /**
+   * Venue the presented approval belongs to (mainnet/testnet/mock), null
+   * when there is none. The client signs approveAgent with the matching
+   * hyperliquidChain — "Testnet" on testnet — because Hyperliquid expects
+   * the label to match the venue.
+   */
+  venue: z.string().nullable(),
   positionSize: DecimalString,
   leverage: DecimalString.nullable(),
   requestedEntry: DecimalString.nullable(),

@@ -419,6 +419,7 @@ export async function resolveTradingAccountByAddress(
   id: string;
   accountAddress: string;
   agentAddress: string | null;
+  venue: string | null;
   userId: string | null;
 }> {
   const addr = accountAddress.trim().toLowerCase();
@@ -463,6 +464,7 @@ export async function resolveTradingAccountByAddress(
       id: row.id,
       accountAddress: row.accountAddress,
       agentAddress: row.agentAddress,
+      venue: row.venue,
       userId: row.userId,
     };
   }

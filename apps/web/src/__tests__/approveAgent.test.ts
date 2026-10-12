@@ -5,6 +5,7 @@ import { forgetAgentKey, hasAgentKeyInMemory } from "../lib/agent-keystore";
 import { clearSessionKeys } from "../lib/agent-keystore";
 import {
   buildApproveAgentTypedData,
+  isMemoryKeyApprovedFor,
   runApproveAgent,
 } from "../lib/approve-agent";
 
@@ -189,7 +190,7 @@ describe("runApproveAgent session behaviour (popup table)", () => {
  * threw before any wallet popup could open.
  */
 const TEST_KEY = generatePrivateKey();
-const AGENT = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8" as const;
+const AGENT = privateKeyToAccount(TEST_KEY).address;
 
 describe("approveAgent typed data vs viem", () => {
   it("reproduces the operator failure: legacy key throws the exact viem error", async () => {
@@ -233,8 +234,7 @@ describe("approveAgent typed data vs viem", () => {
     );
   });
 
-  it("the built payload carries its primary type and signs cleanly", async () => {
-    const payload = buildApproveAgentTypedData({
+  it("the built payload carries its primary type and signs cleanly", async () => {    const payload = buildApproveAgentTypedData({
       agentAddress: AGENT,
       nonce: 1760000000000,
     });
@@ -259,5 +259,56 @@ describe("approveAgent typed data vs viem", () => {
     // 65-byte ECDSA signature as 0x hex. That it exists means viem
     // accepted domain, types, primary type and message together.
     expect(sig).toMatch(/^0x[0-9a-f]{130}$/);
+  });
+
+  it("builds a Testnet-labelled payload when asked", () => {
+    const payload = buildApproveAgentTypedData({
+      agentAddress: AGENT,
+      nonce: 1760000000000,
+      chain: "Testnet",
+    });
+    expect(payload.message.hyperliquidChain).toBe("Testnet");
+  });
+});
+
+describe("isMemoryKeyApprovedFor", () => {
+  it("matches the key that derives to the recorded agent", () => {
+    expect(isMemoryKeyApprovedFor(AGENT, TEST_KEY)).toBe(true);
+  });
+
+  it("rejects a rotated key against the stale recorded agent (bug A)", () => {
+    const rotated = generatePrivateKey();
+    expect(privateKeyToAccount(rotated).address).not.toBe(AGENT);
+    expect(isMemoryKeyApprovedFor(AGENT, rotated)).toBe(false);
+  });
+
+  it("is case-insensitive and null-safe", () => {
+    expect(isMemoryKeyApprovedFor(AGENT.toUpperCase(), TEST_KEY)).toBe(true);
+    expect(isMemoryKeyApprovedFor(null, TEST_KEY)).toBe(false);
+    expect(isMemoryKeyApprovedFor(AGENT, null)).toBe(false);
+    expect(isMemoryKeyApprovedFor(AGENT, "0xdead" as `0x${string}`)).toBe(false);
+  });
+});
+
+describe("runApproveAgent venue chain", () => {
+  beforeEach(async () => {
+    await forgetAgentKey();
+  });
+
+  it("signs the approval with the Testnet label when the venue is testnet", async () => {
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      chain: "Testnet",
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync,
+      postApprove: async () => ({}),
+    });
+    const typedCall = signTypedDataAsync.mock.calls[0] as unknown as
+      | [{ message: { hyperliquidChain: string } }]
+      | undefined;
+    const typed = typedCall?.[0];
+    expect(typed?.message.hyperliquidChain).toBe("Testnet");
   });
 });

@@ -59,11 +59,11 @@ import {
   StatusChip,
 } from "@/components/wave3/data";
 
-import { Surface } from "@/components/reference";
+import { NumberedEyebrow, Surface } from "@/components/reference";
 import { clientGet, clientPost } from "@/lib/client";
 import type { MePayload, MeTradingAccount } from "@/lib/me";
-import { hasAgentKeyInMemory } from "@/lib/agent-keystore";
-import { runApproveAgent } from "@/lib/approve-agent";
+import { hasAgentKeyInMemory, getMemoryAgentKey } from "@/lib/agent-keystore";
+import { isMemoryKeyApprovedFor, runApproveAgent } from "@/lib/approve-agent";
 import { buildExchangeRequest, signExchangeRequest } from "@/lib/signer";
 import {
   connectFailureMessage,
@@ -98,6 +98,8 @@ interface Preview {
   accountId?: string;
   /** Venue-approved agent on the resolved row, if any (approval skip). */
   agentAddress?: string | null;
+  /** Venue the presented approval belongs to (chain label for approval). */
+  venue?: string | null;
   requestedEntry?: string | null;
   markPrice?: string | null;
   positionSize?: string;
@@ -127,6 +129,17 @@ const STEP_TITLE: Record<Step, string> = {
   2: "Execution preview",
   3: "Authorization",
   4: "Confirmation",
+};
+
+/* §14.3 per-step section names. The header previously hand-rolled a bare
+ * "// … Take a Pass" span with no number; the table pins 01 SIZE,
+ * 02 CONSENT, 03 REVIEW, 04 CONFIRM, so the shared header renders the real
+ * NumberedEyebrow (label left, number hard right) for every step. */
+const STEP_EYEBROW: Record<Step, string> = {
+  1: "Size",
+  2: "Consent",
+  3: "Review",
+  4: "Confirm",
 };
 
 function fmt(v: string | number | null | undefined): string {
@@ -242,6 +255,7 @@ export function TakeFlowClient({
     id: string | null;
     accountAddress: string;
     agentAddress: string | null;
+    venue: string | null;
   } | null> {
     if (!browserConnected || !address) return null;
     const me = await clientGet<MePayload>("/api/v1/me").catch(() => null);
@@ -250,7 +264,7 @@ export function TakeFlowClient({
         (a) => a.accountAddress.toLowerCase() === address.toLowerCase(),
       ) ?? null;
     if (found) return found;
-    if (!me) return { id: null, accountAddress: address, agentAddress: null };
+    if (!me) return { id: null, accountAddress: address, agentAddress: null, venue: null };
     await clientPost("/api/v1/me/trading-accounts", { accountAddress: address });
     return refreshAccount();
   }
@@ -359,8 +373,12 @@ export function TakeFlowClient({
     id: string | null;
     accountAddress: string;
     agentAddress: string | null;
+    venue: string | null;
   }): Promise<boolean> {
-    if (row.agentAddress && hasAgentKeyInMemory()) {
+    // Skip only when the in-memory key IS the recorded agent. A bare
+    // key-exists check skips past a rotation and signs with an agent the
+    // venue never approved ("User or API Wallet … does not exist").
+    if (isMemoryKeyApprovedFor(row.agentAddress, getMemoryAgentKey())) {
       setAgentReady(true);
       return true;
     }
@@ -375,6 +393,10 @@ export function TakeFlowClient({
     if (!accountId) return false;
     setAgentNote("Approving the agent wallet — your master wallet signs once.");
     try {
+      // Venue label for the approval: testnet requires hyperliquidChain
+      // "Testnet". The row's venue wins; the preview's covers anonymous
+      // rows; Mainnet is the default when neither knows.
+      const approvalVenue = row.venue ?? preview?.venue ?? null;
       const done = await runApproveAgent({
         accountId,
         address,
@@ -382,6 +404,7 @@ export function TakeFlowClient({
         // the preview's row. A match against the stable client agent skips
         // approval entirely (changed wallets re-prompt).
         knownAgentAddress: row.agentAddress ?? preview?.agentAddress ?? null,
+        chain: approvalVenue === "testnet" ? "Testnet" : "Mainnet",
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
         postApprove: (id, body) =>
@@ -608,10 +631,7 @@ export function TakeFlowClient({
         <div className="pass-shell">
           <main className="pass-shell-content pass-stack pass-stack-6">
           <section className="pass-section" aria-labelledby="take-step-title">
-            <span className="pass-numbered-eyebrow">
-              <span className="pass-numbered-eyebrow-number">{"//"}</span>
-              Take a Pass
-            </span>
+            <NumberedEyebrow label={STEP_EYEBROW[step]} number={step} />
             {/* §10.6 — progress is MONO TEXT, never a novelty stepper. */}
             <p className="pass-stale">{`STEP ${step} / 4`}</p>
             <h1

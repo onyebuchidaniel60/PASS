@@ -52,7 +52,7 @@ describe("onboarding selectors", () => {
       { provider: "ethos", connected: false, label: "e", displayOnly: true },
     ],
     tradingAccounts: [
-      { id: "a", accountAddress: "0x1", agentAddress: null, isPrimary: true },
+      { id: "a", accountAddress: "0x1", agentAddress: null, venue: null, isPrimary: true },
     ],
   };
 

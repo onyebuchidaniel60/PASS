@@ -92,10 +92,11 @@ export class HyperliquidExchangeClient {
     agentAddress: string;
     nonce: number;
     signature: Record<string, unknown>;
+    hyperliquidChain?: string;
   }): Promise<{ ok: boolean; raw?: unknown }> {
     const action = {
       type: "approveAgent",
-      hyperliquidChain: "Mainnet",
+      hyperliquidChain: params.hyperliquidChain ?? "Mainnet",
       signatureChainId: "0xa4b1",
       agentAddress: params.agentAddress,
       nonce: params.nonce,

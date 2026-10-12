@@ -6,7 +6,7 @@ import { aggregatePassPerformance, sideFor, toDecimalStringSafe } from "./helper
 import { isStaleVersion } from "@pass/domain";
 import { executions, passEvents, tradingAccounts, type PassRow } from "@pass/db";
 import { getPassById, getPassVersion } from "./pass-service.js";
-import { resolveTradingAccountByAddress } from "./profile-service.js";
+import { resolveTradingAccountByAddress, visibleAgentAddress } from "./profile-service.js";
 import type {
   ExecutionPreviewRequest,
   ExecutionRequest,
@@ -63,7 +63,12 @@ async function resolveExecutionAccount(
   ctx: AppContext,
   takerId: string | null,
   input: { accountId?: string; accountAddress?: string },
-): Promise<{ id: string; accountAddress: string; agentAddress: string | null }> {
+): Promise<{
+  id: string;
+  accountAddress: string;
+  agentAddress: string | null;
+  venue: string | null;
+}> {
   if (input.accountId) {
     if (!takerId) throw new AppError("AUTH_REQUIRED");
     return assertAccountOwnership(ctx, input.accountId, takerId);
@@ -72,20 +77,31 @@ async function resolveExecutionAccount(
   if (row.userId !== null && takerId !== null && row.userId !== takerId) {
     throw new AppError("FORBIDDEN", "That trading account is not yours.");
   }
-  return { id: row.id, accountAddress: row.accountAddress, agentAddress: row.agentAddress };
+  return {
+    id: row.id,
+    accountAddress: row.accountAddress,
+    agentAddress: row.agentAddress,
+    venue: row.venue,
+  };
 }
 
 function assertAccountOwnership(
   ctx: AppContext,
   accountId: string,
   takerId: string,
-): Promise<{ id: string; accountAddress: string; agentAddress: string | null }> {
+): Promise<{
+  id: string;
+  accountAddress: string;
+  agentAddress: string | null;
+  venue: string | null;
+}> {
   return (async () => {
     const rows = await ctx.db
       .select({
         id: tradingAccounts.id,
         accountAddress: tradingAccounts.accountAddress,
         agentAddress: tradingAccounts.agentAddress,
+        venue: tradingAccounts.venue,
         userId: tradingAccounts.userId,
       })
       .from(tradingAccounts)
@@ -98,7 +114,13 @@ function assertAccountOwnership(
     if (row.userId !== takerId) {
       throw new AppError("FORBIDDEN", "That trading account is not yours.");
     }
-    return { id: row.id, accountAddress: row.accountAddress, agentAddress: row.agentAddress };
+    // Per-venue approval: a stale-venue agent reads as not-approved.
+    return {
+      id: row.id,
+      accountAddress: row.accountAddress,
+      agentAddress: visibleAgentAddress(ctx, row),
+      venue: row.venue,
+    };
   })();
 }
 
@@ -203,6 +225,7 @@ export async function buildExecutionPreview(
     entryType: pass.entryType,
     accountId: account.id,
     agentAddress: account.agentAddress,
+    venue: account.venue,
     positionSize,
     leverage,
     requestedEntry: snapshot.entryPrice,

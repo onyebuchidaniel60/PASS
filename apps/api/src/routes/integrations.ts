@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
 import { requireUser } from "../plugins/session.js";
 import {
+  currentVenue,
   getEthosProfile,
   getTradingAccounts,
   linkTradingAccount,
@@ -195,12 +196,16 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
     const agentAddress = body.agentAddress.toLowerCase();
 
     // Relayed through the provider adapter so mock mode simulates the approval
-    // and never contacts the live Hyperliquid endpoint (D-018.9).
+    // and never contacts the live Hyperliquid endpoint (D-018.9). The venue
+    // label travels with the action: testnet requires hyperliquidChain
+    // "Testnet" (a "Mainnet" approval is rejected or misfiled there), and it
+    // must match the label the client signed.
     try {
       await ctx.adapters.hyperliquid.relayApproveAgent({
         agentAddress,
         nonce: body.nonce,
         signature: body.signature,
+        hyperliquidChain: currentVenue(ctx) === "testnet" ? "Testnet" : "Mainnet",
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

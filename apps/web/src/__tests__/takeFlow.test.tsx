@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { TakeFlowClient } from "../app/passes/[publicId]/take/TakeFlowClient";
 
@@ -14,7 +15,12 @@ import { TakeFlowClient } from "../app/passes/[publicId]/take/TakeFlowClient";
  * Take, and agent approval runs once as a first-execution step.
  */
 const ADDR = "0x1234567890abcdef1234567890abcdef12345678";
-const AGENT = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+// The recorded agent derives from a REAL key, so the approval-skip check
+// runs its real predicate in these tests: the memory key either derives to
+// AGENT (skip) or it does not (re-prompt).
+const AGENT_KEY = generatePrivateKey();
+const AGENT = privateKeyToAccount(AGENT_KEY).address;
+const OTHER_KEY = generatePrivateKey();
 
 const {
   mockPost,
@@ -23,6 +29,7 @@ const {
   mockSignTypedData,
   mockSignMessage,
   mockHasKey,
+  mockMemoryKey,
   mockRunApprove,
   mockConnectFn,
   mockUseConnect,
@@ -33,6 +40,7 @@ const {
   mockSignTypedData: vi.fn(),
   mockSignMessage: vi.fn(),
   mockHasKey: vi.fn(),
+  mockMemoryKey: vi.fn(),
   mockRunApprove: vi.fn(),
   mockConnectFn: vi.fn(),
   mockUseConnect: vi.fn(),
@@ -57,10 +65,19 @@ vi.mock("connectkit", () => ({
 }));
 vi.mock("@/lib/agent-keystore", () => ({
   hasAgentKeyInMemory: () => mockHasKey(),
+  getMemoryAgentKey: () => mockMemoryKey(),
 }));
-vi.mock("@/lib/approve-agent", () => ({
-  runApproveAgent: (...a: unknown[]) => mockRunApprove(...a),
-}));
+// runApproveAgent is mocked (wallet signatures are injected in
+// approveAgent.test.ts instead); isMemoryKeyApprovedFor stays REAL so the
+// skip wiring is exercised, not stubbed out.
+vi.mock("@/lib/approve-agent", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/approve-agent")>();
+  return {
+    ...actual,
+    runApproveAgent: (...a: unknown[]) => mockRunApprove(...a),
+  };
+});
 
 const PASS = {
   publicId: "UvvuxpWPZ4",
@@ -127,6 +144,7 @@ function defaultMocks() {
     return Promise.reject(new Error(`unexpected GET ${path}`));
   });
   mockHasKey.mockReturnValue(true);
+  mockMemoryKey.mockReturnValue(AGENT_KEY);
   mockRunApprove.mockResolvedValue({ agentAddress: AGENT, persisted: true });
 }
 
@@ -146,6 +164,7 @@ beforeEach(() => {
   mockGet.mockReset();
   mockWallet.mockReset();
   mockHasKey.mockReset();
+  mockMemoryKey.mockReset();
   mockRunApprove.mockReset();
   mockUseConnect.mockReset();
   mockConnectFn.mockReset();
@@ -751,6 +770,9 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     // same order the component observes them in.
     meResponse = ME_NO_AGENT;
     mockHasKey.mockImplementation(() => mockRunApprove.mock.calls.length > 0);
+    mockMemoryKey.mockImplementation(() =>
+      mockRunApprove.mock.calls.length > 0 ? AGENT_KEY : null,
+    );
     mockGet.mockImplementation((url?: unknown) => {
       const path = String(url ?? "");
       if (path === "/api/v1/me") {
@@ -800,6 +822,7 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     // With the real runApproveAgent, a restored matching key would skip
     // here with zero popups; a lost key re-prompts (changed-wallet case).
     mockHasKey.mockReturnValue(false);
+    mockMemoryKey.mockReturnValue(null);
     mockPost
       .mockResolvedValueOnce(PREVIEW)
       .mockResolvedValueOnce({ executionId: "ex-6", providerOrderId: "hl-14", status: "open" });
@@ -811,12 +834,35 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
     await user.click(document.getElementById("consent") as HTMLInputElement);
     mockHasKey.mockImplementation(() => mockRunApprove.mock.calls.length > 0);
+    mockMemoryKey.mockImplementation(() =>
+      mockRunApprove.mock.calls.length > 0 ? AGENT_KEY : null,
+    );
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
     expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({
       accountId: "acct-1",
       knownAgentAddress: AGENT,
     });
+  });
+
+  it("re-prompts approval when the memory key is not the recorded agent", async () => {
+    // Bug A: the row records AGENT but this browser holds a rotated key.
+    // A bare key-exists check would skip approval and sign with an agent
+    // the venue never saw ("User or API Wallet … does not exist").
+    mockMemoryKey.mockReturnValue(OTHER_KEY);
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ executionId: "ex-7", providerOrderId: "hl-15", status: "open" });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
   });
 });
 /**

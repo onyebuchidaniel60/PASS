@@ -141,6 +141,9 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
         // Per-venue approval: a stale-venue agent reads as not-approved so
         // the client re-prompts instead of signing against a void approval.
         agentAddress: visibleAgentAddress(ctx, a),
+        // Venue the presented approval belongs to (null when none). The
+        // client signs approveAgent with the matching hyperliquidChain.
+        venue: visibleAgentAddress(ctx, a) ? a.venue : null,
         isPrimary: a.isPrimary,
       })),
       demoMode: ctx.demoMode,

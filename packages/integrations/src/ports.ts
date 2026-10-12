@@ -53,6 +53,12 @@ export interface ExchangePort {
     agentAddress: string;
     nonce: number;
     signature: Record<string, unknown>;
+    /**
+     * Venue label for the action. Hyperliquid requires hyperliquidChain
+     * "Testnet" on testnet ("Mainnet" is rejected or misfiled there).
+     * Defaults to "Mainnet" for callers with no venue context.
+     */
+    hyperliquidChain?: string;
   }): Promise<{ ok: boolean; raw?: unknown }>;
   getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null>;
 }

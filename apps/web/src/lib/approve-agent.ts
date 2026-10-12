@@ -89,6 +89,28 @@ export function buildApproveAgentTypedData(params: {
  *
  * Signing is injected so this is unit-testable without a wallet.
  */
+/**
+ * Fast-path approval check: the in-memory key skips re-approval ONLY when
+ * it derives to the recorded agent address. A bare "a key exists" check
+ * is wrong — after a key rotation (fresh key in memory, stale address on
+ * the row) it would skip approval and sign with an agent the venue never
+ * saw ("User or API Wallet … does not exist").
+ */
+export function isMemoryKeyApprovedFor(
+  recordedAgent: string | null | undefined,
+  memoryKey: `0x${string}` | null | undefined,
+): boolean {
+  if (!recordedAgent || !memoryKey) return false;
+  try {
+    return (
+      privateKeyToAccount(memoryKey).address.toLowerCase() ===
+      recordedAgent.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
 export interface ApproveAgentPostBody {
   agentAddress: `0x${string}`;
   nonce: number;
@@ -100,6 +122,13 @@ export async function runApproveAgent(deps: {
   address: `0x${string}`;
   /** Venue-approved agent this client knows about (/me row or preview). */
   knownAgentAddress?: `0x${string}` | string | null;
+  /**
+   * Venue the approval is for. Hyperliquid requires hyperliquidChain
+   * "Testnet" on testnet ("Mainnet" is rejected or misfiled there), so the
+   * Take flow passes the row's venue; the Mainnet default preserves every
+   * caller that has no venue context.
+   */
+  chain?: HLChain;
   signMessageAsync: (args: { message: string }) => Promise<string>;
   signTypedDataAsync: (args: unknown) => Promise<`0x${string}`>;
   postApprove: (
@@ -154,7 +183,7 @@ export async function runApproveAgent(deps: {
   }
 
   const nonce = nowNonce();
-  const typed = buildApproveAgentTypedData({ agentAddress, nonce });
+  const typed = buildApproveAgentTypedData({ agentAddress, nonce, chain: deps.chain });
 
   // wagmi's typed-data generics are narrowed to standard EIP-712 primary
   // types; Hyperliquid's is documented as

@@ -48,6 +48,8 @@ export interface MeTradingAccount {
   id: string;
   accountAddress: string;
   agentAddress: string | null;
+  /** Venue the presented approval belongs to; null when none (D-021). */
+  venue: string | null;
   isPrimary: boolean;
 }
 

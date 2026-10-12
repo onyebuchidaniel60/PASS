@@ -173,6 +173,7 @@ export class SplitHyperliquid implements HyperliquidPort {
     agentAddress: string;
     nonce: number;
     signature: Record<string, unknown>;
+    hyperliquidChain?: string;
   }): Promise<{ ok: boolean; raw?: unknown }> {
     if (!this.exchange) {
       return {

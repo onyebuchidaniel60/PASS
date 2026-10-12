@@ -114,8 +114,7 @@ describe("SplitHyperliquid simulates execution in the split state", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("live mode still attempts the real request path", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+  it("live mode still attempts the real request path", async () => {    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       text: async () =>
@@ -176,5 +175,65 @@ describe("SplitHyperliquid reads through the Info API when reads are live", () =
     // Synchronous, because `getMids` is not `async` and therefore throws before
     // returning a promise.
     expect(() => hl.getMids()).toThrow(/wiring fault/i);
+  });
+});
+
+describe("approveAgent venue label", () => {
+  const TESTNET_EXCHANGE = "https://api.hyperliquid-testnet.xyz/exchange";
+
+  function stubApproveOk(): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ status: "ok", response: { type: "default" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  function postedAction(fetchMock: ReturnType<typeof vi.fn>) {
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as {
+      action?: Record<string, unknown>;
+    };
+    return body.action ?? {};
+  }
+
+  it("posts the approval to the configured exchange URL with the Testnet label", async () => {
+    const fetchMock = stubApproveOk();
+    const hl = new SplitHyperliquid({
+      infoUrl: "https://api.hyperliquid-testnet.xyz/info",
+      exchangeUrl: TESTNET_EXCHANGE,
+      readsLive: true,
+      writesLive: true,
+    });
+
+    const result = await hl.relayApproveAgent({
+      agentAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      nonce: 1760000000000,
+      signature: { r: "0x0", s: "0x0", v: 27 },
+      hyperliquidChain: "Testnet",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(String(fetchMock.mock.calls[0]?.[0] ?? "")).toBe(TESTNET_EXCHANGE);
+    expect(postedAction(fetchMock).hyperliquidChain).toBe("Testnet");
+  });
+
+  it("defaults the label to Mainnet for callers with no venue context", async () => {
+    const fetchMock = stubApproveOk();
+    const hl = new SplitHyperliquid({
+      infoUrl: INFO,
+      exchangeUrl: EXCHANGE,
+      readsLive: true,
+      writesLive: true,
+    });
+
+    await hl.relayApproveAgent({
+      agentAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      nonce: 1760000000000,
+      signature: { r: "0x0", s: "0x0", v: 27 },
+    });
+
+    expect(postedAction(fetchMock).hyperliquidChain).toBe("Mainnet");
   });
 });
