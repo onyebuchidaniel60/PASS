@@ -80,6 +80,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 7. My Passes (`/me/passes`)
 
 - Auth-gated; harness clean signed-out. Lifecycle `StatBlock` strip (mono, uncoloured counts), Pass table (asset/direction/status/takers/published/expiry), accent `Create a Pass` in header, draft/cancelled ghost treatment without text-opacity loss — source-conformant. No divergence asserted; counts-vs-Discover consistency reading (§6.2 step 10) deferred until authenticated fixture.
+- ✓ Stage K complete 2026-10-12: signed-out fallback is a connect CTA with no rows (D-024, test-asserted); myPasses.test 17/17 green (populated table, cancel-confirm flow, ghost rows without text dimming, header Create action). Screenshots captured both viewports. Harness clean both viewports. No code change.
 
 ## 8. Executions (`/me/executions`)
 
