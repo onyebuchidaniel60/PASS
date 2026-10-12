@@ -261,23 +261,25 @@ describe("approveAgent typed data vs viem", () => {
     expect(sig).toMatch(/^0x[0-9a-f]{130}$/);
   });
 
-  it("builds a Testnet-labelled payload when asked", () => {
+  it("builds a Testnet-labelled payload when asked (domain stays 42161)", () => {
     const payload = buildApproveAgentTypedData({
       agentAddress: AGENT,
       nonce: 1760000000000,
       chain: "Testnet",
     });
+    // The HyperliquidSignTransaction domain is fixed (42161, both venues);
+    // only the message label follows the venue.
+    expect(payload.domain.chainId).toBe(42161);
     expect(payload.message.hyperliquidChain).toBe("Testnet");
-    expect(payload.domain.chainId).toBe(421614);
   });
 
-  it("builds a Mainnet-labelled payload by default", () => {
+  it("builds a Mainnet-labelled payload by default (domain stays 42161)", () => {
     const payload = buildApproveAgentTypedData({
       agentAddress: AGENT,
       nonce: 1760000000000,
     });
-    expect(payload.message.hyperliquidChain).toBe("Mainnet");
     expect(payload.domain.chainId).toBe(42161);
+    expect(payload.message.hyperliquidChain).toBe("Mainnet");
   });
 });
 
