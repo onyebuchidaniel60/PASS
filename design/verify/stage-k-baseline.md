@@ -45,6 +45,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 - Headline `Live **plans**, / written by traders.` matches §14.4 table; accent on `plans,`. Filters render (`All/Active/Open`), ticker fallback renders single muted `MARKET DATA UNAVAILABLE` row per §14.8 (honest, no marquee). Result-count eyebrow shows loading (`Counting…`) then resolves client-side.
 - Detector 10px `sl_hit` badges + 3.8:1 card-text blends: recorded as deferred measured follow-up (see header). No inline fix per token rule.
 - Deferred: row anatomy (DirectionBadge → asset → StatusChip → CoordinatePair → relative time), no-PnL-on-row rule (PRD §13), empty-state `EmptyBlock` with `Create a Pass` — harness clean, no divergence asserted without signed-in and empty fixtures.
+- ✓ Stage K complete 2026-10-12: desktop screenshot viewed vs §10.2 — rows lead asset+direction with status chip, CoordinatePair entry/TP/SL + R:R, relative times, no PnL on any row; filter row ALL/ACTIVE/OPEN always visible; mono result count; ticker bar with entries (values repeat from poll data — data observation, not a design defect; backend untouched); `MARKET DATA UNAVAILABLE` fallback path exists per §14.8. Harness clean both viewports. No code change.
 
 ## 4. Take flow (`/passes/{id}/take`, 4 steps)
 
