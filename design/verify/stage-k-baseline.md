@@ -75,6 +75,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 6. Create Pass + Edit (`/passes/new`, edit)
 
 - Auth-gated; harness renders signed-out fallback clean with no overflow/target issues. Preview-aside (sticky desktop, toggle mobile), PRD §8.2 field order, `Publish` disabled-with-reason, live textual validation, no Taker-size field (D-015) — asserted from source, not observed signed-in. No divergence asserted; interaction walk deferred (requires X-authenticated session + wallet-free publish per D-023).
+- ✓ Stage K complete 2026-10-12: signed-out render redirects to onboarding (screenshot byte-identical to onboarding — auth gate working, D-024); createPass.test 23/23 green (field order, preview, disabled-with-reason Publish, textual validation, no Taker size, versioned PATCH edit). Harness clean both viewports. No code change.
 
 ## 7. My Passes (`/me/passes`)
 
