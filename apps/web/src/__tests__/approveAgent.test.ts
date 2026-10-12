@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { forgetAgentKey, hasAgentKeyInMemory } from "../lib/agent-keystore";
@@ -15,6 +15,8 @@ import {
  * The key never appears in the posted body — only its address does.
  */
 const ADDR = "0x1234567890abcdef1234567890abcdef12345678" as const;
+/** A different injected account, for the signer-mismatch guard. */
+const OTHER = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as const;
 /** A well-formed flat 65-byte wallet signature (r, s, v=27). */
 const FLAT_SIG = `0x${"22".repeat(64)}1b` as `0x${string}`;
 const SPLIT_SIG = {
@@ -26,6 +28,17 @@ const SPLIT_SIG = {
 describe("runApproveAgent", () => {
   beforeEach(async () => {
     await forgetAgentKey();
+    // The guard compares the wagmi address against the injected wallet's
+    // selected address: every non-guard test runs as the matched signer.
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: ADDR,
+    };
+    // The temporary [approveAgent] diagnostic log stays out of test output.
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
   });
 
   it("posts only address/nonce/signature and holds the key in memory", async () => {
@@ -127,6 +140,14 @@ describe("runApproveAgent", () => {
 describe("runApproveAgent session behaviour (popup table)", () => {
   beforeEach(async () => {
     await forgetAgentKey();
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: ADDR,
+    };
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
   });
 
   const deps = () => ({
@@ -334,6 +355,14 @@ describe("isUserRejection", () => {
 describe("runApproveAgent pins the master account", () => {
   beforeEach(async () => {
     await forgetAgentKey();
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: ADDR,
+    };
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
   });
 
   it("passes account === the connected address to both signatures", async () => {
@@ -363,6 +392,14 @@ describe("runApproveAgent pins the master account", () => {
 describe("runApproveAgent venue chain", () => {
   beforeEach(async () => {
     await forgetAgentKey();
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: ADDR,
+    };
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
   });
 
   it("signs the approval with the Testnet label when the venue is testnet", async () => {
@@ -380,5 +417,93 @@ describe("runApproveAgent venue chain", () => {
       | undefined;
     const typed = typedCall?.[0];
     expect(typed?.message.hyperliquidChain).toBe("Testnet");
+  });
+
+  it("signs the approval with the Mainnet label when the venue is mainnet", async () => {
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      chain: "Mainnet",
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync,
+      postApprove: async () => ({}),
+    });
+    const typedCall = signTypedDataAsync.mock.calls[0] as unknown as
+      | [{ message: { hyperliquidChain: string } }]
+      | undefined;
+    const typed = typedCall?.[0];
+    expect(typed?.message.hyperliquidChain).toBe("Mainnet");
+  });
+});
+
+/**
+ * Signer-mismatch guard: the approval must be signed by the wagmi-connected
+ * master wallet. When the injected wallet's selected address disagrees,
+ * runApproveAgent throws before any signature is produced — it never lets
+ * the venue recover an unknown signer.
+ */
+describe("runApproveAgent signer guard", () => {
+  beforeEach(async () => {
+    await forgetAgentKey();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
+  });
+
+  it("throws the mismatch error and never signs when the injected wallet disagrees", async () => {
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: OTHER,
+    };
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    const postApprove = vi.fn(async () => ({}));
+    await expect(
+      runApproveAgent({
+        accountId: "acct-1",
+        address: ADDR,
+        signMessageAsync: async () => "0xderivationsecret",
+        signTypedDataAsync,
+        postApprove,
+      }),
+    ).rejects.toThrow(
+      `Signer mismatch: wagmi has ${ADDR.toLowerCase()}, injected wallet has ${OTHER.toLowerCase()}`,
+    );
+    expect(signTypedDataAsync).not.toHaveBeenCalled();
+    expect(postApprove).not.toHaveBeenCalled();
+  });
+
+  it("throws when no injected wallet exposes a selected address", async () => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    await expect(
+      runApproveAgent({
+        accountId: "acct-1",
+        address: ADDR,
+        signMessageAsync: async () => "0xderivationsecret",
+        signTypedDataAsync,
+        postApprove: async () => ({}),
+      }),
+    ).rejects.toThrow(/Signer mismatch/);
+    expect(signTypedDataAsync).not.toHaveBeenCalled();
+  });
+
+  it("signs with account === the connected address when the wallet agrees", async () => {
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: ADDR,
+    };
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync,
+      postApprove: async () => ({}),
+    });
+    const typedCall = signTypedDataAsync.mock.calls[0] as unknown as
+      | [{ account: string }]
+      | undefined;
+    expect(typedCall?.[0].account).toBe(ADDR);
   });
 });

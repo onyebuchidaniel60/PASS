@@ -208,6 +208,41 @@ export async function runApproveAgent(deps: {
   const nonce = nowNonce();
   const typed = buildApproveAgentTypedData({ agentAddress, nonce, chain: deps.chain });
 
+  // Temporary diagnostics (single Take, then removed): what address the code
+  // thinks it is signing with, what the injected wallet exposes as selected,
+  // whether multiple providers are present and which one wins, and what
+  // agent address the typed data actually carries.
+  // `window` is guarded for SSR/test runtimes; in a real browser it exists.
+  interface InjectedDiagnostics {
+    selectedAddress?: string;
+    providers?: Array<{
+      selectedAddress?: string;
+      _state?: { accounts?: string[] };
+    }>;
+  }
+  const injected =
+    typeof window !== "undefined"
+      ? (window as unknown as { ethereum?: InjectedDiagnostics }).ethereum
+      : undefined;
+  console.log("[approveAgent]",
+    "deps.address=", deps.address,
+    "rabby=", injected?.selectedAddress,
+    "providers=", injected?.providers?.map(
+      (p) => p.selectedAddress || p._state?.accounts?.[0]),
+    "typed.agentAddress=", typed.message.agentAddress);
+
+  // The signer must be the wagmi-connected master wallet. If wagmi is bound
+  // to a different provider than the one the injected wallet exposes, throw
+  // here and name the mismatch instead of silently signing with the wrong
+  // key. This error must surface verbatim — do not catch and generalize it.
+  const connected = deps.address?.toLowerCase();
+  const selected = injected?.selectedAddress?.toLowerCase();
+  if (!connected || !selected || connected !== selected) {
+    throw new Error(
+      `Signer mismatch: wagmi has ${connected}, injected wallet has ${selected}`
+    );
+  }
+
   // wagmi's typed-data generics are narrowed to standard EIP-712 primary
   // types; Hyperliquid's is documented as
   // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
