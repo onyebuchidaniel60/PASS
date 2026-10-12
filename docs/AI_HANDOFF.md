@@ -372,3 +372,13 @@ If any step fails, stop. Do not bundle a second fix.
   live in production with a fresh mock Take (sl_hit close, Pass flipped,
   `simulated: true` metrics). Pre-`mock_` legacy rows stay open (residual
   10).
+
+## 14. Design skills installed (Stage K)
+
+- Taste (Leonxlnx/taste-skill)
+- Emil Kowalski skills (emilkowalski/skills)
+- Impeccable (pbakaus/impeccable)
+- Install mechanism: npx skills add (project scope, `.agents/skills/`; Impeccable via `npx impeccable install` into `.agents/skills/impeccable` + `.claude/`)
+- Authority: design/DESIGN.md > these skills
+- PRODUCT.md: created at repo root from source-of-truth docs (README authority order, DECISIONS, PRD, AI_HANDOFF §§5–8); audience (Trader/Taker/signed-out visitor), purpose (shareable executable Pass, non-custodial), constraints (§8 invariants + D-023/D-024/D-021/D-018.9 + SIMULATED labelling), voice (industrial-editorial) reviewed correct.
+- Conflict resolution: Taste perpetual micro-motion vs Emil ask-first + <300ms. Session rule applied: every animation must orient, confirm, or explain; decorative motion removed; Emil's constraint wins in practice. No pre-de-conflicted bundle used — all four loaded via `npx skills` CLI without instruction errors; `skills-lock.json` records hashes.

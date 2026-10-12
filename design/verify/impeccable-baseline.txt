@@ -1,0 +1,202 @@
+﻿-- PASS Stage K baseline — impeccable detector --
+-- generated: 2026-10-11 --
+.agents\skills\impeccable\scripts\impeccable.cmd : 
+At line:1 char:277
++ ... 8 $out; ""; .agents\skills\impeccable\scripts\impeccable.cmd detect a ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\User\Documents\Projects\PASS\apps\web\src\styles\components.css (imported by globals.css)
+  line 1818: [gradient-text] background-clip: text + gradient
+    ΓåÆ Gradient text is decorative rather than meaningful ΓÇö a common AI tell, especially on headings and metrics. 
+Use solid colors for text.
+
+C:\Users\User\Documents\Projects\PASS\apps\web\src\styles\tokens.css (imported by globals.css)
+  line 55: [overused-font] font-family: "Inter
+    ΓåÆ Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer 
+feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives 
+your interface personality.
+  line 63: [overused-font] font-family: "Inter
+    ΓåÆ Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer 
+feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives 
+your interface personality.
+  line 71: [overused-font] font-family: "Inter
+    ΓåÆ Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer 
+feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives 
+your interface personality.
+
+4 anti-patterns found.
+-- URL scan: / + /discover --
+.agents\skills\impeccable\scripts\impeccable.cmd : 
+At line:1 char:463
++ ...  utf8 $out; .agents\skills\impeccable\scripts\impeccable.cmd detect h ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+https://pass-web-dun.vercel.app/
+  [low-contrast] 1.1:1 (need 3:1) ΓÇö text #161615 on #0a0a0a
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [oversized-h1] 76px h1, 43 chars, 29vh "See a trade.Know the trader.Take the trade."
+    ΓåÆ A full-sentence headline set at display size ends up dominating the viewport, leaving no room for anything 
+else above the fold. A punchy one- or two-word headline at that size is fine ΓÇö the problem is a long headline blown 
+up too large. Set long headlines smaller, or tighten the copy.
+  [kicker-above-heading] kicker "\How it works\\02\" above h2 "A plan isnot a promise."
+    ΓåÆ A tiny tracked uppercase or small-caps label sitting as its own block directly above a heading is banned 
+outright, repeated or not. Generated kickers never earn their place: the heading carries its own weight. Delete the 
+label and let the heading speak; if the words matter, work them into the heading or the body.
+  [nested-cards] Card inside card
+    ΓåÆ Cards inside cards create visual noise and excessive depth. Flatten the hierarchy ΓÇö use spacing, typography, 
+and dividers instead of nesting containers.
+  [nested-cards] Card inside card
+    ΓåÆ Cards inside cards create visual noise and excessive depth. Flatten the hierarchy ΓÇö use spacing, typography, 
+and dividers instead of nesting containers.
+  [nested-cards] Card inside card
+    ΓåÆ Cards inside cards create visual noise and excessive depth. Flatten the hierarchy ΓÇö use spacing, typography, 
+and dividers instead of nesting containers.
+  [nested-cards] Card inside card
+    ΓåÆ Cards inside cards create visual noise and excessive depth. Flatten the hierarchy ΓÇö use spacing, typography, 
+and dividers instead of nesting containers.
+
+https://pass-web-dun.vercel.app/discover
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [low-contrast] 3.8:1 (need 4.5:1) ΓÇö text #706d68 on #0b0b0e
+    ΓåÆ Text does not meet WCAG AA contrast requirements (4.5:1 for body, 3:1 for large text). Increase the contrast 
+between text and background.
+  [undersized-ui-text] 10px functional text "sl_hit" (below 11px floor)
+    ΓåÆ Interactive and content-bearing UI text (links, buttons, nav items, labels, table cells, meta rows, timecodes) 
+below 11px is a legibility failure, not a style choice. WCAG sets no absolute pixel floor, but functional text under 
+11px is a defensible quality bar: it fails on high-DPI and small viewports and it degrades tap and read targets. The 
+11px floor holds even inside a footer; only non-interactive legal smallprint gets the softer 10px floor. Being ON the 
+DESIGN.md size ramp does not exempt a value here: adding 8px to the ramp launders the token but not the legibility 
+problem, and that is exactly the escape hatch this rule closes. Exempts sup/sub, visually-hidden (sr-only) text, and 
+code/terminal contexts. Decorative letterspaced micro-labels are still functional and stay in scope.
+  [kicker-above-heading] kicker "\Live passes\\01\" above h1 "Live plans,written by traders."
+    ΓåÆ A tiny tracked uppercase or small-caps label sitting as its own block directly above a heading is banned 
+outright, repeated or not. Generated kickers never earn their place: the heading carries its own weight. Delete the 
+label and let the heading speak; if the words matter, work them into the heading or the body.
+
+29 anti-patterns found.
