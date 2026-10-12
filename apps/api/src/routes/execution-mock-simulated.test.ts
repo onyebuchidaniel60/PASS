@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import {
   createDb,
   executions,
+  feeLedger,
   identities,
   profiles,
   runMigrations,
@@ -91,7 +92,7 @@ afterAll(async () => {
   await handle.close();
 });
 
-async function traderWithPass(): Promise<{ publicId: string }> {
+async function traderWithPass(): Promise<{ publicId: string; cookie: string }> {
   const [user] = await db.insert(users).values({}).returning();
   if (!user) throw new Error("fixture setup failed");
   await db.insert(identities).values({
@@ -138,7 +139,7 @@ async function traderWithPass(): Promise<{ publicId: string }> {
   });
   expect(published.statusCode).toBe(200);
   const { publicId } = published.json() as { publicId: string };
-  return { publicId };
+  return { publicId, cookie };
 }
 
 async function takerWithAccount(): Promise<{ cookie: string; accountId: string }> {
@@ -263,5 +264,87 @@ describe("mock execution relay simulates success", () => {
       .where(eq(executions.clientRequestId, clientRequestId))
       .limit(1);
     expect(rows[0]!.positionSize).toBe("0.01102");
+  });
+
+  it("one mock execution writes one simulated fee_ledger row with correct math", async () => {
+    // sizeUsd 100 x leverage 2 = 200 notional -> 0.10 fee at 5 bps,
+    // split 0.05 creator / 0.05 protocol. The flat response fields carry
+    // the same values the Take receipt renders.
+    const { publicId } = await traderWithPass();
+    const { cookie, accountId } = await takerWithAccount();
+    const clientRequestId = `req_mockfee_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/passes/${publicId}/executions`,
+      headers: { cookie, "content-type": "application/json" },
+      payload: {
+        passVersion: 1,
+        accountId,
+        clientRequestId,
+        positionSize: "100",
+        leverage: "2",
+        signedPayload: { exchangeRequest: { sz: "0.01" }, signature: { mock: true } },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json() as {
+      executionId: string;
+      simulated: boolean;
+      notionalUsd: string | null;
+      feeUsd: string | null;
+      creatorShareUsd: string | null;
+      protocolShareUsd: string | null;
+      builderFeeBps: number | null;
+    };
+    expect(body.simulated).toBe(true);
+    expect(Number(body.notionalUsd)).toBeCloseTo(200, 8);
+    expect(Number(body.feeUsd)).toBeCloseTo(0.1, 8);
+    expect(Number(body.creatorShareUsd)).toBeCloseTo(0.05, 8);
+    expect(Number(body.protocolShareUsd)).toBeCloseTo(0.05, 8);
+    expect(body.builderFeeBps).toBe(5);
+
+    const feeRows = await db
+      .select()
+      .from(feeLedger)
+      .where(eq(feeLedger.executionId, body.executionId));
+    expect(feeRows).toHaveLength(1);
+    expect(Number(feeRows[0]!.notionalUsd)).toBeCloseTo(200, 8);
+    expect(Number(feeRows[0]!.feeUsd)).toBeCloseTo(0.1, 8);
+    expect(Number(feeRows[0]!.creatorShareUsd)).toBeCloseTo(0.05, 8);
+    expect(Number(feeRows[0]!.protocolShareUsd)).toBeCloseTo(0.05, 8);
+    expect(feeRows[0]!.builderFeeBps).toBe(5);
+    expect(feeRows[0]!.simulated).toBe(true);
+  });
+
+  it("sums the creator share into GET /api/v1/me/passes feesEarnedUsd", async () => {
+    const { publicId, cookie: traderCookie } = await traderWithPass();
+    const { cookie: takerCookie, accountId } = await takerWithAccount();
+    const exec = await app.inject({
+      method: "POST",
+      url: `/api/v1/passes/${publicId}/executions`,
+      headers: { cookie: takerCookie, "content-type": "application/json" },
+      payload: {
+        passVersion: 1,
+        accountId,
+        clientRequestId: `req_mockme_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+        positionSize: "100",
+        leverage: "2",
+        signedPayload: { exchangeRequest: { sz: "0.01" }, signature: { mock: true } },
+      },
+    });
+    expect(exec.statusCode).toBe(201);
+
+    const mine = await app.inject({
+      method: "GET",
+      url: "/api/v1/me/passes?limit=10",
+      headers: { cookie: traderCookie },
+    });
+    expect(mine.statusCode).toBe(200);
+    const listed = (
+      mine.json() as { passes: Array<{ publicId: string; feesEarnedUsd: string | null }> }
+    ).passes;
+    const found = listed.find((p) => p.publicId === publicId);
+    expect(found).toBeDefined();
+    expect(Number(found!.feesEarnedUsd)).toBeCloseTo(0.05, 8);
   });
 });

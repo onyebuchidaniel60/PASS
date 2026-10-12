@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { TakeFlowClient } from "../app/passes/[publicId]/take/TakeFlowClient";
+import type * as ApproveAgentLib from "@/lib/approve-agent";
 
 /**
  * Take flow — design/DESIGN.md §10.6, docs/UX_SPEC.md §8, Stage F (D-025).
@@ -72,7 +73,7 @@ vi.mock("@/lib/agent-keystore", () => ({
 // skip wiring is exercised, not stubbed out.
 vi.mock("@/lib/approve-agent", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@/lib/approve-agent")>();
+    await importOriginal<typeof ApproveAgentLib>();
   return {
     ...actual,
     runApproveAgent: (...a: unknown[]) => mockRunApprove(...a),
@@ -325,6 +326,47 @@ describe("Anonymous Take — no PASS session (D-026)", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(/mock_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the simulated fee block and posts size+leverage for fee math", async () => {
+    signedOutMocks();
+    mockPost
+      .mockResolvedValueOnce(ANON_PREVIEW)
+      .mockResolvedValueOnce({
+        executionId: "ex-anon-fee",
+        providerOrderId: "mock_bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+        status: "pending",
+        simulated: true,
+        notionalUsd: "200",
+        feeUsd: "0.1",
+        creatorShareUsd: "0.05",
+        protocolShareUsd: "0.05",
+        builderFeeBps: 5,
+      });
+    renderFlow();
+    await screen.findByText("STEP 1 / 4");
+    const user = await typeSize("100");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(executionsCalls()).toHaveLength(1));
+
+    // The Taker's own size and leverage ride along for fee math only.
+    const execBody = executionsCalls()[0]?.[1] as Record<string, unknown>;
+    expect(execBody.positionSize).toBe("100");
+    expect(execBody.leverage).toBe("5");
+
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+    expect(screen.getByText("Simulated fees")).toBeInTheDocument();
+    expect(screen.getByText("$200.00")).toBeInTheDocument();
+    expect(screen.getByText("$0.10")).toBeInTheDocument();
+    expect(screen.getAllByText("$0.05")).toHaveLength(2);
+    expect(
+      screen.getByText("Simulated — no real fees are charged."),
     ).toBeInTheDocument();
   });
 });

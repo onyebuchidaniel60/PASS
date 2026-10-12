@@ -101,6 +101,18 @@ describe("executions body", () => {
     expect(body).not.toHaveProperty("signedAction");
   });
 
+  it("carries size+leverage for fee math when provided", () => {
+    const body = executionBody({
+      passVersion: 2,
+      accountId: "acct-1",
+      clientRequestId: "req_abc12345",
+      positionSize: "100",
+      leverage: "2",
+      signedPayload: { exchangeRequest: { a: 1 }, signature: { r: "0x1" } },
+    });
+    expect(body).toMatchObject({ positionSize: "100", leverage: "2" });
+  });
+
   it("mints unique request-scoped idempotency keys", () => {
     const a = newClientRequestId();
     const b = newClientRequestId();

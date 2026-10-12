@@ -568,6 +568,10 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
               You authorize your own order at your own position size. PASS never
               selects a size for you.
             </p>
+            {/* Simulated builder-fee disclosure: static line, no numbers. */}
+            <p className="pass-stale">
+              A 0.05% builder fee applies. 50% goes to the Pass creator.
+            </p>
           </Stack>
           ) : (
           <Stack gap="3">

@@ -290,6 +290,36 @@ export const executions = pgTable(
 );
 
 /**
+ * Simulated builder-fee ledger (docs/DATA_MODEL.md §2). One row per mock
+ * execution: 5 bps on sizeUsd x leverage, split 50/50 creator/protocol.
+ * Live executions never write here. Every reader must label simulated.
+ */
+export const feeLedger = pgTable(
+  "fee_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    executionId: uuid("execution_id")
+      .notNull()
+      .references(() => executions.id, { onDelete: "cascade" }),
+    passId: uuid("pass_id")
+      .notNull()
+      .references(() => passes.id),
+    creatorUserId: uuid("creator_user_id").references(() => users.id),
+    notionalUsd: numeric("notional_usd", { precision: 24, scale: 8 }).notNull(),
+    feeUsd: numeric("fee_usd", { precision: 24, scale: 8 }).notNull(),
+    creatorShareUsd: numeric("creator_share_usd", { precision: 24, scale: 8 }).notNull(),
+    protocolShareUsd: numeric("protocol_share_usd", { precision: 24, scale: 8 }).notNull(),
+    builderFeeBps: integer("builder_fee_bps").notNull(),
+    simulated: boolean("simulated").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("fee_ledger_creator_idx").on(t.creatorUserId),
+    index("fee_ledger_pass_idx").on(t.passId),
+  ],
+);
+
+/**
  * Cached Ethos reputation snapshot, refreshed periodically. Read-only from
  * the public API (D-018.6). Never a trust verdict.
  */

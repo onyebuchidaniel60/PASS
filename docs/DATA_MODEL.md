@@ -193,6 +193,29 @@ Taker's identity for that execution. `GET /me/executions` returns only rows
 for the signed-in user; anonymous rows never appear there and are never
 retroactively attached to a user who signs in later.
 
+### fee_ledger
+
+One simulated builder-fee row per mock execution: 5 bps on
+`sizeUsd x leverage`, split 50/50 creator/protocol (`packages/domain/fees.ts`).
+
+```text
+id UUID PK
+execution_id UUID FK executions.id ON DELETE CASCADE
+pass_id UUID FK passes.id
+creator_user_id UUID nullable FK users.id
+notional_usd numeric(24,8)
+fee_usd numeric(24,8)
+creator_share_usd numeric(24,8)
+protocol_share_usd numeric(24,8)
+builder_fee_bps integer
+simulated boolean NOT NULL DEFAULT true
+created_at timestamptz
+```
+
+Live executions never write here — no real fees are charged by PASS. Every
+surface reading this table (Take receipt, My Passes) must label its numbers
+simulated. Added by migration `0007_fee_ledger.sql`.
+
 ### ethos_profiles
 
 Cached Ethos reputation snapshot, refreshed periodically. Read-only from the public API (see `docs/DECISIONS.md` D-018.6).

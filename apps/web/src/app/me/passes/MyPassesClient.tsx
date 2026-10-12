@@ -38,7 +38,7 @@ import {
 } from "@/components/wave3/data";
 import { DataTable, StatRow, type DataTableColumn } from "@/components/wave3/table";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
-import { fmtPrice, formatRelative } from "@/lib/format";
+import { fmtPrice, fmtUsd, formatRelative } from "@/lib/format";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 
 export interface MyPass {
@@ -55,6 +55,8 @@ export interface MyPass {
   expiresAt: string | null;
   createdAt: string;
   takerCount?: number;
+  /** Summed simulated creator share from fee_ledger. Null when no takes. */
+  feesEarnedUsd?: string | null;
 }
 
 /** Draft and cancelled are not live inventory; they are ghosted, not hidden. */
@@ -108,6 +110,16 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     label: "TAKERS",
     numeric: true,
     render: (p) => <span className="pass-num">{p.takerCount ?? 0}</span>,
+  },
+  {
+    // Simulated builder fees accrued to the author (fee_ledger creator
+    // share). One line per row, in the row's own numeric voice.
+    key: "fees",
+    label: "FEES",
+    numeric: true,
+    render: (p) => (
+      <span className="pass-num">Fees earned (simulated): ${fmtUsd(p.feesEarnedUsd ?? "0")}</span>
+    ),
   },
   {
     key: "published",

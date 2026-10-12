@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { eq, sql } from "drizzle-orm";
 import {
   CreatePassRequest,
   ExecutionPreviewRequest,
@@ -8,6 +9,7 @@ import {
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { requireUser } from "../plugins/session.js";
+import { feeLedger } from "@pass/db";
 import {
   cancelPass,
   createPass,
@@ -113,6 +115,17 @@ export async function registerPassRoutes(app: FastifyInstance, ctx: AppContext) 
     const userId = await requireUser(req);
     const q = PaginationQuery.parse(req.query ?? {});
     const rows = await listOwnedPasses(ctx, userId, q.limit);
+    // Simulated fees earned per Pass: summed creator shares from fee_ledger
+    // for this author. Passes with no takes map to null and render $0.00.
+    const feeSums = await ctx.db
+      .select({
+        passId: feeLedger.passId,
+        total: sql<string>`coalesce(sum(${feeLedger.creatorShareUsd}), 0)`,
+      })
+      .from(feeLedger)
+      .where(eq(feeLedger.creatorUserId, userId))
+      .groupBy(feeLedger.passId);
+    const byPass = new Map(feeSums.map((r) => [r.passId, r.total]));
     return {
       passes: rows.map((r) => ({
         id: r.id,
@@ -130,6 +143,7 @@ export async function registerPassRoutes(app: FastifyInstance, ctx: AppContext) 
         expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
         createdAt: r.createdAt.toISOString(),
         canonicalPath: `/p/${r.publicId}`,
+        feesEarnedUsd: byPass.get(r.id) ?? null,
       })),
     };
   });
@@ -193,7 +207,19 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
     const userId = req.sessionUserId ?? null;
     const input = ExecutionRequest.parse(req.body);
     const result = await relayExecution(ctx, req.params.id, userId, input);
-    return reply.status(201).send(result);
+    // Flat simulated-fee fields (docs/API_CONTRACTS.md §8): present with the
+    // fee_ledger values on mock executions, null on live fills and replays.
+    return reply.status(201).send({
+      executionId: result.executionId,
+      providerOrderId: result.providerOrderId,
+      status: result.status,
+      simulated: result.simulated,
+      notionalUsd: result.fee?.notionalUsd ?? null,
+      feeUsd: result.fee?.feeUsd ?? null,
+      creatorShareUsd: result.fee?.creatorShareUsd ?? null,
+      protocolShareUsd: result.fee?.protocolShareUsd ?? null,
+      builderFeeBps: result.fee?.builderFeeBps ?? null,
+    });
   });
 
   app.get<{ Params: { id: string } }>("/api/v1/executions/:id", async (req) => {

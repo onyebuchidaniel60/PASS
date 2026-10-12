@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatRelative, relative } from "@/lib/format";
+import { fmtUsd, formatRelative, relative } from "@/lib/format";
 
 const NOW = new Date("2026-10-06T12:00:00.000Z");
 const at = (iso: string) => iso;
@@ -57,5 +57,21 @@ describe("formatRelative", () => {
 
   it("keeps the legacy export name working", () => {
     expect(relative(at("2026-10-06T12:30:00.000Z"), NOW)).toBe("in 30m");
+  });
+});
+
+describe("fmtUsd", () => {
+  it("renders exactly two decimals with grouping", () => {
+    expect(fmtUsd("200")).toBe("200.00");
+    expect(fmtUsd("0.1")).toBe("0.10");
+    expect(fmtUsd("0.05000000")).toBe("0.05");
+    expect(fmtUsd(1234.5)).toBe("1,234.50");
+  });
+
+  it("renders a dash for missing or unusable input", () => {
+    expect(fmtUsd(null)).toBe("—");
+    expect(fmtUsd(undefined)).toBe("—");
+    expect(fmtUsd("")).toBe("—");
+    expect(fmtUsd("abc")).toBe("—");
   });
 });

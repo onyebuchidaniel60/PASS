@@ -21,6 +21,14 @@ export function fmtSize(v: string | number | null | undefined): string {
   return n.toLocaleString("en-US", { maximumFractionDigits: 5 });
 }
 
+/** USD money with exactly two decimals, for simulated fee surfaces. */
+export function fmtUsd(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = typeof v === "string" ? Number(v) : v;
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** Signed PnL. The sign is always present; colour is never the only cue. */
 export function fmtPnl(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";

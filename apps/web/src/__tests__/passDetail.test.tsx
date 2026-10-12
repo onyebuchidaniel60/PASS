@@ -166,6 +166,14 @@ describe("Pass detail renders a Pass (§10.3)", () => {
     ).toBeInTheDocument();
   });
 
+  it("discloses the simulated builder fee under the Take CTA", async () => {
+    renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    expect(
+      screen.getByText("A 0.05% builder fee applies. 50% goes to the Pass creator."),
+    ).toBeInTheDocument();
+  });
+
   it("shows no urgency or scarcity language (§12.4)", async () => {
     renderPass();
     await screen.findByRole("heading", { level: 1 });

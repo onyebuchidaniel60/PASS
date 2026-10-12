@@ -27,6 +27,7 @@ const PASSES: MyPass[] = [
     expiresAt: "2026-10-12T09:00:00.000Z",
     createdAt: "2026-10-05T08:00:00.000Z",
     takerCount: 3,
+    feesEarnedUsd: "0.15000000",
   },
   {
     id: "p2",
@@ -42,6 +43,7 @@ const PASSES: MyPass[] = [
     expiresAt: null,
     createdAt: "2026-10-04T08:00:00.000Z",
     takerCount: 0,
+    feesEarnedUsd: null,
   },
 ];
 
@@ -174,6 +176,13 @@ describe("My Passes (§10.8)", () => {
   it("offers Create a Pass from the header", () => {
     renderWith({});
     expect(screen.getAllByRole("link", { name: "Create a Pass" }).length).toBeGreaterThan(0);
+  });
+
+  it("renders the simulated fees earned line per row", async () => {
+    renderWith({});
+    // Wide table + narrow stacked list both render the line.
+    expect((await screen.findAllByText(/Fees earned \(simulated\): \$0\.15/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Fees earned \(simulated\): \$0\.00/).length).toBeGreaterThan(0);
   });
 });
 

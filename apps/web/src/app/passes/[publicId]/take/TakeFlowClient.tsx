@@ -61,6 +61,7 @@ import {
 
 import { NumberedEyebrow, Surface } from "@/components/reference";
 import { clientGet, clientPost } from "@/lib/client";
+import { fmtUsd } from "@/lib/format";
 import type { MePayload, MeTradingAccount } from "@/lib/me";
 import { hasAgentKeyInMemory, getMemoryAgentKey } from "@/lib/agent-keystore";
 import { isMemoryKeyApprovedFor, isUserRejection, runApproveAgent } from "@/lib/approve-agent";
@@ -172,6 +173,13 @@ export function TakeFlowClient({
     orderId?: string;
     status?: string;
     simulated?: boolean;
+    fee?: {
+      notionalUsd: string;
+      feeUsd: string;
+      creatorShareUsd: string | null;
+      protocolShareUsd: string | null;
+      builderFeeBps: number | null;
+    } | null;
   } | null>(null);
 
   // Stage F session: the market's asset meta (index + szDecimals for
@@ -492,6 +500,11 @@ export function TakeFlowClient({
         providerOrderId?: string;
         status?: string;
         simulated?: boolean;
+        notionalUsd?: string | null;
+        feeUsd?: string | null;
+        creatorShareUsd?: string | null;
+        protocolShareUsd?: string | null;
+        builderFeeBps?: number | null;
       }>(
         `/api/v1/passes/${publicId}/executions`,
         executionBody({
@@ -499,6 +512,10 @@ export function TakeFlowClient({
           // D-026: linked rows submit by id; anonymous wallets by address.
           ...(row.id ? { accountId: row.id } : { accountAddress: row.accountAddress }),
           clientRequestId: newClientRequestId(),
+          // Fee computation only: the Taker's own size and leverage, as
+          // shown. Execution still comes from the signed payload above.
+          positionSize: size.trim(),
+          leverage: String(leverage),
           signedPayload: {
             exchangeRequest: signed.exchangeRequest,
             signature: signed.signature,
@@ -510,7 +527,21 @@ export function TakeFlowClient({
       // enough for a user reading only the receipt.
       const simulated =
         r.simulated === true || (r.providerOrderId?.startsWith("mock_") ?? false);
-      setReceipt({ orderId: r.providerOrderId, status: r.status, simulated });
+      setReceipt({
+        orderId: r.providerOrderId,
+        status: r.status,
+        simulated,
+        fee:
+          r.notionalUsd != null && r.feeUsd != null
+            ? {
+                notionalUsd: r.notionalUsd,
+                feeUsd: r.feeUsd,
+                creatorShareUsd: r.creatorShareUsd ?? null,
+                protocolShareUsd: r.protocolShareUsd ?? null,
+                builderFeeBps: r.builderFeeBps ?? null,
+              }
+            : null,
+      });
       goto(4);
     } catch (e) {
       // A provider rejection is first-class and carries the provider's reason
@@ -944,6 +975,32 @@ export function TakeFlowClient({
                           This is a demo execution. A funded Hyperliquid
                           account enables the same flow against mainnet.
                         </p>
+                        {receipt?.fee ? (
+                          <Stack gap="2">
+                            <span className="pass-block-heading">Simulated fees</span>
+                            <CoordinateGrid>
+                              <CoordinatePair
+                                label="Notional"
+                                value={`$${fmtUsd(receipt.fee.notionalUsd)}`}
+                              />
+                              <CoordinatePair
+                                label={`Builder fee (${receipt.fee.builderFeeBps != null ? receipt.fee.builderFeeBps / 100 : 0.05}%)`}
+                                value={`$${fmtUsd(receipt.fee.feeUsd)}`}
+                              />
+                              <CoordinatePair
+                                label="Creator (50%)"
+                                value={`$${fmtUsd(receipt.fee.creatorShareUsd)}`}
+                              />
+                              <CoordinatePair
+                                label="Protocol (50%)"
+                                value={`$${fmtUsd(receipt.fee.protocolShareUsd)}`}
+                              />
+                            </CoordinateGrid>
+                            <p className="pass-stale">
+                              Simulated — no real fees are charged.
+                            </p>
+                          </Stack>
+                        ) : null}
                       </Stack>
                     ) : null}
                   </ChamferPanel>

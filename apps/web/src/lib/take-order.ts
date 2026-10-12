@@ -100,6 +100,13 @@ export function executionBody(params: {
   accountAddress?: string;
   clientRequestId: string;
   signedPayload: { exchangeRequest: Record<string, unknown>; signature: Record<string, unknown> };
+  /**
+   * Taker's chosen size in USDC and leverage, as shown on the Take screen.
+   * Fee computation only — the server executes from `signedPayload`, never
+   * from these. Omitted callers keep the exact legacy body.
+   */
+  positionSize?: string;
+  leverage?: string;
 }) {
   return {
     passVersion: params.passVersion,
@@ -107,6 +114,8 @@ export function executionBody(params: {
       ? { accountId: params.accountId }
       : { accountAddress: params.accountAddress }),
     clientRequestId: params.clientRequestId,
+    ...(params.positionSize !== undefined ? { positionSize: params.positionSize } : {}),
+    ...(params.leverage !== undefined ? { leverage: params.leverage } : {}),
     signedPayload: params.signedPayload,
   };
 }

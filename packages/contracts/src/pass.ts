@@ -241,6 +241,14 @@ export const ExecutionRequest = z
       .regex(/^0x[0-9a-fA-F]{40}$/, "accountAddress must be a 0x EVM address")
       .optional(),
     clientRequestId: z.string().min(8).max(128),
+    /**
+     * Taker's chosen size in USDC, as shown on the Take screen. Optional and
+     * fee-computation only: execution always comes from `signedPayload`, never
+     * from these fields.
+     */
+    positionSize: z.union([DecimalString, z.number()]).optional(),
+    /** Taker's chosen leverage. Optional; same fee-only role as positionSize. */
+    leverage: z.union([DecimalString, z.number()]).optional(),
     signedPayload: SignedPayload,
   })
   .strict()
@@ -248,6 +256,17 @@ export const ExecutionRequest = z
     message: "Exactly one of accountId, accountAddress is required.",
   });
 export type ExecutionRequest = z.infer<typeof ExecutionRequest>;
+
+/** Simulated fee breakdown attached to a mock execution response. Null on live fills. */
+export const ExecutionFeeDto = z.object({
+  notionalUsd: DecimalString,
+  feeUsd: DecimalString,
+  creatorShareUsd: DecimalString,
+  protocolShareUsd: DecimalString,
+  builderFeeBps: z.number().int(),
+  simulated: z.literal(true),
+});
+export type ExecutionFeeDto = z.infer<typeof ExecutionFeeDto>;
 
 /** docs/API_CONTRACTS.md §8 response shape. */
 export const ExecutionResponseDto = z.object({
@@ -260,6 +279,15 @@ export const ExecutionResponseDto = z.object({
    * a simulated row is a demo, never a real trade.
    */
   simulated: z.boolean(),
+  /**
+   * Simulated fee breakdown for a mock execution (fee_ledger row). Null on
+   * live fills and on idempotent replays: no real fees are ever charged.
+   */
+  notionalUsd: DecimalString.nullable(),
+  feeUsd: DecimalString.nullable(),
+  creatorShareUsd: DecimalString.nullable(),
+  protocolShareUsd: DecimalString.nullable(),
+  builderFeeBps: z.number().int().nullable(),
 });
 export type ExecutionResponseDto = z.infer<typeof ExecutionResponseDto>;
 

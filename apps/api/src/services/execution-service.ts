@@ -3,8 +3,8 @@ import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import { checkTakeRateLimit } from "../take-limiter.js";
 import { aggregatePassPerformance, sideFor, toDecimalStringSafe } from "./helpers.js";
-import { isStaleVersion } from "@pass/domain";
-import { executions, passEvents, tradingAccounts, type PassRow } from "@pass/db";
+import { BUILDER_FEE_BPS, computeFee, isStaleVersion, splitFee } from "@pass/domain";
+import { executions, feeLedger, passEvents, tradingAccounts, type PassRow } from "@pass/db";
 import { getPassById, getPassVersion } from "./pass-service.js";
 import { resolveTradingAccountByAddress, visibleAgentAddress } from "./profile-service.js";
 import type {
@@ -245,12 +245,28 @@ export async function buildExecutionPreview(
 /**
  * The D-018.3 relay. Validation runs in the exact documented order.
  */
+export interface RelayedExecutionFee {
+  notionalUsd: string;
+  feeUsd: string;
+  creatorShareUsd: string;
+  protocolShareUsd: string;
+  builderFeeBps: number;
+  simulated: true;
+}
+
 export async function relayExecution(
   ctx: AppContext,
   passId: string,
   takerId: string | null,
   input: ExecutionRequest,
-): Promise<{ executionId: string; providerOrderId: string; status: string; simulated: boolean }> {
+): Promise<{
+  executionId: string;
+  providerOrderId: string;
+  status: string;
+  simulated: boolean;
+  /** Simulated fee breakdown. Null on live fills and idempotent replays. */
+  fee: RelayedExecutionFee | null;
+}> {
   // Step 5 is checked first as a cheap idempotency guard, then re-checked at
   // its documented position. This never changes observable behaviour: a
   // duplicate returns the original record instead of submitting a second order.
@@ -261,6 +277,7 @@ export async function relayExecution(
       providerOrderId: existing.providerOrderId ?? "",
       status: existing.providerStatus,
       simulated: (existing as { simulated?: boolean }).simulated ?? false,
+      fee: null,
     };
   }
 
@@ -305,6 +322,7 @@ export async function relayExecution(
       providerOrderId: dup.providerOrderId ?? "",
       status: dup.providerStatus,
       simulated: (dup as { simulated?: boolean }).simulated ?? false,
+      fee: null,
     };
   }
 
@@ -403,6 +421,48 @@ export async function relayExecution(
     },
   });
 
+  /**
+   * Simulated fee ledger: every mock execution accrues one hypothetical
+   * builder-fee row (5 bps on sizeUsd x leverage, split 50/50
+   * creator/protocol). `positionSize`/`leverage` ride the request for fee
+   * math only — execution itself came from the signed payload above. Live
+   * executions never reach this branch: no real fees are charged by PASS.
+   */
+  let fee: RelayedExecutionFee | null = null;
+  if (simulated) {
+    const sizeUsd = Number(input.positionSize ?? NaN);
+    const lev = Number(input.leverage ?? snapshot.leverage ?? NaN);
+    const notional =
+      Number.isFinite(sizeUsd) && sizeUsd > 0 && Number.isFinite(lev) && lev > 0
+        ? sizeUsd * lev
+        : 0;
+    const feeUsd = computeFee(notional);
+    const split = splitFee(feeUsd);
+    const [feeRow] = await ctx.db
+      .insert(feeLedger)
+      .values({
+        executionId: row.id,
+        passId: pass.id,
+        creatorUserId: pass.traderId,
+        notionalUsd: String(notional),
+        feeUsd: String(feeUsd),
+        creatorShareUsd: String(split.creatorShareUsd),
+        protocolShareUsd: String(split.protocolShareUsd),
+        builderFeeBps: BUILDER_FEE_BPS,
+        simulated: true,
+      })
+      .returning();
+    if (!feeRow) throw new AppError("INTERNAL_ERROR", "Fee ledger insert returned no row.");
+    fee = {
+      notionalUsd: feeRow.notionalUsd,
+      feeUsd: feeRow.feeUsd,
+      creatorShareUsd: feeRow.creatorShareUsd,
+      protocolShareUsd: feeRow.protocolShareUsd,
+      builderFeeBps: feeRow.builderFeeBps,
+      simulated: true,
+    };
+  }
+
   // 8. reconcile status via the Info API. Simulated rows skip the live
   // lookup: a `mock_` id is not a real oid, and mock mode must never make
   // a network call to Hyperliquid.
@@ -421,6 +481,7 @@ export async function relayExecution(
     providerOrderId: relayed.providerOrderId,
     status: fresh[0]?.providerStatus ?? relayed.status,
     simulated,
+    fee,
   };
 }
 
