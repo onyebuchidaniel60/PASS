@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   createDb,
   executions,
@@ -268,7 +268,7 @@ describe("PASS-side trading-account unlink", () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it("deletes the caller's own account", async () => {
+  it("soft-unlinks the caller's own account: row survives, inactive", async () => {
     const userId = await mkUser();
     const [acct] = await db
       .insert(tradingAccounts)
@@ -280,14 +280,16 @@ describe("PASS-side trading-account unlink", () => {
       headers: { cookie: await cookie(userId) },
     });
     expect(res.statusCode).toBe(200);
+    // History needs the row: it stays, retired.
     const rows = await db
       .select()
       .from(tradingAccounts)
       .where(eq(tradingAccounts.id, acct!.id));
-    expect(rows.length).toBe(0);
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.isActive).toBe(false);
   });
 
-  it("refuses an account with executions", async () => {
+  it("unlink works even when executions reference the account (soft unlink)", async () => {
     const userId = await mkUser({ profile: true });
     const [acct] = await db
       .insert(tradingAccounts)
@@ -321,12 +323,27 @@ describe("PASS-side trading-account unlink", () => {
       url: `/api/v1/me/trading-accounts/${acct!.id}`,
       headers: { cookie: await cookie(userId) },
     });
-    expect(res.statusCode).toBe(403);
+    expect(res.statusCode).toBe(200);
+    // Row survives inactive with the execution FK intact, and /me hides it.
     const rows = await db
-      .select({ n: count() })
+      .select()
       .from(tradingAccounts)
       .where(eq(tradingAccounts.id, acct!.id));
-    expect(rows[0]!.n).toBe(1);
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.isActive).toBe(false);
+    const execRows = await db
+      .select()
+      .from(executions)
+      .where(eq(executions.accountId, acct!.id));
+    expect(execRows.length).toBe(1);
+    const me = await app.inject({
+      method: "GET",
+      url: "/api/v1/me",
+      headers: { cookie: await cookie(userId) },
+    });
+    expect(
+      (me.json() as { tradingAccounts: unknown[] }).tradingAccounts,
+    ).toHaveLength(0);
   });
 }, 180_000);
 

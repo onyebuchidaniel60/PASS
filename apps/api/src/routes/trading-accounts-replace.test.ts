@@ -162,7 +162,7 @@ describe("POST /me/trading-accounts replace semantics", () => {
     expect(await rowsFor(userId)).toHaveLength(1);
   });
 
-  it("linking a different address replaces, does not create a second row", async () => {
+  it("linking a different address retires the old row, one active", async () => {
     const userId = await mkUser();
     const first = await app.inject({
       method: "POST",
@@ -178,13 +178,17 @@ describe("POST /me/trading-accounts replace semantics", () => {
       payload: { accountAddress: T4.B },
     });
     expect(res.statusCode).toBe(200);
+    // History survives: two rows, exactly one active — the new one.
     const rows = await rowsFor(userId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.accountAddress).toBe(T4.B);
-    expect(rows[0]!.id).not.toBe(oldId);
+    expect(rows).toHaveLength(2);
+    const active = rows.filter((r) => r.isActive);
+    expect(active).toHaveLength(1);
+    expect(active[0]!.accountAddress).toBe(T4.B);
+    expect(active[0]!.id).not.toBe(oldId);
+    expect(rows.find((r) => r.id === oldId)!.isActive).toBe(false);
   });
 
-  it("replace is refused when the old row has executions on record", async () => {
+  it("replace succeeds even when the old row has executions on record", async () => {
     const userId = await mkUser();
     await app.inject({
       method: "POST",
@@ -225,15 +229,23 @@ describe("POST /me/trading-accounts replace semantics", () => {
       headers: { cookie: await cookie(userId) },
       payload: { accountAddress: T5.B },
     });
-    expect(res.statusCode).toBe(403);
-    // Old row intact, no second row created.
+    expect(res.statusCode).toBe(200);
+    // Old row retired in place with the execution FK intact.
     const rows = await rowsFor(userId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.accountAddress).toBe(T5.A);
+    expect(rows).toHaveLength(2);
+    const active = rows.filter((r) => r.isActive);
+    expect(active).toHaveLength(1);
+    expect(active[0]!.accountAddress).toBe(T5.B);
+    const old = rows.find((r) => r.accountAddress === T5.A)!;
+    expect(old.isActive).toBe(false);
+    const execRows = await db
+      .select()
+      .from(executions)
+      .where(eq(executions.accountId, old.id));
+    expect(execRows).toHaveLength(1);
   });
 
-  it("an address owned by another user is never reassigned", async () => {
-    const owner = await mkUser();
+  it("an address owned by another user is never reassigned", async () => {    const owner = await mkUser();
     const other = await mkUser();
     await app.inject({
       method: "POST",
@@ -250,5 +262,91 @@ describe("POST /me/trading-accounts replace semantics", () => {
     expect(res.statusCode).toBe(403);
     expect(await code(res)).toBe("FORBIDDEN");
     expect(await rowsFor(other)).toHaveLength(0);
+  });
+
+  it("/me returns only the active row after a swap", async () => {
+    const userId = await mkUser();
+    const jar = await cookie(userId);
+    await app.inject({
+      method: "POST",
+      url: "/api/v1/me/trading-accounts",
+      headers: { cookie: jar },
+      payload: { accountAddress: T6.B },
+    });
+    // T6.A belongs to another user from the previous test, so link two
+    // fresh addresses instead: link, then swap.
+    const fresh1 = addr("c", 6);
+    const fresh2 = addr("d", 6);
+    await app.inject({
+      method: "POST",
+      url: "/api/v1/me/trading-accounts",
+      headers: { cookie: jar },
+      payload: { accountAddress: fresh1 },
+    });
+    await app.inject({
+      method: "POST",
+      url: "/api/v1/me/trading-accounts",
+      headers: { cookie: jar },
+      payload: { accountAddress: fresh2 },
+    });
+    const me = await app.inject({
+      method: "GET",
+      url: "/api/v1/me",
+      headers: { cookie: jar },
+    });
+    const accounts = (me.json() as { tradingAccounts: Array<{ accountAddress: string }> })
+      .tradingAccounts;
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]!.accountAddress).toBe(fresh2);
+  });
+
+  it("historical executions still render after the wallet is swapped", async () => {
+    const userId = await mkUser();
+    const jar = await cookie(userId);
+    const linked = await app.inject({
+      method: "POST",
+      url: "/api/v1/me/trading-accounts",
+      headers: { cookie: jar },
+      payload: { accountAddress: addr("e", 6) },
+    });
+    const accountId = (JSON.parse(linked.body) as { id: string }).id;
+    const [pass] = await db
+      .insert(passes)
+      .values({
+        publicId: `wallethist${Date.now() % 100000}`,
+        traderId: userId,
+        slug: "hist-hl-long",
+        version: 1,
+        asset: "ETH",
+        direction: "long",
+        entryType: "market",
+        thesis: "History fixture.",
+        status: "active",
+      })
+      .returning();
+    await db.insert(executions).values({
+      passId: pass!.id,
+      passVersion: 1,
+      takerUserId: userId,
+      accountId,
+      clientRequestId: `wallet-hist-${accountId.slice(0, 8)}`,
+      side: "buy",
+      positionSize: "10",
+    });
+    // Swap wallets, then unlink entirely: the execution must still list.
+    await app.inject({
+      method: "POST",
+      url: "/api/v1/me/trading-accounts",
+      headers: { cookie: jar },
+      payload: { accountAddress: addr("f", 6) },
+    });
+    const mine = await app.inject({
+      method: "GET",
+      url: "/api/v1/me/executions",
+      headers: { cookie: jar },
+    });
+    expect(mine.statusCode).toBe(200);
+    const list = (mine.json() as { executions: Array<{ passId: string }> }).executions;
+    expect(list.some((e) => e.passId === pass!.id)).toBe(true);
   });
 }, 180_000);

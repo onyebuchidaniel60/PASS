@@ -63,12 +63,22 @@ provider enum(hyperliquid)
 account_address text
 agent_address text nullable
 is_primary boolean
+is_active boolean NOT NULL DEFAULT true
 created_at timestamptz
 updated_at timestamptz
 UNIQUE(provider, account_address)
 ```
 
 `account_address` is queried for account state. `agent_address` is a signer and must never be treated as the account itself.
+
+`is_active` is the soft-unlink flag (migration `0005_trading_accounts_is_active.sql`).
+The user's current wallet is the single active row. Unlinking sets
+`is_active = false` and never deletes the row, so execution history keeps
+its `executions.account_id` FK target (D-008) and unlink is never blocked —
+not even when executions reference the row. Linking a new address retires
+the previous active rows; re-linking the same address reactivates it.
+`GET /me` (and every other consumer of `getTradingAccounts`) returns only
+active rows; inactive rows are internal history.
 
 D-026: `user_id` is nullable. An anonymous wallet may own a trading
 account row keyed only by `(provider, account_address)` — the row is the

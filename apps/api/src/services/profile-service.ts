@@ -3,7 +3,6 @@ import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import {
   ethosProfiles,
-  executions,
   identities,
   passes,
   profiles,
@@ -167,11 +166,19 @@ export async function getEthosProfile(ctx: AppContext, userId: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * The user's linked wallets. Returns only the ACTIVE row(s) — unlinked
+ * (is_active = false) rows are internal history and never surface here.
+ * /me, the Take preview, and account-state all read through this, so an
+ * unlinked wallet is simply gone from every consumer.
+ */
 export async function getTradingAccounts(ctx: AppContext, userId: string) {
   return ctx.db
     .select()
     .from(tradingAccounts)
-    .where(eq(tradingAccounts.userId, userId))
+    .where(
+      and(eq(tradingAccounts.userId, userId), eq(tradingAccounts.isActive, true)),
+    )
     .orderBy(desc(tradingAccounts.createdAt));
 }
 
@@ -281,35 +288,27 @@ export async function linkTradingAccount(
     .limit(1);
   const clash = existing[0];
   if (clash) {
-    // Same user re-linking their own address: idempotent, return the row.
     // Any other owner — another user, or an anonymous (D-026) row — is
     // never reassigned.
-    if (clash.userId === userId) return { id: clash.id, accountAddress: addr };
-    throw new AppError("FORBIDDEN", "That trading account is already linked to PASS.");
+    if (clash.userId !== userId) {
+      throw new AppError("FORBIDDEN", "That trading account is already linked to PASS.");
+    }
+    // Own row, possibly inactive from an earlier unlink: reactivate it and
+    // retire every other active row. Re-linking is idempotent.
+    await deactivateOtherWallets(ctx, userId, clash.id);
+    await ctx.db
+      .update(tradingAccounts)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(tradingAccounts.id, clash.id));
+    return { id: clash.id, accountAddress: addr };
   }
 
   /**
-   * One wallet per user: linking a new address replaces the old rows.
-   * Rows with executions on record cannot be unlinked (auditability,
-   * D-008 — same guard as the DELETE route), so a replace over them is
-   * refused instead of orphaning history.
+   * One ACTIVE wallet per user: linking a new address retires the previous
+   * active rows (is_active = false) instead of deleting them, so execution
+   * history keeps its FK target (D-008). Unlink is never blocked.
    */
-  const mine = await getTradingAccounts(ctx, userId);
-  for (const old of mine) {
-    if (old.accountAddress.toLowerCase() === addr) continue;
-    const refs = await ctx.db
-      .select({ id: executions.id })
-      .from(executions)
-      .where(eq(executions.accountId, old.id))
-      .limit(1);
-    if (refs.length > 0) {
-      throw new AppError(
-        "FORBIDDEN",
-        "Your current wallet has executions on record and cannot be replaced. Unlink it from Settings after closing its positions.",
-      );
-    }
-    await ctx.db.delete(tradingAccounts).where(eq(tradingAccounts.id, old.id));
-  }
+  await deactivateOtherWallets(ctx, userId, null);
 
   const inserted = await ctx.db
     .insert(tradingAccounts)
@@ -319,6 +318,7 @@ export async function linkTradingAccount(
       accountAddress: addr,
       agentAddress: opts.agentAddress ?? null,
       isPrimary: opts.isPrimary ?? true,
+      isActive: true,
     })
     .onConflictDoNothing({
       target: [tradingAccounts.provider, tradingAccounts.accountAddress],
@@ -339,6 +339,22 @@ export async function linkTradingAccount(
   )[0];
   if (!row) throw new AppError("INTERNAL_ERROR");
   return { id: row.id, accountAddress: row.accountAddress };
+}
+
+/** Retire the caller's active wallets except `keepId` (null retires all). */
+async function deactivateOtherWallets(
+  ctx: AppContext,
+  userId: string,
+  keepId: string | null,
+): Promise<void> {
+  const mine = await getTradingAccounts(ctx, userId);
+  for (const old of mine) {
+    if (keepId !== null && old.id === keepId) continue;
+    await ctx.db
+      .update(tradingAccounts)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(tradingAccounts.id, old.id));
+  }
 }
 
 export async function recordAgentApproval(

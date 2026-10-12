@@ -88,8 +88,8 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
    * server. The agent private key is generated and held in the client; this
    * route can never receive it (docs/DECISIONS.md D-018.9).
    *
-   * One wallet per user: linking a new address replaces the caller's existing
-   * rows (refused when the old row has executions on record — see
+   * One ACTIVE wallet per user: linking a new address retires the caller's
+   * existing rows (is_active = false, history intact — see
    * linkTradingAccount). Re-linking the same address is idempotent.
    */
   app.post("/api/v1/me/trading-accounts", async (req) => {
@@ -121,37 +121,28 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
    * PASS-side unlink of a Hyperliquid account (distinct from a ConnectKit
    * browser disconnect, which never touches this row — D-019.1). Ownership
    * is resolved server-side (SECURITY_SPEC.md §10). An unknown id and
-   * another user's id are deliberately indistinguishable. An account with
-   * executions on record cannot be unlinked: executions reference it and
-   * auditability (D-008) forbids orphaning them.
+   * another user's id are deliberately indistinguishable.
+   *
+   * Soft unlink: the row is retired (is_active = false), never deleted, so
+   * execution history keeps its FK target (D-008) and unlink is never
+   * blocked — not even when executions reference the row.
    */
   app.delete<{ Params: { id: string } }>(
     "/api/v1/me/trading-accounts/:id",
     async (req) => {
       const userId = await requireUser(req);
-      const { tradingAccounts, executions } = await import("@pass/db");
+      const { tradingAccounts } = await import("@pass/db");
       const { and, eq } = await import("drizzle-orm");
-      const rows = await ctx.db
-        .select()
-        .from(tradingAccounts)
+      const updated = await ctx.db
+        .update(tradingAccounts)
+        .set({ isActive: false, updatedAt: new Date() })
         .where(
           and(eq(tradingAccounts.id, req.params.id), eq(tradingAccounts.userId, userId)),
         )
-        .limit(1);
-      const account = rows[0];
-      if (!account) throw new AppError("FORBIDDEN", "That trading account is not yours.");
-      const refs = await ctx.db
-        .select({ id: executions.id })
-        .from(executions)
-        .where(eq(executions.accountId, account.id))
-        .limit(1);
-      if (refs.length > 0) {
-        throw new AppError(
-          "FORBIDDEN",
-          "That account has executions on record and cannot be unlinked.",
-        );
+        .returning({ id: tradingAccounts.id });
+      if (updated.length === 0) {
+        throw new AppError("FORBIDDEN", "That trading account is not yours.");
       }
-      await ctx.db.delete(tradingAccounts).where(eq(tradingAccounts.id, account.id));
       return { ok: true };
     },
   );

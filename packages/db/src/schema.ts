@@ -143,6 +143,12 @@ export const tradingAccounts = pgTable(
     agentAddress: text("agent_address"),
     agentApprovedAt: timestamp("agent_approved_at", { withTimezone: true }),
     isPrimary: boolean("is_primary").notNull().default(false),
+    /**
+     * Soft unlink: the user's current wallet is the single active row.
+     * Unlink sets this false; the row survives so execution history keeps
+     * its FK target (D-008). Added by migration 0005.
+     */
+    isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
