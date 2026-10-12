@@ -25,6 +25,7 @@ import {
   updateProfile,
   upsertXConnection,
   upsertXIdentity,
+  visibleAgentAddress,
 } from "../services/profile-service.js";
 import { redactX } from "@pass/integrations";
 import { AppError } from "../errors.js";
@@ -137,7 +138,9 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
         id: a.id,
         provider: a.provider,
         accountAddress: a.accountAddress,
-        agentAddress: a.agentAddress,
+        // Per-venue approval: a stale-venue agent reads as not-approved so
+        // the client re-prompts instead of signing against a void approval.
+        agentAddress: visibleAgentAddress(ctx, a),
         isPrimary: a.isPrimary,
       })),
       demoMode: ctx.demoMode,

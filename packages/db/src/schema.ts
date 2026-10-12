@@ -149,6 +149,13 @@ export const tradingAccounts = pgTable(
      * its FK target (D-008). Added by migration 0005.
      */
     isActive: boolean("is_active").notNull().default(true),
+    /**
+     * Venue the stored agent approval belongs to: mainnet, testnet, or
+     * mock. Approvals are venue-scoped — the API only presents the agent
+     * address when this matches the current venue, so a mainnet (or mock)
+     * approval is never offered on testnet. Added by migration 0006.
+     */
+    venue: text("venue").notNull().default("mock"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

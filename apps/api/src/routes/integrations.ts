@@ -8,6 +8,7 @@ import {
   linkTradingAccount,
   recordAgentApproval,
   refreshEthosReputation,
+  visibleAgentAddress,
 } from "../services/profile-service.js";
 import { AppError } from "../errors.js";
 import { ETHOS_DISCLAIMER } from "../services/profile-service.js";
@@ -76,8 +77,9 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
         provider: a.provider,
         // account_address is the query subject for every Info API read.
         accountAddress: a.accountAddress,
-        agentAddress: a.agentAddress,
-        agentApproved: Boolean(a.agentApprovedAt),
+        // Per-venue approval: stale-venue agents read as not-approved.
+        agentAddress: visibleAgentAddress(ctx, a),
+        agentApproved: Boolean(visibleAgentAddress(ctx, a) && a.agentApprovedAt),
         isPrimary: a.isPrimary,
       })),
     };

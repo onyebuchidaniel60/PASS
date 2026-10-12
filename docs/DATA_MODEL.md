@@ -64,6 +64,7 @@ account_address text
 agent_address text nullable
 is_primary boolean
 is_active boolean NOT NULL DEFAULT true
+venue text NOT NULL DEFAULT 'mock'
 created_at timestamptz
 updated_at timestamptz
 UNIQUE(provider, account_address)
@@ -79,6 +80,15 @@ not even when executions reference the row. Linking a new address retires
 the previous active rows; re-linking the same address reactivates it.
 `GET /me` (and every other consumer of `getTradingAccounts`) returns only
 active rows; inactive rows are internal history.
+
+`venue` is the venue the stored agent approval belongs to (`mainnet`,
+`testnet`, or `mock`; migration `0006_trading_accounts_venue.sql`,
+pre-existing rows default `mock` — fail closed). Approvals are
+venue-scoped: the API presents `agent_address` only when it matches the
+current venue, so a mainnet (or mock) approval reads as not-approved on
+testnet and the client re-prompts `approveAgent` instead of signing
+against a void approval. The row is untouched, so flipping venues back
+restores the earlier approval with no action needed.
 
 D-026: `user_id` is nullable. An anonymous wallet may own a trading
 account row keyed only by `(provider, account_address)` — the row is the

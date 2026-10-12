@@ -357,6 +357,34 @@ async function deactivateOtherWallets(
   }
 }
 
+export type Venue = "mainnet" | "testnet" | "mock";
+
+/**
+ * The venue approvals are recorded against right now. Mock writes are
+ * never a real venue: an approval the mock relay "accepted" was sent
+ * nowhere, so it must never present as valid on a live venue later.
+ */
+export function currentVenue(ctx: AppContext): Venue {
+  if (ctx.adapters.modes.hyperliquidExecution !== "live") return "mock";
+  return /testnet/i.test(ctx.env.HYPERLIQUID_EXCHANGE_URL ?? "") ? "testnet" : "mainnet";
+}
+
+/**
+ * Per-venue approval gate. A stored agentAddress presents only when its
+ * venue matches the current one; otherwise it reads as not-approved and
+ * the client re-prompts approveAgent instead of signing against a void
+ * approval ("User or API Wallet … does not exist"). The row itself is
+ * untouched — flipping venues back restores the earlier approval.
+ */
+export function visibleAgentAddress(
+  ctx: AppContext,
+  row: { agentAddress: string | null; venue?: string | null },
+): string | null {
+  if (!row.agentAddress) return null;
+  if ((row.venue ?? "mock") !== currentVenue(ctx)) return null;
+  return row.agentAddress;
+}
+
 export async function recordAgentApproval(
   ctx: AppContext,
   userId: string,
@@ -365,7 +393,11 @@ export async function recordAgentApproval(
 ): Promise<void> {
   await ctx.db
     .update(tradingAccounts)
-    .set({ agentAddress: agentAddress.toLowerCase(), agentApprovedAt: new Date() })
+    .set({
+      agentAddress: agentAddress.toLowerCase(),
+      agentApprovedAt: new Date(),
+      venue: currentVenue(ctx),
+    })
     .where(
       and(
         eq(tradingAccounts.userId, userId),
@@ -398,6 +430,7 @@ export async function resolveTradingAccountByAddress(
       id: tradingAccounts.id,
       accountAddress: tradingAccounts.accountAddress,
       agentAddress: tradingAccounts.agentAddress,
+      venue: tradingAccounts.venue,
       userId: tradingAccounts.userId,
     })
     .from(tradingAccounts)
@@ -408,7 +441,10 @@ export async function resolveTradingAccountByAddress(
       ),
     )
     .limit(1);
-  if (found[0]) return found[0];
+  if (found[0]) {
+    const row = found[0];
+    return { ...row, agentAddress: visibleAgentAddress(ctx, row) };
+  }
   const inserted = await ctx.db
     .insert(tradingAccounts)
     .values({
@@ -436,6 +472,7 @@ export async function resolveTradingAccountByAddress(
       id: tradingAccounts.id,
       accountAddress: tradingAccounts.accountAddress,
       agentAddress: tradingAccounts.agentAddress,
+      venue: tradingAccounts.venue,
       userId: tradingAccounts.userId,
     })
     .from(tradingAccounts)
@@ -448,7 +485,7 @@ export async function resolveTradingAccountByAddress(
     .limit(1);
   const winner = retry[0];
   if (!winner) throw new AppError("INTERNAL_ERROR", "Trading account resolve failed.");
-  return winner;
+  return { ...winner, agentAddress: visibleAgentAddress(ctx, winner) };
 }
 
 /** D-026: record approval on a row by id (anonymous rows have no user scope). */
@@ -459,7 +496,11 @@ export async function recordAgentApprovalById(
 ): Promise<void> {
   await ctx.db
     .update(tradingAccounts)
-    .set({ agentAddress: agentAddress.toLowerCase(), agentApprovedAt: new Date() })
+    .set({
+      agentAddress: agentAddress.toLowerCase(),
+      agentApprovedAt: new Date(),
+      venue: currentVenue(ctx),
+    })
     .where(eq(tradingAccounts.id, accountId));
 }
 
