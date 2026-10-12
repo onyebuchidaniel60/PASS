@@ -138,10 +138,10 @@ export default function LandingPage() {
           <CornerBracketFrame className="pass-landing-frame" labelledBy="landing-hero">
             <div className="pass-landing-hero">
               {/* §14.4 the hero is three authored lines with ONE ember word,
-                  on line one. Not a single wrapped sentence. The gradient
-                  variant is Landing-hero-only: never a section headline,
-                  never a live value. */}
-              <DisplayHeadline gradient lines={heroLines("landing")} />
+                  on line one. Not a single wrapped sentence. No gradient wash:
+                  the reference rations accent to one word per headline, and a
+                  gradient tints every word ember. */}
+              <DisplayHeadline lines={heroLines("landing")} />
               <p className="pass-landing-lede" id="landing-hero">
                 A trader publishes a Hyperliquid plan. You read it, size it yourself,
                 and authorize it with your own wallet. Nothing is copied and no key

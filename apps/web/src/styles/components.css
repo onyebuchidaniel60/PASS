@@ -789,6 +789,13 @@
   }
 }
 
+/* The loop is a statement strip: its values read at data scale, not mute. */
+.pass-loop-strip .pass-coordinate-pair-value {
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+  letter-spacing: var(--type-data-l-track);
+}
+
 .pass-landing-support {
   font-family: var(--type-body-l-font);
   font-size: var(--type-body-l-size);
@@ -2176,12 +2183,14 @@ li[data-ghost="true"] {
 }
 
 .pass-metric-card-value {
-  font-family: var(--type-data-l-font);
-  font-size: var(--type-data-l-size);
-  line-height: var(--type-data-l-line);
-  letter-spacing: var(--type-data-l-track);
+  font-family: var(--type-data-xl-font);
+  font-size: var(--type-data-xl-size);
+  line-height: var(--type-data-xl-line);
+  letter-spacing: var(--type-data-xl-track);
   font-variant-numeric: var(--numeric-tabular);
-  color: var(--color-text-primary);
+  /* Reference proof figures: the figure IS the accent. One ember number
+     per card, labels stay muted. */
+  color: var(--color-accent);
   /* 14.5.4 wants the unit on the SAME baseline as the figure, and it stays on
      it whenever the pair fits. But the figure alone must never be clipped: at
    375px the grid gives two ~161px tracks, and "113,400 per ETH" is wider than
@@ -2449,8 +2458,8 @@ li[data-ghost="true"] {
 .pass-step {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--card-pad);
+  gap: var(--space-3);
+  padding: var(--space-6);
   background: var(--card-bg);
   border: var(--border-width-hairline) solid var(--card-border);
   border-radius: var(--radius-md);

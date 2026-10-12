@@ -200,9 +200,9 @@
 
   /* §14.4 The hero step. One clamp so the four breakpoints in §14.4 stay a
      table rather than four numbers in four stylesheets. */
-  --type-display-hero-size: clamp(2.125rem, 1.1rem + 4.6vw, 5.75rem);
-  --type-display-hero-line: 1;
-  --type-display-hero-track: -0.03em;
+  --type-display-hero-size: clamp(2.5rem, 1.1rem + 5.6vw, 7rem);
+  --type-display-hero-line: 0.98;
+  --type-display-hero-track: -0.04em;
   --type-display-hero-font: var(--font-display);
 
   /* §14.4 Section headline step: smaller than the hero, still display-weight. */
