@@ -206,7 +206,7 @@ export default function LandingPage() {
             support line §10.1 item 4 requires. */}
         <Section label="The network">
           <Stack gap="4">
-            <NumberedEyebrow label="Read more" number={3} />
+            <NumberedEyebrow label="The network" number={3} />
             <ChipBar>
               {INFO.map((i) => (
                 <ChipButton key={i.href} href={i.href}>
