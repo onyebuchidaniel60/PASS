@@ -95,6 +95,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 10. Settings (`/settings`)
 
 - Harness clean; highest 401 count (4×) is the signed-out probe hitting guarded endpoints — expected, not a defect. `ConnectionChip` per provider with own reconnect, public-profile fields, accent `Save`, no seed/master-key field (must never exist). No divergence asserted; save/connect prop-wiring residual (§8.6 pre-existing scaffolding) untouched per hard constraints.
+- ✓ Stage K complete 2026-10-12: signed-out fallback is a connect CTA, not user data (D-024, test-asserted); settings.test 18/18 green; secret-scan rule holds (no seed/master-key field exists anywhere on this screen). Screenshots captured both viewports. Harness clean both viewports. No code change.
 
 ## 11. Stale interstitial (`/passes/{id}/stale`)
 
