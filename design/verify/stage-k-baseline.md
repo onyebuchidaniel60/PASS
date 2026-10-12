@@ -110,6 +110,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 13. OG preview (social card, not a screen)
 
 - `generateMetadata` in `p/[publicId]/page.tsx` implements the §10.14 four-line shape (`PASS / BTC LONG / @handle / Entry $113.4K • TP $116K • SL $111.9K`), canvas background with at most one accent-text element, compact figures HERE ONLY (page body keeps full precision), no private account data. Acquitted by code reading. Image-asset v1 gap stands (no image required).
+- ✓ Stage K complete 2026-10-12: live `<head>` of `/p/UvvuxpWPZ4` carries `og:title` = `PASS - BTC LONG` and `og:description` = `BTC LONG · @turnttfup99 · Entry $113.4K • TP $116K • SL $111.9K` — exact §10.14 shape, compact figures in metadata only, no addresses/sizes/execution detail; passMetadata.test green. No code change.
 
 ---
 
