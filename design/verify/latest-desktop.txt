@@ -74,7 +74,7 @@ ROUTE /how-it-works @ desktop 1280x800  [http 200]
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 0 errors
+  console: 3 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /contact @ desktop 1280x800  [http 200]
@@ -83,7 +83,7 @@ ROUTE /contact @ desktop 1280x800  [http 200]
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 2 errors (Failed to load resource: the server responded with a status of 401 ())
+  console: 3 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /me/passes @ desktop 1280x800  [http 200]
@@ -92,7 +92,7 @@ ROUTE /me/passes @ desktop 1280x800  [http 200]
   target-size: 0
   clipped-text: 0
   full-width-actions: 0
-  console: 7 errors (Failed to load resource: the server responded with a status of 401 ())
+  console: 5 errors (Failed to load resource: the server responded with a status of 401 ())
   network: 0 failures
 
 ROUTE /me/executions @ desktop 1280x800  [http 200]
@@ -126,5 +126,5 @@ ROUTE /gallery @ desktop 1280x800  [http 404]
   expected-404: ok
 
 === SUMMARY ===
-total findings: 45
-  console: 45
+total findings: 47
+  console: 47

@@ -2044,6 +2044,16 @@ li[data-ghost="true"] {
   min-width: 0;
 }
 
+/* A timestamp is not a figure: §11.5 requires the absolute UTC form with the
+ * zone stated, and the metric-dd ellipsis was cutting it to "2026-10-12
+ * 02:23…" on 375px viewports — the zone never rendered. A wrapped timestamp
+ * still reads as one timestamp, so rows carrying one may wrap. Scoped to the
+ * row modifier, never to dd itself, so figures keep the no-wrap rule. */
+.pass-card-metric--wrap dd {
+  white-space: normal;
+  overflow: visible;
+}
+
 /* Sparkline. Full-bleed inside the card, no axes, no labels, no gridlines: the
  * only chart PASS has, and G-3 forbids more. */
 .pass-sparkline {

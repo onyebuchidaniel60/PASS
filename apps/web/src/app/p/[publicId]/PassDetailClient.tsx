@@ -498,7 +498,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                       <dt>Mark</dt>
                       <dd>{fmt(market.markPrice)}</dd>
                     </div>
-                    <div className="pass-card-metric">
+                    <div className="pass-card-metric pass-card-metric--wrap">
                       <dt>Observed</dt>
                       <dd>
                         <Timestamp value={market.observedAt} />

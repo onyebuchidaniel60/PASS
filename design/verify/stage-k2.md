@@ -35,3 +35,35 @@ Shots: `screenshots/stage-k2/landing-before-{desktop,mobile}.png` (captured
 pre-change from production) → `landing-after-{desktop,mobile}.png`.
 Harness post-deploy: clean both viewports. Tests: landing 40/40 +
 reference 56/56 green.
+
+## Screen 2 — Pass detail (`/p/{id}`)
+
+Reference: `(12).png` (card-row hierarchy, headline figure + delta +
+timestamp) + `(10).png` (status as mono text + colour) + before-shots
+(desktop viewed, mobile 375 viewed).
+
+Skill rules applied:
+- Taste §4.9/§4.5: full data fidelity over truncation aesthetics — a value
+  the user came for must survive the viewport, not ellipsis into ambiguity.
+- Apple Design: information density must not cost legibility; every data
+  row stays readable at 375px.
+- Emil: no motion on this screen needed work; untouched.
+
+Divergences (1 genuine — stated honestly, not padded to 3):
+1. Market snapshot "Observed" timestamp renders `2026-10-12 02:23…` on
+   375px — the metric-dd ellipsis cuts the `UTC` zone, violating §11.5
+   (absolute form with zone stated). Timestamps are not figures, so
+   §14.15 rule 2 (figures never wrap) does not protect this truncation.
+   → row modifier `pass-card-metric--wrap` on the Observed row; dd may
+   wrap there only. No token values added (all existing).
+2. Considered and REJECTED: forcing §14.5's literal 5/3/2/1 metric-card
+   cardinality (auto-fit fluid grid shows 5-across at 1280). The fluid
+   grid uses space better than a 3+2 orphan wrap; changing it would
+   degrade the layout to satisfy the letter against the intent. Recorded,
+   not changed.
+3. Sought third: thesis measure (capped 62ch ✓), timeline timestamps
+   (full form ✓), status chip, metric units on baseline — all compliant.
+   No third divergence; not invented.
+
+Shots: `pass-detail-before-*` (pre-existing) → `pass-detail-after-*`
+(deployed check).
