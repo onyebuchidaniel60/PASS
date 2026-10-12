@@ -70,6 +70,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 5. Trader profile (`/u/{slug}`)
 
 - No mechanical findings (harness clean). Identity header (avatar, `@handle`, connection chips as mono credential row), `PerformanceBlock` before `Rule` before `ReputationBlock`, active-Pass list reusing Discover anatomy — code-conformant by reading; visual separation and rule-mandatory check deferred to screenshot pass. No divergence asserted. Severity: none asserted; visual-defect review deferred.
+- ✓ Stage K complete 2026-10-12: desktop screenshot viewed vs §10.4 — credential header (display-name h1, `@handle is verified on PASS` with ember claim word, handle + connection chips mono row, bio), performance block first with simulated-data note, Active Passes reusing Discover anatomy with status word + icon, slug footer. Acquitted: Ethos panel absent because the demo author's X is disconnected — the documented single-state rule hides reputation with the rule that divided it (behavior, not polish). No synthetic merge anywhere (D-007 clean). Harness clean both viewports. No code change.
 
 ## 6. Create Pass + Edit (`/passes/new`, edit)
 
