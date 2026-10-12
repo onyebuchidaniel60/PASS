@@ -40,7 +40,7 @@ export const HERO_LINES: Record<
   ],
   take: [
     [{ text: "You" }, { text: "author" }],
-    [{ text: "your" }, { text: "own" }, { text: "size.", accent: true }],
+    [{ text: "your" }, { text: "own", accent: true }, { text: "size." }],
   ],
   // The accent word is "promise", not "Pass". "Pass" is the product noun and it
   // already appears verbatim in the §10.1 loop strip on the Landing page; two
