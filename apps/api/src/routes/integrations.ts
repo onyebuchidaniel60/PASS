@@ -87,12 +87,17 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
    * Links a Hyperliquid account address. Only the address is ever sent to the
    * server. The agent private key is generated and held in the client; this
    * route can never receive it (docs/DECISIONS.md D-018.9).
+   *
+   * One wallet per user: linking a new address replaces the caller's existing
+   * rows (refused when the old row has executions on record — see
+   * linkTradingAccount). Re-linking the same address is idempotent.
    */
   app.post("/api/v1/me/trading-accounts", async (req) => {
     const userId = await requireUser(req);
     const body = z
       .object({
         accountAddress: z.string().min(1),
+        provider: z.literal("hyperliquid").optional(),
         agentAddress: z.string().min(1).nullable().optional(),
         isPrimary: z.boolean().optional(),
       })

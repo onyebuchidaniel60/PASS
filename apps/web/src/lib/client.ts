@@ -53,3 +53,4 @@ export const clientPost = <T,>(p: string, b?: unknown) =>
   clientApi<T>(p, { method: "POST", body: JSON.stringify(b ?? {}) });
 export const clientPatch = <T,>(p: string, b: unknown) =>
   clientApi<T>(p, { method: "PATCH", body: JSON.stringify(b) });
+export const clientDelete = <T,>(p: string) => clientApi<T>(p, { method: "DELETE" });

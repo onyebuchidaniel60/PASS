@@ -1,12 +1,46 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient, type Me } from "@/app/settings/SettingsClient";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { notifyMeChanged } from "@/lib/me-events";
 
-// D-023: SettingsClient reads no wallet state. No wagmi/connectkit mocks
-// needed — and none must be required for this screen to render.
+// Wallet management lives in Settings (D-023: execution wallet, not
+// identity). wagmi/connectkit are mocked per the pattern in
+// walletControl.test.tsx — the mocks mirror only what Settings consumes:
+// useAccount address/isConnected, useDisconnect, ConnectKitButton.Custom.
+
+interface AccountState {
+  address?: `0x${string}`;
+  isConnected: boolean;
+}
+
+let account: AccountState = { isConnected: false };
+const disconnect = vi.fn();
+
+vi.mock("wagmi", () => ({
+  useAccount: () => account,
+  useDisconnect: () => ({ disconnect }),
+}));
+
+vi.mock("connectkit", () => ({
+  ConnectKitButton: Object.assign(
+    ({ children }: { children: (p: { show: () => void }) => React.ReactNode }) =>
+      children({ show: () => {} }),
+    {
+      Custom: ({
+        children,
+      }: {
+        children: (p: { show: () => void }) => React.ReactNode;
+      }) => children({ show: () => {} }),
+    },
+  ),
+}));
+
+beforeEach(() => {
+  disconnect.mockReset();
+  account = { isConnected: false };
+});
 
 const ME: Me = {
   userId: "u1",
@@ -98,9 +132,9 @@ describe("§10.10 Profile and connections", () => {
     // X is connected: its chip states Connected. Ethos is read-only: Read only.
     expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByText("Read only")).toBeInTheDocument();
-    // D-023: no wallet UI anywhere — no chip, no address, no launcher.
+    // D-023: no wallet chip on the identity row — the execution wallet is
+    // managed in the Wallet section below, not as a connection chip.
     expect(screen.queryByText("Hyperliquid")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
   });
 
   it("shows Connect X instead of a chip when X is disconnected", async () => {
@@ -145,9 +179,9 @@ describe("§10.10 Profile and connections", () => {
     expect(await screen.findByRole("button", { name: "Connect X" })).toBeInTheDocument();
     // Basics stay — display identity is PASS attribution, not account.
     expect(screen.getByText("turnttfup99")).toBeInTheDocument();
-    // And still no wallet UI of any kind.
-    expect(screen.queryByText("Hyperliquid")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
+    // No linked row: the Wallet section offers its own connect CTA.
+    expect(screen.getByText("No wallet linked.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
   });
 
   it("edits the display name and bio, then saves", async () => {
@@ -166,12 +200,16 @@ describe("§10.10 Profile and connections", () => {
     );
   });
 
-  it("never renders wallet state in any form (D-023)", async () => {
+  it("manages the execution wallet in Settings, never as identity (D-023)", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("X");
+    // The linked row renders truncated with management actions…
+    expect(screen.getByText("0x12…5678")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
+    // …but never as an identity chip, and never with key material.
     expect(screen.queryByText("Hyperliquid")).toBeNull();
-    expect(screen.queryByText(/0x1234567890abcdef1234567890abcdef12345678/)).toBeNull();
-    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
     expect(screen.queryByText(/session active/)).toBeNull();
     expect(screen.queryByText(/Trading accounts/)).toBeNull();
   });
@@ -215,6 +253,120 @@ describe("§10.10 Profile and connections", () => {
       await screen.findByText("Connect X to activate your profile"),
     ).toBeInTheDocument();
     expect(screen.queryByText("X not connected")).toBeNull();
+  });
+});
+
+describe("Wallet section — connect / unlink / replace", () => {
+  const ADDR_B = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as const;
+
+  const rowB = {
+    id: "t2",
+    accountAddress: ADDR_B,
+    agentAddress: null,
+    isPrimary: true,
+  };
+
+  it("renders No wallet linked + Connect when no row exists", async () => {
+    const linkAccount = vi.fn();
+    render(
+      <SettingsClient
+        probe={authed}
+        load={withMe({ tradingAccounts: [] })}
+        linkAccount={linkAccount}
+      />,
+    );
+    expect(await screen.findByText("No wallet linked.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
+    expect(linkAccount).not.toHaveBeenCalled();
+  });
+
+  it("links automatically when the browser wallet connects with no row", async () => {
+    let current: Me = { ...ME, tradingAccounts: [] };
+    const linkAccount = vi.fn(async (a: string) => {
+      current = { ...current, tradingAccounts: [rowB] };
+      return { id: "t2", accountAddress: a };
+    });
+    const { rerender } = render(
+      <SettingsClient
+        probe={authed}
+        load={async () => current}
+        linkAccount={linkAccount}
+      />,
+    );
+    expect(await screen.findByText("No wallet linked.")).toBeInTheDocument();
+    account = { isConnected: true, address: ADDR_B };
+    rerender(
+      <SettingsClient
+        probe={authed}
+        load={async () => current}
+        linkAccount={linkAccount}
+      />,
+    );
+    await waitFor(() => expect(linkAccount).toHaveBeenCalledWith(ADDR_B));
+    expect(await screen.findByText("0xab…abcd")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
+  });
+
+  it("unlink confirms, then returns to No wallet linked", async () => {
+    let current: Me = ME;
+    const unlinkAccount = vi.fn(async () => {
+      current = { ...current, tradingAccounts: [] };
+    });
+    render(
+      <SettingsClient
+        probe={authed}
+        load={async () => current}
+        unlinkAccount={unlinkAccount}
+      />,
+    );
+    expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Unlink" }));
+    expect(
+      await screen.findByText(/Unlink this wallet\? Taking a Pass will require/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Unlink wallet" }));
+    await waitFor(() => expect(unlinkAccount).toHaveBeenCalledWith("t1"));
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("No wallet linked.")).toBeInTheDocument();
+  });
+
+  it("replace prompts and swaps to the newly connected wallet", async () => {
+    let current: Me = ME;
+    const unlinkAccount = vi.fn(async () => undefined);
+    const linkAccount = vi.fn(async (a: string) => {
+      current = { ...current, tradingAccounts: [rowB] };
+      return { id: "t2", accountAddress: a };
+    });
+    account = { isConnected: true, address: ADDR_B };
+    render(
+      <SettingsClient
+        probe={authed}
+        load={async () => current}
+        linkAccount={linkAccount}
+        unlinkAccount={unlinkAccount}
+      />,
+    );
+    expect(
+      await screen.findByText(/Replace the currently linked wallet\?/),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Replace wallet" }));
+    await waitFor(() => expect(unlinkAccount).toHaveBeenCalledWith("t1"));
+    await waitFor(() => expect(linkAccount).toHaveBeenCalledWith(ADDR_B));
+    expect(await screen.findByText("0xab…abcd")).toBeInTheDocument();
+  });
+
+  it("copies the full address, not the truncated one", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<SettingsClient probe={authed} load={withMe()} />);
+    expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678"),
+    );
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
   });
 });
 

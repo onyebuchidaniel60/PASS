@@ -18,19 +18,29 @@
  * renders only while its account is connected, otherwise its connect CTA
  * renders. There are no "linked but inactive" states and no actions on
  * connected chips — the chip IS the state.
+ *
+ * Wallet (D-023): the linked execution wallet is managed HERE and only here.
+ * It is not identity — it never appears on the public Trader profile
+ * (/u/{slug}) or the topbar — but the user must be able to see and swap the
+ * wallet their account executes with, so Settings owns connect / reconnect /
+ * unlink. Only the address ever crosses the wire (D-018.9).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
+import { ConnectKitButton } from "connectkit";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
-import { onMeChanged } from "@/lib/me-events";
+import { notifyMeChanged, onMeChanged } from "@/lib/me-events";
 import {
   connectionByName,
   isEthosVisible,
 } from "@/lib/me";
+import { clientDelete, clientPost } from "@/lib/client";
+import { truncateAddress } from "@/lib/format";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { SignInXButton } from "@/components/SignInX";
-import { Field, Textarea, TextInput } from "@/components/wave2/controls";
+import { Field, Textarea, TextInput, ValidationMessage } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { EmptyBlock } from "@/components/wave3/data";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
@@ -68,17 +78,297 @@ async function fetchMe(): Promise<Me> {
   return (await res.json()) as Me;
 }
 
+export interface LinkedWallet {
+  id: string;
+  accountAddress: string;
+}
+
+async function defaultLinkAccount(accountAddress: string): Promise<LinkedWallet> {
+  return clientPost<LinkedWallet>("/api/v1/me/trading-accounts", {
+    accountAddress,
+    provider: "hyperliquid",
+  });
+}
+
+async function defaultUnlinkAccount(accountId: string): Promise<void> {
+  await clientDelete<{ ok: boolean }>(`/api/v1/me/trading-accounts/${accountId}`);
+}
+
+/**
+ * The execution wallet (D-023): connect, reconnect/swap, unlink.
+ *
+ * One wallet per user — the server replaces the old row when a new address
+ * is linked. Only addresses cross the wire; the browser wallet itself is
+ * connected through ConnectKit, and PASS-side unlink also drops the browser
+ * connection so a later Take reconnects from a clean state (D-023: wallet
+ * connects at Take time).
+ */
+function WalletSection({
+  accounts,
+  reload,
+  linkAccount = defaultLinkAccount,
+  unlinkAccount = defaultUnlinkAccount,
+}: {
+  accounts: Me["tradingAccounts"];
+  reload: () => void;
+  linkAccount?: (accountAddress: string) => Promise<LinkedWallet>;
+  unlinkAccount?: (accountId: string) => Promise<void>;
+}) {
+  const row = accounts.find((a) => a.isPrimary) ?? accounts[0] ?? null;
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const [pendingReplace, setPendingReplace] = useState<string | null>(null);
+  const linking = useRef(false);
+
+  const fail = (e: unknown, fallback: string) => {
+    setError(e instanceof Error ? e.message : fallback);
+  };
+
+  // Auto-link: the browser wallet is connected but no PASS row exists yet.
+  // Linking the same address twice is idempotent server-side, so a
+  // double-fired effect cannot create a second row.
+  useEffect(() => {
+    if (row || !isConnected || !address || linking.current) return;
+    linking.current = true;
+    setBusy(true);
+    setError(null);
+    linkAccount(address)
+      .then(() => {
+        notifyMeChanged();
+        reload();
+      })
+      .catch((e) => fail(e, "Could not link the wallet."))
+      .finally(() => {
+        setBusy(false);
+        linking.current = false;
+      });
+  }, [row, isConnected, address, linkAccount, reload]);
+
+  // Replace detection: the connected browser wallet is not the linked one.
+  // The prompt is inline (confirm/cancel buttons), never a native dialog.
+  useEffect(() => {
+    if (!row || !isConnected || !address) return;
+    if (address.toLowerCase() !== row.accountAddress.toLowerCase()) {
+      setPendingReplace((prev) => prev ?? address);
+    } else {
+      setPendingReplace(null);
+    }
+  }, [row, isConnected, address]);
+
+  const confirmReplace = async () => {
+    if (!row || !pendingReplace) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await unlinkAccount(row.id);
+      await linkAccount(pendingReplace);
+      setPendingReplace(null);
+      notifyMeChanged();
+      reload();
+    } catch (e) {
+      fail(e, "Could not replace the wallet.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelReplace = () => {
+    // Back to a clean state: forget the candidate and drop the browser
+    // connection to the wallet that was never linked.
+    setPendingReplace(null);
+    disconnect();
+  };
+
+  const confirmUnlinkWallet = async () => {
+    if (!row) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await unlinkAccount(row.id);
+      setConfirmUnlink(false);
+      disconnect();
+      notifyMeChanged();
+      reload();
+    } catch (e) {
+      fail(e, "Could not unlink the wallet.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!row) return;
+    try {
+      await navigator.clipboard.writeText(row.accountAddress);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Copy failed — the full address is shown above.");
+    }
+  };
+
+  return (
+    <Panel>
+      <h2 style={{ fontSize: "var(--type-title-s-size)" }}>Wallet</h2>
+      <p className="pass-stale">
+        The wallet your account executes with. This is not identity — it never
+        appears on your public profile.
+      </p>
+
+      {!row ? (
+        <Stack gap="3">
+          <p className="pass-stale">No wallet linked.</p>
+          {busy ? (
+            <p className="pass-stale" role="status">
+              Linking the wallet…
+            </p>
+          ) : (
+            <Inline gap="3">
+              <ConnectKitButton.Custom>
+                {({ show }) => (
+                  <button
+                    type="button"
+                    className="pass-btn"
+                    data-variant="primary"
+                    onClick={show}
+                  >
+                    Connect wallet
+                  </button>
+                )}
+              </ConnectKitButton.Custom>
+            </Inline>
+          )}
+        </Stack>
+      ) : (
+        <Stack gap="3">
+          <Inline gap="3" align="center">
+            <span
+              className="pass-wallet-address"
+              title={row.accountAddress}
+              aria-label={`Linked wallet ${row.accountAddress}`}
+            >
+              {truncateAddress(row.accountAddress)}
+            </span>
+            <button
+              type="button"
+              className="pass-btn"
+              data-variant="ghost"
+              disabled={busy}
+              onClick={copy}
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </Inline>
+          <Inline gap="3">
+            <ConnectKitButton.Custom>
+              {({ show }) => (
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="ghost"
+                  disabled={busy}
+                  onClick={show}
+                >
+                  Reconnect
+                </button>
+              )}
+            </ConnectKitButton.Custom>
+            <button
+              type="button"
+              className="pass-btn"
+              data-variant="ghost"
+              disabled={busy}
+              onClick={() => setConfirmUnlink(true)}
+            >
+              Unlink
+            </button>
+          </Inline>
+
+          {pendingReplace ? (
+            <Stack gap="3">
+              <p className="pass-thesis">
+                Replace the currently linked wallet? {truncateAddress(row.accountAddress)}{" "}
+                becomes {truncateAddress(pendingReplace)}.
+              </p>
+              <Inline gap="3">
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="primary"
+                  disabled={busy}
+                  onClick={confirmReplace}
+                >
+                  Replace wallet
+                </button>
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="ghost"
+                  disabled={busy}
+                  onClick={cancelReplace}
+                >
+                  Cancel
+                </button>
+              </Inline>
+            </Stack>
+          ) : null}
+
+          {confirmUnlink ? (
+            <Stack gap="3">
+              <p className="pass-thesis">
+                Unlink this wallet? Taking a Pass will require connecting a wallet
+                again.
+              </p>
+              <Inline gap="3">
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="primary"
+                  disabled={busy}
+                  onClick={confirmUnlinkWallet}
+                >
+                  Unlink wallet
+                </button>
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="ghost"
+                  disabled={busy}
+                  onClick={() => setConfirmUnlink(false)}
+                >
+                  Cancel
+                </button>
+              </Inline>
+            </Stack>
+          ) : null}
+        </Stack>
+      )}
+
+      {error ? <ValidationMessage>{error}</ValidationMessage> : null}
+    </Panel>
+  );
+}
+
 export function SettingsClient({
   probe,
   load = fetchMe,
   onSave,
   onNavigate,
+  linkAccount,
+  unlinkAccount,
 }: {
   probe?: () => Promise<boolean>;
   load?: () => Promise<Me>;
   onSave?: (patch: { displayName: string; bio: string }) => Promise<void>;
   /** Injectable navigation for the Connect X CTA (jsdom has no navigation). */
   onNavigate?: (url: string) => void;
+  /** Injectable wallet link/unlink for tests (default: the real API calls). */
+  linkAccount?: (accountAddress: string) => Promise<LinkedWallet>;
+  unlinkAccount?: (accountId: string) => Promise<void>;
 }) {
   const { state, reload } = useAuthenticatedResource<Me>({ probe, load });
   // Re-read /me when another surface mutates connection state (topbar
@@ -134,7 +424,8 @@ export function SettingsClient({
         {(me) => {
           // Single-state rule, D-023: identity is X-only. The X section
           // renders while connected, otherwise its connect CTA renders.
-          // No wallet sections exist anywhere on this screen.
+          // The execution wallet is managed here in Settings (not identity,
+          // never on the public profile or topbar).
           const xEntry = connectionByName(me.connections, "x");
           const xLive = xEntry?.connected === true;
           const ethosEntry = connectionByName(me.connections, "ethos");
@@ -263,6 +554,14 @@ export function SettingsClient({
                 </Stack>
               </>
             )}
+
+            {/* Execution wallet (D-023): managed here, never identity. */}
+            <WalletSection
+              accounts={me.tradingAccounts}
+              reload={reload}
+              linkAccount={linkAccount}
+              unlinkAccount={unlinkAccount}
+            />
 
             {/* D-022: the one-time tour can be re-opened from here. */}
             <Panel>

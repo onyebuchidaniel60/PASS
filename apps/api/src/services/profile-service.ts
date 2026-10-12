@@ -3,6 +3,7 @@ import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import {
   ethosProfiles,
+  executions,
   identities,
   passes,
   profiles,
@@ -269,7 +270,7 @@ export async function linkTradingAccount(
   }
 
   const existing = await ctx.db
-    .select({ id: tradingAccounts.id })
+    .select({ id: tradingAccounts.id, userId: tradingAccounts.userId })
     .from(tradingAccounts)
     .where(
       and(
@@ -278,11 +279,38 @@ export async function linkTradingAccount(
       ),
     )
     .limit(1);
-  if (existing.length > 0) {
+  const clash = existing[0];
+  if (clash) {
+    // Same user re-linking their own address: idempotent, return the row.
+    // Any other owner — another user, or an anonymous (D-026) row — is
+    // never reassigned.
+    if (clash.userId === userId) return { id: clash.id, accountAddress: addr };
     throw new AppError("FORBIDDEN", "That trading account is already linked to PASS.");
   }
 
+  /**
+   * One wallet per user: linking a new address replaces the old rows.
+   * Rows with executions on record cannot be unlinked (auditability,
+   * D-008 — same guard as the DELETE route), so a replace over them is
+   * refused instead of orphaning history.
+   */
   const mine = await getTradingAccounts(ctx, userId);
+  for (const old of mine) {
+    if (old.accountAddress.toLowerCase() === addr) continue;
+    const refs = await ctx.db
+      .select({ id: executions.id })
+      .from(executions)
+      .where(eq(executions.accountId, old.id))
+      .limit(1);
+    if (refs.length > 0) {
+      throw new AppError(
+        "FORBIDDEN",
+        "Your current wallet has executions on record and cannot be replaced. Unlink it from Settings after closing its positions.",
+      );
+    }
+    await ctx.db.delete(tradingAccounts).where(eq(tradingAccounts.id, old.id));
+  }
+
   const inserted = await ctx.db
     .insert(tradingAccounts)
     .values({
@@ -290,11 +318,25 @@ export async function linkTradingAccount(
       provider: "hyperliquid",
       accountAddress: addr,
       agentAddress: opts.agentAddress ?? null,
-      isPrimary: opts.isPrimary ?? mine.length === 0,
+      isPrimary: opts.isPrimary ?? true,
+    })
+    .onConflictDoNothing({
+      target: [tradingAccounts.provider, tradingAccounts.accountAddress],
     })
     .returning();
 
-  const row = inserted[0];
+  const row = inserted[0] ?? (
+    await ctx.db
+      .select({ id: tradingAccounts.id, accountAddress: tradingAccounts.accountAddress })
+      .from(tradingAccounts)
+      .where(
+        and(
+          eq(tradingAccounts.provider, "hyperliquid"),
+          eq(tradingAccounts.accountAddress, addr),
+        ),
+      )
+      .limit(1)
+  )[0];
   if (!row) throw new AppError("INTERNAL_ERROR");
   return { id: row.id, accountAddress: row.accountAddress };
 }
