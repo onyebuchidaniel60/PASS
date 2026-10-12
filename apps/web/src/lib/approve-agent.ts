@@ -146,7 +146,10 @@ export async function runApproveAgent(deps: {
    * caller that has no venue context.
    */
   chain?: HLChain;
-  signMessageAsync: (args: { message: string }) => Promise<string>;
+  signMessageAsync: (args: {
+    message: string;
+    account?: `0x${string}`;
+  }) => Promise<string>;
   signTypedDataAsync: (args: unknown) => Promise<`0x${string}`>;
   postApprove: (
     accountId: string,
@@ -161,11 +164,14 @@ export async function runApproveAgent(deps: {
 }> {
   // D-019.2: one derivation popup per session per wallet. Memory only —
   // never localStorage/sessionStorage/IndexedDB; cleared on sign-out.
+  // `account` is pinned on BOTH signatures so the wallet can never sign
+  // with a non-selected account (D-019.1: the MASTER signs approveAgent).
   let derivationSecret = getCachedDerivationSecret(deps.address);
   if (!derivationSecret) {
     try {
       derivationSecret = await deps.signMessageAsync({
         message: messageForDerivation(deps.address),
+        account: deps.address,
       });
     } catch {
       derivationSecret = null;
@@ -205,8 +211,13 @@ export async function runApproveAgent(deps: {
   // wagmi's typed-data generics are narrowed to standard EIP-712 primary
   // types; Hyperliquid's is documented as
   // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
-  // through structurally.
-  const signature = await deps.signTypedDataAsync(typed as never);
+  // through structurally. `account` pins the signer to the wagmi-connected
+  // master wallet — without it the call can resolve to a stale or
+  // non-selected account and the venue rejects an unknown signer.
+  const signature = await deps.signTypedDataAsync({
+    ...typed,
+    account: deps.address,
+  } as never);
 
   // viem returns a flat 0x signature; the §8 body carries { r, s, v }.
   const { r, s, v } = parseSignature(signature);

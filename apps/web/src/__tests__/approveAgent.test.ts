@@ -331,6 +331,35 @@ describe("isUserRejection", () => {
   });
 });
 
+describe("runApproveAgent pins the master account", () => {
+  beforeEach(async () => {
+    await forgetAgentKey();
+  });
+
+  it("passes account === the connected address to both signatures", async () => {
+    const signMessageAsync = vi.fn(async () => "0xderivationsecret");
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      signMessageAsync,
+      signTypedDataAsync,
+      postApprove: async () => ({}),
+    });
+    // Derivation signature: master wallet, explicitly.
+    expect(signMessageAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ account: ADDR }),
+    );
+    // approveAgent signature: master wallet, explicitly — never a derived
+    // key, never a cached walletClient bound to a stale account (D-019.1).
+    const typedCall = signTypedDataAsync.mock.calls[0] as unknown as
+      | [{ account: string; primaryType: string }]
+      | undefined;
+    expect(typedCall?.[0].account).toBe(ADDR);
+    expect(typedCall?.[0].primaryType).toBe("HyperliquidTransaction:ApproveAgent");
+  });
+});
+
 describe("runApproveAgent venue chain", () => {
   beforeEach(async () => {
     await forgetAgentKey();
