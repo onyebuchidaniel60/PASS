@@ -30,6 +30,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { SignInXButton } from "@/components/SignInX";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { Field, Textarea, TextInput } from "@/components/wave2/controls";
 import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
@@ -41,7 +42,7 @@ import {
   isXConnected,
   type MePayload,
 } from "@/lib/me";
-import { OnboardingClient, type StepId, type StepProgress } from "./OnboardingClient";
+import { OnboardingClient, STEPS, type StepId, type StepProgress } from "./OnboardingClient";
 
 interface EthosRefresh {
   providerProfileId: string | null;
@@ -74,6 +75,40 @@ export function OnboardingFlow({
   const { state, reload } = useAuthenticatedResource<MePayload>({
     load: () => clientGet<MePayload>("/api/v1/me"),
   });
+
+  // Signed-out gate: the journey preview, not a dead end. The three steps
+  // render as numbered ghost rows (ref 4 density) so the screen has
+  // hierarchy before any session exists, plus the way back in.
+  if (state.status === "unauthorized") {
+    return (
+      <PageShell>
+        <Section label="Onboarding">
+          <Stack gap="6">
+            <Panel className="pass-onboarding-gate">
+              <h1>Begin with X.</h1>
+              <p className="pass-stale">
+                Sign in with X to begin onboarding. Three short steps, then
+                you can author a Pass.
+              </p>
+              <Inline gap="3">
+                <SignInXButton onNavigate={onNavigate} />
+              </Inline>
+            </Panel>
+            <ol className="pass-onboarding-preview" aria-label="The three onboarding steps">
+              {STEPS.map((s, i) => (
+                <li key={s.id} className="pass-onboarding-preview-step">
+                  <span className="pass-onboarding-preview-num" aria-hidden="true">
+                    {`0${i + 1}`}
+                  </span>
+                  <span className="pass-onboarding-preview-question">{s.question}</span>
+                </li>
+              ))}
+            </ol>
+          </Stack>
+        </Section>
+      </PageShell>
+    );
+  }
 
   return (
     <AuthenticatedView
