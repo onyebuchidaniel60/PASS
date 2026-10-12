@@ -120,6 +120,7 @@ export async function signExchangeRequest(
     primaryType: string;
     message: Record<string, unknown>;
   },
+  opts: { isTestnet?: boolean } = {},
 ): Promise<SignedPayload> {
   if (mode === "live") {
     const { getMemoryAgentKey } = await import("./agent-keystore");
@@ -132,10 +133,14 @@ export async function signExchangeRequest(
       import("@nktkas/hyperliquid/signing"),
     ]);
     const wallet = privateKeyToAccount(key);
+    // The L1 phantom-agent signature is venue-scoped too (source "a" vs
+    // "b"): a mainnet-signed order is not valid on testnet. The venue
+    // comes from /health via the Take flow, never a default.
     const signature = await signL1Action({
       wallet,
       action: request.action as Record<string, unknown>,
       nonce: request.nonce,
+      isTestnet: opts.isTestnet ?? false,
     });
     return {
       exchangeRequest: { action: request.action, nonce: request.nonce },

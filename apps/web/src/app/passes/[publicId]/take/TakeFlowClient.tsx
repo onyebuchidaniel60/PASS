@@ -122,6 +122,8 @@ interface MarketMeta {
 
 interface Health {
   modes?: { hyperliquidExecution?: "live" | "mock"; hyperliquid?: "live" | "mock" };
+  /** Current venue per the server's own config — the signing source of truth. */
+  hyperliquidVenue?: string | null;
 }
 
 const STEP_TITLE: Record<Step, string> = {
@@ -178,6 +180,11 @@ export function TakeFlowClient({
   const [boot, setBoot] = useState<"loading" | "ready" | "denied">("loading");
   const [assetMeta, setAssetMeta] = useState<MarketMeta | null>(null);
   const [execMode, setExecMode] = useState<"live" | "mock">("mock");
+  // Signing venue, from /health — the server's own config, not the row's
+  // stored venue (which goes stale across venue switches) and never a
+  // hardcoded default. Drives the approveAgent chain label + domain AND
+  // the L1 isTestnet flag.
+  const [venue, setVenue] = useState<"mainnet" | "testnet">("mainnet");
   // D-026: the resolved trading-account row id from the preview. Signed-in
   // Takers resolve via /me; anonymous Takers learn it from the preview
   // response (the server resolves by wallet address).
@@ -222,6 +229,7 @@ export function TakeFlowClient({
         // Anything but an explicit live flag signs the mock envelope. Both
         // mis-signings fail safe at the relay (ORDER_REJECTED, no funds move).
         setExecMode(health.modes?.hyperliquidExecution === "live" ? "live" : "mock");
+        setVenue(health.hyperliquidVenue === "testnet" ? "testnet" : "mainnet");
         setBoot("ready");
       } catch {
         if (!cancelled) setBoot("denied");
@@ -374,8 +382,7 @@ export function TakeFlowClient({
     accountAddress: string;
     agentAddress: string | null;
     venue: string | null;
-  }): Promise<boolean> {
-    // Skip only when the in-memory key IS the recorded agent. A bare
+  }): Promise<boolean> {    // Skip only when the in-memory key IS the recorded agent. A bare
     // key-exists check skips past a rotation and signs with an agent the
     // venue never approved ("User or API Wallet … does not exist").
     if (isMemoryKeyApprovedFor(row.agentAddress, getMemoryAgentKey())) {
@@ -393,10 +400,11 @@ export function TakeFlowClient({
     if (!accountId) return false;
     setAgentNote("Approving the agent wallet — your master wallet signs once.");
     try {
-      // Venue label for the approval: testnet requires hyperliquidChain
-      // "Testnet". The row's venue wins; the preview's covers anonymous
-      // rows; Mainnet is the default when neither knows.
-      const approvalVenue = row.venue ?? preview?.venue ?? null;
+      // Venue label for the approval, from /health (the server's current
+      // venue — not the row's stored venue, which goes stale across venue
+      // switches). Testnet requires hyperliquidChain "Testnet" with the
+      // 421614 domain; mainnet takes 42161/"Mainnet".
+      const approvalChain = venue === "testnet" ? "Testnet" : "Mainnet";
       const done = await runApproveAgent({
         accountId,
         address,
@@ -404,7 +412,7 @@ export function TakeFlowClient({
         // the preview's row. A match against the stable client agent skips
         // approval entirely (changed wallets re-prompt).
         knownAgentAddress: row.agentAddress ?? preview?.agentAddress ?? null,
-        chain: approvalVenue === "testnet" ? "Testnet" : "Mainnet",
+        chain: approvalChain,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
         postApprove: (id, body) =>
@@ -469,7 +477,10 @@ export function TakeFlowClient({
         stopLoss: initialPass.stopLoss ?? null,
       });
       // Live mode without a key throws here; nothing is sent (fail closed).
-      const signed = await signExchangeRequest(execMode, request);
+      // isTestnet follows the health venue: L1 signatures are venue-scoped.
+      const signed = await signExchangeRequest(execMode, request, {
+        isTestnet: venue === "testnet",
+      });
       const r = await clientPost<{
         executionId?: string;
         providerOrderId?: string;

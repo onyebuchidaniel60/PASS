@@ -201,4 +201,12 @@ describe("venue-scoped agent approval (testnet mirror)", () => {
     expect(shown).toHaveLength(1);
     expect(shown[0]!.agentAddress).toBe(AGENT.toLowerCase());
   });
+
+  it("/health reports the current venue for signing clients", async () => {
+    const res = await app.inject({ method: "GET", url: "/health" });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { hyperliquidVenue: string }).hyperliquidVenue).toBe(
+      "testnet",
+    );
+  });
 });

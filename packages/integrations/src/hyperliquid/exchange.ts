@@ -94,10 +94,15 @@ export class HyperliquidExchangeClient {
     signature: Record<string, unknown>;
     hyperliquidChain?: string;
   }): Promise<{ ok: boolean; raw?: unknown }> {
+    // The venue label AND the signature chain id both follow the venue:
+    // testnet signs 0x66eee/"Testnet" (Arbitrum Sepolia), mainnet signs
+    // 0xa4b1/"Mainnet". A Mainnet-labelled approval on testnet is rejected
+    // or misfiled, and it must match the label the client signed.
+    const testnet = params.hyperliquidChain === "Testnet";
     const action = {
       type: "approveAgent",
       hyperliquidChain: params.hyperliquidChain ?? "Mainnet",
-      signatureChainId: "0xa4b1",
+      signatureChainId: testnet ? "0x66eee" : "0xa4b1",
       agentAddress: params.agentAddress,
       nonce: params.nonce,
     };

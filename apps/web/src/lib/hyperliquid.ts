@@ -48,10 +48,39 @@ export const HL_DOMAIN = {
   verifyingContract: "0x0000000000000000000000000000000000000000",
 } as const;
 
+/**
+ * Testnet EIP-712 domain. Same shape, different chain: Hyperliquid testnet
+ * signs against Arbitrum Sepolia (chain id 421614 / 0x66eee), not Arbitrum
+ * One (42161 / 0xa4b1). A Mainnet-labelled approval on testnet is rejected
+ * or misfiled, so the domain MUST follow the venue — never a default.
+ */
+export const HL_TESTNET_DOMAIN = {
+  ...HL_DOMAIN,
+  chainId: 421614,
+} as const;
+
 /** hex form of 42161, as the docs require for signatureChainId. */
 export const HL_SIGNATURE_CHAIN_ID = "0xa4b1";
 
+/** hex form of 421614 (Arbitrum Sepolia): testnet signatureChainId. */
+export const HL_TESTNET_SIGNATURE_CHAIN_ID = "0x66eee";
+
 export type HLChain = "Mainnet" | "Testnet";
+
+/**
+ * Venue-driven signing constants. The chain label AND the EIP-712 domain
+ * chainId both follow the venue:
+ *   mainnet → { chainId: 42161, hyperliquidChain: "Mainnet" }
+ *   testnet → { chainId: 421614, hyperliquidChain: "Testnet" }
+ * Anything else is a Mainnet-shaped payload on the wrong venue.
+ */
+export function hlDomainFor(chain: HLChain): typeof HL_DOMAIN | typeof HL_TESTNET_DOMAIN {
+  return chain === "Testnet" ? HL_TESTNET_DOMAIN : HL_DOMAIN;
+}
+
+export function hlSignatureChainIdFor(chain: HLChain): string {
+  return chain === "Testnet" ? HL_TESTNET_SIGNATURE_CHAIN_ID : HL_SIGNATURE_CHAIN_ID;
+}
 
 export function nowNonce(): number {
   return Date.now();

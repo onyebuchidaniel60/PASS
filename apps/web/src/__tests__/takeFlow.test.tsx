@@ -115,6 +115,10 @@ const MARKETS = {
 };
 
 const HEALTH_MOCK = { modes: { hyperliquidExecution: "mock" } };
+const HEALTH_TESTNET = {
+  modes: { hyperliquidExecution: "live" },
+  hyperliquidVenue: "testnet",
+};
 
 type PassFixture = Omit<typeof PASS, "entryType"> & { entryType: "limit" | "market" };
 
@@ -863,6 +867,33 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+  });
+
+  it("labels the approval for testnet when /health says testnet", async () => {
+    // The chain comes from the server's current venue (/health), never the
+    // row's stored venue (stale across switches) and never a default.
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path === "/api/v1/me") return Promise.resolve(meResponse);
+      if (path.includes("/api/v1/markets")) return Promise.resolve(MARKETS);
+      if (path.includes("/health")) return Promise.resolve(HEALTH_TESTNET);
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    meResponse = ME_NO_AGENT;
+    mockMemoryKey.mockReturnValue(null);
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ executionId: "ex-8", providerOrderId: "hl-16", status: "open" });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
+    expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({ chain: "Testnet" });
   });
 });
 /**

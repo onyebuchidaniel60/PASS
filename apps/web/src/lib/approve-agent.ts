@@ -15,6 +15,8 @@ import {
   APPROVE_AGENT_PRIMARY_TYPE,
   APPROVE_AGENT_TYPES,
   HL_DOMAIN,
+  HL_TESTNET_DOMAIN,
+  hlDomainFor,
   nowNonce,
   type HLChain,
 } from "./hyperliquid";
@@ -29,19 +31,18 @@ import {
  * (the SDK signs `agentName: name or ""`; an absent name is the empty
  * string on the wire, never a missing field).
  *
- * Domain chainId is 42161 deliberately, NOT the 0x66eee the Python SDK
- * hardcodes: Hyperliquid derives the verification domain from the
- * `signatureChainId` our own server posts alongside the signature
- * (`relayApproveAgent` posts 0xa4b1), so the signed domain must match
- * OUR posted action. Self-consistency between signed message and posted
- * action is the invariant; either value verifies iff both sides agree.
+ * Both the domain chainId and the message hyperliquidChain follow the
+ * venue (`hlDomainFor`): mainnet signs 42161/"Mainnet", testnet signs
+ * 421614/"Testnet". A Mainnet-labelled approval on testnet is rejected or
+ * misfiled, so this must be venue-driven, never a default. The server
+ * posts the matching signatureChainId alongside (0xa4b1 / 0x66eee).
  */
 export function buildApproveAgentTypedData(params: {
   agentAddress: `0x${string}`;
   nonce: number;
   chain?: HLChain;
 }): {
-  domain: typeof HL_DOMAIN;
+  domain: typeof HL_DOMAIN | typeof HL_TESTNET_DOMAIN;
   types: typeof APPROVE_AGENT_TYPES;
   primaryType: typeof APPROVE_AGENT_PRIMARY_TYPE;
   message: {
@@ -51,12 +52,13 @@ export function buildApproveAgentTypedData(params: {
     nonce: bigint;
   };
 } {
+  const chain = params.chain ?? "Mainnet";
   return {
-    domain: HL_DOMAIN,
+    domain: hlDomainFor(chain),
     types: APPROVE_AGENT_TYPES,
     primaryType: APPROVE_AGENT_PRIMARY_TYPE,
     message: {
-      hyperliquidChain: params.chain ?? "Mainnet",
+      hyperliquidChain: chain,
       agentAddress: params.agentAddress,
       agentName: "",
       nonce: BigInt(params.nonce),

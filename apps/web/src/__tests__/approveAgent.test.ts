@@ -268,6 +268,16 @@ describe("approveAgent typed data vs viem", () => {
       chain: "Testnet",
     });
     expect(payload.message.hyperliquidChain).toBe("Testnet");
+    expect(payload.domain.chainId).toBe(421614);
+  });
+
+  it("builds a Mainnet-labelled payload by default", () => {
+    const payload = buildApproveAgentTypedData({
+      agentAddress: AGENT,
+      nonce: 1760000000000,
+    });
+    expect(payload.message.hyperliquidChain).toBe("Mainnet");
+    expect(payload.domain.chainId).toBe(42161);
   });
 });
 
