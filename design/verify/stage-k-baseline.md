@@ -47,7 +47,21 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 
 ## 4. Take flow (`/passes/{id}/take`, 4 steps)
 
-- Divergence 4a — §14.4 ember word: headline renders `You author / your own **own** size.` (accent on `own`); table mandates ember `size` (line 2). Severity: design-violation. Skill: Impeccable `clarify` + Emil purpose (claim word). Disposition: FIX (move `accent: true` from `own` to `size.` in `hero-copy.ts`; data-only, token-compliant).
+- CORRECTION (2026-10-12, second-pass evidence): the original Divergence 4a
+  was wrong. `HERO_LINES.take` in `apps/web/src/lib/hero-copy.ts` has NO
+  caller — the Take flow renders per-step `STEP_TITLE[step]` ("Choose your
+  size", "Execution preview", "Authorization", "Confirmation") in a plain
+  `h1.pass-display`, not `DisplayHeadline`. The accent-move commit was
+  reverted (zero rendered effect; see git log). Lesson: plan §4.1, "read
+  the caller, not the prop list."
+- Re-characterized divergence 4b — §14.4 table row "Take flow" specifies a
+  display headline (`You author / your own **size**.`); the implementation
+  uses functional per-step titles instead. The step titles satisfy §10.6
+  (distinct route titles + mono `STEP n / 4`, asserted in takeFlow.test).
+  Adopting a marketing hero inside the execution funnel is a DESIGN
+  decision with funnel risk, not a polish fix. Severity: design-violation
+  (deferred with reason). Skill: none applied — left untouched
+  pre-submission. SIMULATED labelling untouched.
 - Steps are distinct routes with mono `STEP n / 4`; size field empty by default (D-015); slider adjunct only. Detailed step-by-step (context strip, ChamferPanel order summary, plain-language authorization, receipt with provider order id, `RejectedBlock` + re-enter-Step-2 retry) deferred to an authenticated wallet walk — no code change proposed without observing the flow. SIMULATED labelling untouched by any polish.
 
 ## 5. Trader profile (`/u/{slug}`)
@@ -90,7 +104,14 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 
 ## Residuals and disposition
 
-1. FIX now (token-compliant, zero backend/auth/execution touch): 1a (eyebrow `Read more` → `The network`), 4a (accent `own` → `size.`).
+1. FIXED and verified live (2026-10-12): 1a (eyebrow `Read more` → `The network`;
+   commit `2670f21`; deployed `dpl_8sDx4jopCm9JcH4ig3HtHheBUHRx`; second-pass
+   Playwright check confirmed `\The network\\03\` on
+   https://pass-web-dun.vercel.app/; harness re-run clean).
+2. REVERTED (2026-10-12): the 4a accent move (commit `1e9a29e`, revert
+   `fbb3869`) — `HERO_LINES.take` has no caller; the change had zero
+   rendered effect. Re-characterized as 4b (Take display-headline vs
+   STEP_TITLE), deferred as a design decision.
 2. Measured follow-up (no blind fix): 3.8:1 card-text blend element ID + contrast recomputation; 1.1:1 watermark element confirmation; 10px badge DESIGN-internal tension (§3.4 vs §14.6) proposed as evolution-log entry, not a code patch.
 3. Deferred visual (needs screenshots + authenticated fixtures): 2, 3, 5–12 density/hierarchy reviews; cross-surface figure readings; reduced-motion forced-on render check per animated surface.
 4. Harness residual (nice-to-fix-later): `above-fold.cta` selector does not match the Pass-detail CTA class; report MISSING on terminal-state passes is correct product behavior.
