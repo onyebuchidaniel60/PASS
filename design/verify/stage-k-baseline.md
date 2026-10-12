@@ -90,6 +90,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 9. Onboarding (3 steps)
 
 - Harness clean. One question per screen, display-size statement, accent action named for the act, one-sentence why, mono `STEP n / 4`-style progress, `UnavailableBlock` with skip where PRD permits, no wallet step (D-023 — wallet appears at Take only). No divergence asserted; step walk deferred (requires fresh X-authenticated account).
+- ✓ Stage K complete 2026-10-12: onboarding.test 15/15 + onboarding-flow 10/10 green (one step per screen, mono STEP n / 3, no Skip on required, Skip wired on optional, UnavailableBlock with skip, no key-material request). Screenshots captured both viewports. Harness clean both viewports. No code change.
 
 ## 10. Settings (`/settings`)
 
