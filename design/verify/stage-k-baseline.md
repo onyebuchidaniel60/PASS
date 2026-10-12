@@ -100,6 +100,7 @@ Motion-rule resolution applied throughout: every animation must orient, confirm,
 ## 11. Stale interstitial (`/passes/{id}/stale`)
 
 - Route exists in app inventory. Statement + accent `Review latest Pass` + mono diff, never silently executing on stale parameters (UX_SPEC §9) — source-conformant. No divergence asserted; triggering requires a versioned Pass fixture (edit → v2 → stale review), deferred.
+- ✓ Stage K complete 2026-10-12: stale dialog open-on-request covered in errorRoutes.test (Escape closes, plain statement, single accent action); screenshots of `/passes/UvvuxpWPZ4/stale` captured both viewports (renders clean, harness route clean). Execution-never-on-stale is behavior, covered by validation tests, untouched. Harness clean both viewports. No code change.
 
 ## 12. Error / 404
 
