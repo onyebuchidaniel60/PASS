@@ -332,43 +332,14 @@ describe("§10.10 Profile and connections", () => {
     expect(screen.getByText("Wallet")).toBeInTheDocument();
   });
 
-  it("offers Disconnect X in the X section (D-024 sign-out path)", async () => {
-    // Fix session: the topbar chip is gone, so this button is the only
-    // sign-out path in the UI.
+  it("offers NO Disconnect X on Profile — sign-out lives in the topbar menu (D-024)", async () => {
+    // Topbar restoration: Profile states identity; the topbar X menu owns
+    // the only sign-out path in the UI.
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("X");
-    expect(screen.getByRole("button", { name: "Disconnect X" })).toBeInTheDocument();
-  });
-
-  it("disconnects X and shows the connect CTA afterwards (D-024)", async () => {
-    mockClientPost.mockResolvedValue({ ok: true });
-    let current: Me = ME;
-    render(<SettingsClient probe={authed} load={async () => current} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Disconnect X" }));
-    await vi.waitFor(() =>
-      expect(mockClientPost).toHaveBeenCalledWith("/api/v1/auth/x/disconnect"),
-    );
-    current = {
-      ...ME,
-      connections: ME.connections.map((c) => ({ ...c, connected: false })),
-    };
-    // The re-read after disconnect renders the signed-out CTA (Bug 2a path).
-    const { notifyMeChanged } = await import("@/lib/me-events");
-    const { act } = await import("@testing-library/react");
-    await act(async () => {
-      notifyMeChanged();
-    });
-    expect(
-      await screen.findByText("Connect X to activate your profile"),
-    ).toBeInTheDocument();
-  });
-
-  it("keeps the X section and shows the error when disconnect fails", async () => {
-    mockClientPost.mockRejectedValue(new Error("network"));
-    render(<SettingsClient probe={authed} load={withMe()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Disconnect X" }));
-    expect(await screen.findByText("Could not disconnect X.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Disconnect X" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disconnect X" })).toBeNull();
+    // Identity state still renders here.
+    expect(screen.getByText("Connected")).toBeInTheDocument();
   });
 });
 

@@ -928,6 +928,38 @@
   inset-inline-end: 0;
   z-index: 20;
   min-inline-size: 14rem;
+  /* The positioning shell above predates the menu; the surface makes it a
+     readable overlay rather than floating text (topbar restoration). */
+  background-color: var(--color-surface-raised);
+  border: var(--border-strong);
+  padding: var(--space-1);
+}
+
+/* The one menu item. A plain menu row (44px target, hover fill), not a
+   bordered button: the bordered pass-btn trigger already carries the
+   button affordance, and a box inside a box would double it. */
+.pass-x-dropdown-item {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: var(--size-target-min);
+  padding-inline: var(--space-4);
+  background: transparent;
+  border: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pass-x-dropdown-item:hover:not(:disabled) {
+  background-color: var(--color-surface);
+}
+
+.pass-x-dropdown-item:disabled {
+  cursor: wait;
+  color: var(--color-text-disabled);
 }
 
 .pass-x-dropdown-note {
@@ -1504,23 +1536,14 @@
   padding-block-start: var(--space-6);
 }
 
-/* Bio click-to-edit target: reads as plain text, underlines on hover and
- * keyboard focus so the target is visible without shifting alignment
- * (no padding: the text must start exactly where body text starts). */
+/* Bio click-to-edit target: the shared bordered secondary box (pass-btn
+ * classes on the element) so it reads as a button, while the text keeps
+ * body alignment — start-aligned and wrapping like prose, not centred like
+ * a short action label. */
 .pass-settings .pass-bio-edit {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
+  justify-content: flex-start;
   text-align: start;
-  font: inherit;
-  color: inherit;
   min-width: 0;
-}
-.pass-settings .pass-bio-edit:hover > span,
-.pass-settings .pass-bio-edit:focus-visible > span {
-  text-decoration: underline;
 }
 
 /* A horizontal strip of figures. Separation comes from a hairline on each cell

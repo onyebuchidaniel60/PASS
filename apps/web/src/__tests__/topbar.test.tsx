@@ -4,12 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import RootLayout from "@/app/layout";
 
 /**
- * Topbar (D-023): no X chip when connected, "Sign in with X" when not, and NO
- * wallet element anywhere in the tree. Identity is X-only; the wallet
- * connects lazily at Take time and has no topbar presence.
- *
- * Fix session: the connected handle chip was removed from the topbar (it
- * duplicated Settings, and its menu pointed at a broken profile URL).
+ * Topbar (D-023): @handle with a Disconnect X menu when connected,
+ * "Sign in with X" when not, and NO wallet element anywhere in the tree.
+ * Identity is X-only; the wallet connects lazily at Take time and has no
+ * topbar presence.
  */
 
 const { mockGet } = vi.hoisted(() => ({ mockGet: vi.fn() }));
@@ -79,7 +77,7 @@ describe("Topbar — D-023 identity-only", () => {
     expect(screen.queryByText(/wallet/i)).toBeNull();
   });
 
-  it("renders no identity element and no wallet element when connected", async () => {
+  it("shows @handle and no wallet element when connected", async () => {
     mockGet.mockResolvedValue(ME_ON);
     const { container } = render(
       <RootLayout>
@@ -87,9 +85,8 @@ describe("Topbar — D-023 identity-only", () => {
       </RootLayout>,
     );
     await waitFor(() => expect(mockGet).toHaveBeenCalled());
-    // Chip removed: no handle, no sign-in button, nothing in the actions track.
-    expect(container.querySelector(".pass-x-chip")).toBeNull();
-    expect(screen.queryByText("@turnttfup99")).toBeNull();
+    // Restored: the actions track shows the X identity, never the wallet.
+    expect(await screen.findByRole("button", { name: "@turnttfup99" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign in with X" })).toBeNull();
     expect(container.querySelector(".pass-wallet")).toBeNull();
     expect(screen.queryByText(/wallet/i)).toBeNull();

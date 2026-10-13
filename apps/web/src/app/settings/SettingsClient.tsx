@@ -255,7 +255,7 @@ function WalletSection({
             <button
               type="button"
               className="pass-btn"
-              data-variant="ghost"
+              data-variant="secondary"
               disabled={busy}
               onClick={copy}
             >
@@ -268,7 +268,7 @@ function WalletSection({
                 <button
                   type="button"
                   className="pass-btn"
-                  data-variant="ghost"
+                  data-variant="secondary"
                   disabled={busy}
                   onClick={show}
                 >
@@ -279,7 +279,7 @@ function WalletSection({
             <button
               type="button"
               className="pass-btn"
-              data-variant="ghost"
+              data-variant="secondary"
               disabled={busy}
               onClick={() => setConfirmUnlink(true)}
             >
@@ -306,7 +306,7 @@ function WalletSection({
                 <button
                   type="button"
                   className="pass-btn"
-                  data-variant="ghost"
+                  data-variant="secondary"
                   disabled={busy}
                   onClick={cancelReplace}
                 >
@@ -335,7 +335,7 @@ function WalletSection({
                 <button
                   type="button"
                   className="pass-btn"
-                  data-variant="ghost"
+                  data-variant="secondary"
                   disabled={busy}
                   onClick={() => setConfirmUnlink(false)}
                 >
@@ -379,10 +379,6 @@ export function SettingsClient({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Tour replay (D-022): resetting completion re-opens the one-time tour.
   const [tourState, setTourState] = useState<"idle" | "working" | "done" | "error">("idle");
-  // X disconnect (D-024): the topbar no longer carries a chip, so Settings
-  // owns the only sign-out path in the UI.
-  const [xBusy, setXBusy] = useState(false);
-  const [xError, setXError] = useState<string | null>(null);
 
   const startEdit = (me: Me) => {
     setDisplayName(me.displayName ?? "");
@@ -414,25 +410,8 @@ export function SettingsClient({
     }
   };
 
-  const disconnectX = async () => {
-    setXBusy(true);
-    setXError(null);
-    try {
-      await clientPost("/api/v1/auth/x/disconnect");
-      // D-024: the session is over, so its key material ends with it.
-      const { clearSessionKeys } = await import("@/lib/agent-keystore");
-      clearSessionKeys();
-    } catch {
-      setXError("Could not disconnect X.");
-      setXBusy(false);
-      return;
-    }
-    const { notifyMeChanged } = await import("@/lib/me-events");
-    notifyMeChanged();
-    setXBusy(false);
-    // Re-read: a dead session renders the connect CTA (D-024), no redirect.
-    reload();
-  };
+  // Sign-out lives in the topbar X menu (D-024). Profile states identity;
+  // it is never the sign-out surface.
 
   return (
     <PageShell className="pass-settings">
@@ -514,7 +493,7 @@ export function SettingsClient({
                     <button
                       type="button"
                       className="pass-btn"
-                      data-variant="ghost"
+                      data-variant="secondary"
                       onClick={() => setEditing(false)}
                     >
                       Cancel
@@ -529,11 +508,13 @@ export function SettingsClient({
               ) : (
                 <Inline gap="4">
                   {/* Bio is read-only text until clicked: the text itself is
-                      the edit target (no always-on Save). Clicking opens the
-                      form below with the cursor in the bio field. */}
+                      the edit target (no always-on Save), now in the shared
+                      bordered secondary box so it reads as a button. Clicking
+                      opens the form below with the cursor in the bio field. */}
                   <button
                     type="button"
-                    className="pass-bio-edit"
+                    className="pass-bio-edit pass-btn"
+                    data-variant="secondary"
                     aria-label="Edit bio"
                     onClick={() => startEdit(me)}
                   >
@@ -571,9 +552,8 @@ export function SettingsClient({
             ) : (
               <>
                 {/* One line per connected account. Disconnected renders its
-                 CTA inline — the chip and the CTA never appear together.
-                 Disconnect lives here: the topbar carries no X chip, so
-                 this is the only sign-out path in the UI (D-024). */}
+                    CTA inline — the chip and the CTA never appear together.
+                    Sign-out lives in the topbar X menu (D-024), never here. */}
                 <Stack gap="3">
                   {xEntry ? (
                     <ConnectionChip provider="X" tone="connected" label={xEntry.label} />
@@ -584,22 +564,6 @@ export function SettingsClient({
                       tone="displayOnly"
                       label={ethosEntry.label}
                     />
-                  ) : null}
-                  <Inline gap="3">
-                    <button
-                      type="button"
-                      className="pass-btn"
-                      data-variant="ghost"
-                      disabled={xBusy}
-                      onClick={() => void disconnectX()}
-                    >
-                      {xBusy ? "Disconnecting…" : "Disconnect X"}
-                    </button>
-                  </Inline>
-                  {xError ? (
-                    <span className="pass-validation" role="alert">
-                      {xError}
-                    </span>
                   ) : null}
                 </Stack>
               </>
@@ -619,7 +583,7 @@ export function SettingsClient({
                 <button
                   type="button"
                   className="pass-btn"
-                  data-variant="ghost"
+                  data-variant="secondary"
                   disabled={tourState === "working"}
                   onClick={() => {
                     setTourState("working");

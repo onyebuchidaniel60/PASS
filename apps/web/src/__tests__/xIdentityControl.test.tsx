@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { XIdentityControl } from "../components/XIdentityControl";
@@ -6,12 +6,10 @@ import { XIdentityControl } from "../components/XIdentityControl";
 /**
  * The topbar X identity control.
  *
- * The state that matters most is `unknown`. Rendering "Sign in with X" while
- * `/me` is still in flight means every single page load flashes a button that
- * then either stays or vanishes, and a user reaching for it is reaching for
- * something that is about to move. So the tests pin that it renders NOTHING
- * while loading, which is the assertion that makes the other three states
- * trustworthy.
+ * First paint matters most: the signed-out button renders BEFORE /me
+ * resolves (it is in the server HTML), so the actions track never shows an
+ * empty slot that pops a button in late. Signed-in, the same slot shows the
+ * X handle with a Disconnect X menu (D-024).
  */
 
 const { mockGet, mockPost, mockReplace } = vi.hoisted(() => ({
@@ -128,19 +126,11 @@ describe("XIdentityControl — signed out", () => {
 });
 
 describe("XIdentityControl — connected", () => {
-  it("renders NOTHING when connected (chip removed from the topbar)", async () => {
-    // Fix session: the handle chip duplicated identity Settings shows, and
-    // its menu pointed at a broken profile URL. The topbar actions track is
-    // empty when signed in; sign-out (D-024) lives in Settings now.
+  it("shows @handle in the topbar once /me resolves", async () => {
     mockGet.mockResolvedValue(CONNECTED);
-    const { container } = render(<XIdentityControl />);
-    await waitFor(() =>
-      expect(mockGet).toHaveBeenCalled(),
-    );
-    await waitFor(() =>
-      expect(container).toBeEmptyDOMElement(),
-    );
-    expect(screen.queryByRole("button")).toBeNull();
+    render(<XIdentityControl />);
+    expect(await screen.findByRole("button", { name: "@turnttfup99" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in with X" })).toBeNull();
   });
 
   it("treats connected-but-no-handle as signed out", async () => {
@@ -163,55 +153,39 @@ describe("XIdentityControl — connected", () => {
     expect(await screen.findByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
   });
 
-  it("renders nothing from the literal flat /me payload when connected", async () => {
+  it("renders the handle from the literal flat /me payload when connected", async () => {
     // Regression: the wire shape has no nested `x` object. The component
-    // must derive connected state from `connections[]` without throwing —
-    // and connected renders nothing (chip removed).
+    // must derive connected state from `connections[]` without throwing.
     mockGet.mockResolvedValue(LITERAL_FLAT_ME);
-    const { container } = render(<XIdentityControl />);
-    await waitFor(() =>
-      expect(mockGet).toHaveBeenCalled(),
-    );
-    await waitFor(() =>
-      expect(container).toBeEmptyDOMElement(),
-    );
+    render(<XIdentityControl />);
+    expect(await screen.findByRole("button", { name: "@turnttfup99" })).toBeInTheDocument();
   });
 });
 
 describe("XIdentityControl — loading", () => {
-  it("renders NOTHING while /me is in flight", async () => {
-    // The regression this whole control is built around: do not flash the
-    // signed-out button on every page load.
+  it("renders the sign-in button while /me is in flight (no empty slot)", async () => {
+    // First paint holds the button at its final size and position; the
+    // probe only ever upgrades it to the handle, never mounts it late.
     let release: (v: unknown) => void = () => {};
     mockGet.mockReturnValue(
       new Promise((resolve) => {
         release = resolve;
       }),
     );
-    const { container } = render(<XIdentityControl />);
-    expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByRole("button")).toBeNull();
+    render(<XIdentityControl />);
+    expect(screen.getByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
     release(CONNECTED);
   });
 });
 
-describe("XIdentityControl — menu removed", () => {
-  it("has no menu, no chip, no dropdown when connected", async () => {
-    // Fix session: the whole connected menu is gone with the chip. Sign-out
-    // (D-024) is covered in settings.test.tsx against the Settings button.
+describe("XIdentityControl — handle menu", () => {
+  it("opens a Disconnect X menu from the handle", async () => {
     mockGet.mockResolvedValue(CONNECTED);
-    const { container } = render(<XIdentityControl />);
-    await waitFor(() =>
-      expect(mockGet).toHaveBeenCalled(),
-    );
-    await waitFor(() =>
-      expect(container).toBeEmptyDOMElement(),
-    );
-    expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.queryByRole("menuitem")).toBeNull();
+    render(<XIdentityControl />);
+    fireEvent.click(await screen.findByRole("button", { name: "@turnttfup99" }));
+    expect(await screen.findByRole("menuitem", { name: "Disconnect X" })).toBeInTheDocument();
   });
 });
 
-// NOTE (fix session): the disconnect flow moved to the Settings X section
-// with the chip. Its endpoint, re-read and failure semantics are covered in
-// settings.test.tsx ("Disconnect X (D-024)").
+// NOTE: the disconnect flow (endpoint, key clearing, re-read) is covered in
+// topbarIdentity.test.tsx against the topbar menu.
