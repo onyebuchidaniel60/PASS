@@ -369,6 +369,8 @@ export interface TextareaProps {
   disabled?: boolean;
   rows?: number;
   className?: string;
+  /** Focus on mount (Settings bio edit opens with the cursor inside). */
+  autoFocus?: boolean;
 }
 
 /** §9.4 Thesis input. The display clamp is applied by the caller, not here. */
@@ -381,6 +383,7 @@ export function Textarea({
   disabled = false,
   rows = 4,
   className,
+  autoFocus = false,
 }: TextareaProps) {
   return (
     <textarea
@@ -391,6 +394,7 @@ export function Textarea({
       disabled={disabled}
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
+      autoFocus={autoFocus || undefined}
       onChange={(e) => onChange(e.target.value)}
     />
   );

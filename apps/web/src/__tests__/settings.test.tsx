@@ -37,9 +37,26 @@ vi.mock("connectkit", () => ({
   ),
 }));
 
+// The default profile save (PATCH /profiles/me) and the Settings X
+// disconnect (POST /api/v1/auth/x/disconnect) run through the real client
+// module. Mocked here so those flows assert the wire call without network.
+const { mockPatch, mockClientPost } = vi.hoisted(() => ({
+  mockPatch: vi.fn(),
+  mockClientPost: vi.fn(),
+}));
+
+vi.mock("@/lib/client", () => ({
+  clientGet: vi.fn(),
+  clientPost: (...a: unknown[]) => mockClientPost(...a),
+  clientPatch: (...a: unknown[]) => mockPatch(...a),
+  clientDelete: vi.fn(),
+}));
+
 beforeEach(() => {
   disconnect.mockReset();
   account = { isConnected: false };
+  mockPatch.mockReset();
+  mockClientPost.mockReset();
 });
 
 const ME: Me = {
@@ -120,10 +137,19 @@ describe("§10.10 Profile and connections", () => {
     expect(screen.getByText("BTC swings only.")).toBeInTheDocument();
   });
 
-  it("offers Save, accent-filled (§10.10.3)", async () => {
+  it("offers no Save until editing: the bio text itself opens the form", async () => {
+    // Fix session: the always-on Save next to the bio is gone. The bio
+    // text is the click target; Save appears only in edit mode.
     render(<SettingsClient probe={authed} load={withMe()} />);
-    const save = await screen.findByRole("button", { name: "Save" });
-    expect(save.getAttribute("data-variant")).toBe("primary");
+    expect(await screen.findByText("BTC swings only.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit bio" }));
+    expect(screen.getByLabelText("Bio")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute(
+      "data-variant",
+      "primary",
+    );
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
   it("renders chips only for connected accounts (§10.10.1, single-state)", async () => {
@@ -187,17 +213,56 @@ describe("§10.10 Profile and connections", () => {
   it("edits the display name and bio, then saves", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<SettingsClient probe={authed} load={withMe()} onSave={onSave} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
 
     const name = screen.getByLabelText("Display name");
     fireEvent.change(name, { target: { value: "new name" } });
     fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "new bio" } });
 
-    const saves = screen.getAllByRole("button", { name: "Save" });
-    fireEvent.click(saves[saves.length - 1]);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await vi.waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({ displayName: "new name", bio: "new bio" }),
     );
+  });
+
+  it("saves through PATCH /profiles/me when no onSave is injected", async () => {
+    // The production path: page.tsx passes no onSave, so the client must
+    // persist itself. Regression for the dead Save that sent nothing.
+    mockPatch.mockResolvedValue({});
+    let current: Me = ME;
+    render(<SettingsClient probe={authed} load={async () => current} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "fresh bio" } });
+    current = { ...ME, bio: "fresh bio" };
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(mockPatch).toHaveBeenCalledWith("/api/v1/profiles/me", {
+        displayName: "turnttfup99",
+        bio: "fresh bio",
+      }),
+    );
+    // Edit mode exits and the re-read bio shows.
+    expect(await screen.findByText("fresh bio")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+
+  it("keeps edit mode and shows the error when saving fails", async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error("down"));
+    render(<SettingsClient probe={authed} load={withMe()} onSave={onSave} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "lost?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Could not save the profile.")).toBeInTheDocument();
+    // Still editing, text intact — nothing is lost to the failure.
+    expect(screen.getByLabelText("Bio")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+
+  it("focuses the bio field when edit mode opens", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    const bio = screen.getByLabelText("Bio");
+    expect(document.activeElement).toBe(bio);
   });
 
   it("manages the execution wallet in Settings, never as identity (D-023)", async () => {
@@ -218,7 +283,7 @@ describe("§10.10 Profile and connections", () => {
   it("contains no field that would accept key material", async () => {
     const { container } = render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("turnttfup99");
-    fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit bio" }));
     expect(container.querySelector('input[type="password"]')).toBeNull();
     const html = container.innerHTML.toLowerCase();
     for (const forbidden of ["private key", "seed phrase", "mnemonic", "secret key"]) {
@@ -253,6 +318,57 @@ describe("§10.10 Profile and connections", () => {
       await screen.findByText("Connect X to activate your profile"),
     ).toBeInTheDocument();
     expect(screen.queryByText("X not connected")).toBeNull();
+  });
+
+  it("renders no page heading block (removed as redundant)", async () => {
+    // Fix session: the "Profile" h1 + subtitle are gone. Section content
+    // (Wallet and below) is untouched.
+    const { container } = render(<SettingsClient probe={authed} load={withMe()} />);
+    await screen.findByText("turnttfup99");
+    expect(container.querySelector("h1")).toBeNull();
+    expect(
+      screen.queryByText("Your public identity and the accounts it is bound to."),
+    ).toBeNull();
+    expect(screen.getByText("Wallet")).toBeInTheDocument();
+  });
+
+  it("offers Disconnect X in the X section (D-024 sign-out path)", async () => {
+    // Fix session: the topbar chip is gone, so this button is the only
+    // sign-out path in the UI.
+    render(<SettingsClient probe={authed} load={withMe()} />);
+    await screen.findByText("X");
+    expect(screen.getByRole("button", { name: "Disconnect X" })).toBeInTheDocument();
+  });
+
+  it("disconnects X and shows the connect CTA afterwards (D-024)", async () => {
+    mockClientPost.mockResolvedValue({ ok: true });
+    let current: Me = ME;
+    render(<SettingsClient probe={authed} load={async () => current} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Disconnect X" }));
+    await vi.waitFor(() =>
+      expect(mockClientPost).toHaveBeenCalledWith("/api/v1/auth/x/disconnect"),
+    );
+    current = {
+      ...ME,
+      connections: ME.connections.map((c) => ({ ...c, connected: false })),
+    };
+    // The re-read after disconnect renders the signed-out CTA (Bug 2a path).
+    const { notifyMeChanged } = await import("@/lib/me-events");
+    const { act } = await import("@testing-library/react");
+    await act(async () => {
+      notifyMeChanged();
+    });
+    expect(
+      await screen.findByText("Connect X to activate your profile"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the X section and shows the error when disconnect fails", async () => {
+    mockClientPost.mockRejectedValue(new Error("network"));
+    render(<SettingsClient probe={authed} load={withMe()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Disconnect X" }));
+    expect(await screen.findByText("Could not disconnect X.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Disconnect X" })).toBeInTheDocument();
   });
 });
 

@@ -1498,6 +1498,31 @@
   padding-block: var(--space-3);
 }
 
+/* Settings heading removed (fix session): the first content needs top air
+ * where the heading block sat — one rhythm step, page-scoped. */
+.pass-settings .pass-shell-content {
+  padding-block-start: var(--space-6);
+}
+
+/* Bio click-to-edit target: reads as plain text, underlines on hover and
+ * keyboard focus so the target is visible without shifting alignment
+ * (no padding: the text must start exactly where body text starts). */
+.pass-settings .pass-bio-edit {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  min-width: 0;
+}
+.pass-settings .pass-bio-edit:hover > span,
+.pass-settings .pass-bio-edit:focus-visible > span {
+  text-decoration: underline;
+}
+
 /* A horizontal strip of figures. Separation comes from a hairline on each cell
  * rather than a 1px grid gap over a rule-coloured background: same result, and
  * the divider is a declared border instead of an accident of layout. */

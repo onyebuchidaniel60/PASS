@@ -128,27 +128,19 @@ describe("XIdentityControl — signed out", () => {
 });
 
 describe("XIdentityControl — connected", () => {
-  it("renders the handle in a chip, not the raw identity", async () => {
+  it("renders NOTHING when connected (chip removed from the topbar)", async () => {
+    // Fix session: the handle chip duplicated identity Settings shows, and
+    // its menu pointed at a broken profile URL. The topbar actions track is
+    // empty when signed in; sign-out (D-024) lives in Settings now.
     mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    await waitFor(() => expect(screen.getByRole("button")).toBeInTheDocument());
-    expect(screen.getByText("@turnttfup99")).toBeInTheDocument();
-  });
-
-  it("does NOT render the Sign in button when connected", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    await waitFor(() => expect(screen.getByRole("button")).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Sign in with X" })).toBeNull();
-  });
-
-  it("gives the chip an accessible name that is not a bare handle", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    // "X account turnttfup99", not "@turnttfup99" read as punctuation.
-    expect(chip).toHaveAccessibleName(/X account turnttfup99/);
-    expect(chip).toHaveAttribute("aria-haspopup", "menu");
+    const { container } = render(<XIdentityControl />);
+    await waitFor(() =>
+      expect(mockGet).toHaveBeenCalled(),
+    );
+    await waitFor(() =>
+      expect(container).toBeEmptyDOMElement(),
+    );
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("treats connected-but-no-handle as signed out", async () => {
@@ -171,14 +163,18 @@ describe("XIdentityControl — connected", () => {
     expect(await screen.findByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
   });
 
-  it("renders the chip from the literal flat /me payload", async () => {
-    // Regression: the wire shape has no nested `x` object. This fixture is
-    // the exact flat payload from the API source; the component must derive
-    // the chip from `connections[]` without throwing.
+  it("renders nothing from the literal flat /me payload when connected", async () => {
+    // Regression: the wire shape has no nested `x` object. The component
+    // must derive connected state from `connections[]` without throwing —
+    // and connected renders nothing (chip removed).
     mockGet.mockResolvedValue(LITERAL_FLAT_ME);
-    render(<XIdentityControl />);
-    await waitFor(() => expect(screen.getByRole("button")).toBeInTheDocument());
-    expect(screen.getByText("@turnttfup99")).toBeInTheDocument();
+    const { container } = render(<XIdentityControl />);
+    await waitFor(() =>
+      expect(mockGet).toHaveBeenCalled(),
+    );
+    await waitFor(() =>
+      expect(container).toBeEmptyDOMElement(),
+    );
   });
 });
 
@@ -199,131 +195,23 @@ describe("XIdentityControl — loading", () => {
   });
 });
 
-describe("XIdentityControl — menu", () => {
-  it("opens on click and lists Settings and Disconnect X, no View profile", async () => {
-    // Kowalski session: "View profile" (-> /u/{handle}) is removed — the
-    // handle is not the profile slug, so it landed on "Profile not found".
+describe("XIdentityControl — menu removed", () => {
+  it("has no menu, no chip, no dropdown when connected", async () => {
+    // Fix session: the whole connected menu is gone with the chip. Sign-out
+    // (D-024) is covered in settings.test.tsx against the Settings button.
     mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
+    const { container } = render(<XIdentityControl />);
+    await waitFor(() =>
+      expect(mockGet).toHaveBeenCalled(),
+    );
+    await waitFor(() =>
+      expect(container).toBeEmptyDOMElement(),
+    );
     expect(screen.queryByRole("menu")).toBeNull();
-
-    await waitFor(() => chip.click());
-
-    const menu = await screen.findByRole("menu");
-    expect(menu).toHaveAccessibleName("X account");
-    expect(screen.queryByRole("menuitem", { name: "View profile" })).toBeNull();
-    expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Disconnect X" })).toBeInTheDocument();
-  });
-
-  it("links Settings to /settings", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    expect(await screen.findByRole("menuitem", { name: "Settings" })).toHaveAttribute(
-      "href",
-      "/settings",
-    );
-  });
-
-  it("reports its expanded state to assistive tech", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    expect(chip).toHaveAttribute("aria-expanded", "false");
-    await waitFor(() => chip.click());
-    await waitFor(() =>
-      expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true"),
-    );
+    expect(screen.queryByRole("menuitem")).toBeNull();
   });
 });
 
-describe("XIdentityControl — disconnect", () => {
-  it("posts to the disconnect endpoint", async () => {
-    mockGet.mockResolvedValueOnce(CONNECTED).mockResolvedValueOnce(SIGNED_OUT);
-    mockPost.mockResolvedValue({ ok: true });
-
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const item = await screen.findByRole("menuitem", { name: "Disconnect X" });
-    await waitFor(() => item.click());
-
-    await waitFor(() =>
-      expect(mockPost).toHaveBeenCalledWith("/api/v1/auth/x/disconnect"),
-    );
-  });
-
-  it("returns to the signed-out state afterwards", async () => {
-    mockGet.mockResolvedValueOnce(CONNECTED).mockResolvedValueOnce(SIGNED_OUT);
-    mockPost.mockResolvedValue({ ok: true });
-
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const item = await screen.findByRole("menuitem", { name: "Disconnect X" });
-    await waitFor(() => item.click());
-
-    expect(await screen.findByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
-  });
-
-  it("re-reads /me rather than flipping local state optimistically", async () => {
-    // If the delete partially failed, an optimistic update would show
-    // "signed out" while X is still connected. The server is the only authority.
-    mockGet.mockResolvedValueOnce(CONNECTED).mockResolvedValueOnce(CONNECTED);
-    mockPost.mockResolvedValue({ ok: true });
-
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const item = await screen.findByRole("menuitem", { name: "Disconnect X" });
-    await waitFor(() => item.click());
-
-    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
-    // Server still reports connected, so the chip stays.
-    expect(screen.queryByRole("button", { name: "Sign in with X" })).toBeNull();
-  });
-
-  it("closes the menu even when the disconnect call fails", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    mockPost.mockRejectedValue(new Error("network"));
-
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const item = await screen.findByRole("menuitem", { name: /Disconnect/ });
-    await waitFor(() => item.click());
-
-    // No permanent stuck-open menu, and no unhandled rejection.
-    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-  });
-
-  it("routes to / on a successful disconnect (D-024 ends the session)", async () => {
-    mockGet.mockResolvedValueOnce(CONNECTED).mockResolvedValueOnce(SIGNED_OUT);
-    mockPost.mockResolvedValue({ ok: true });
-
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const item = await screen.findByRole("menuitem", { name: "Disconnect X" });
-    await waitFor(() => item.click());
-
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
-  });
-
-  it("stays put when the disconnect call fails (session still alive)", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    mockPost.mockRejectedValue(new Error("network"));
-
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const item = await screen.findByRole("menuitem", { name: /Disconnect/ });
-    await waitFor(() => item.click());
-
-    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-});
+// NOTE (fix session): the disconnect flow moved to the Settings X section
+// with the chip. Its endpoint, re-read and failure semantics are covered in
+// settings.test.tsx ("Disconnect X (D-024)").

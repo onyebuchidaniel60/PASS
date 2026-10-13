@@ -36,14 +36,14 @@ import {
   connectionByName,
   isEthosVisible,
 } from "@/lib/me";
-import { clientDelete, clientPost } from "@/lib/client";
+import { clientDelete, clientPatch, clientPost } from "@/lib/client";
 import { truncateAddress } from "@/lib/format";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { SignInXButton } from "@/components/SignInX";
 import { Field, Textarea, TextInput, ValidationMessage } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { EmptyBlock } from "@/components/wave3/data";
-import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
+import { Inline, PageShell, Panel, ShellContent, Stack } from "@/components/wave1/layout";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 
 export interface Connection {
@@ -380,6 +380,10 @@ export function SettingsClient({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Tour replay (D-022): resetting completion re-opens the one-time tour.
   const [tourState, setTourState] = useState<"idle" | "working" | "done" | "error">("idle");
+  // X disconnect (D-024): the topbar no longer carries a chip, so Settings
+  // owns the only sign-out path in the UI.
+  const [xBusy, setXBusy] = useState(false);
+  const [xError, setXError] = useState<string | null>(null);
 
   const startEdit = (me: Me) => {
     setDisplayName(me.displayName ?? "");
@@ -388,26 +392,52 @@ export function SettingsClient({
   };
 
   const save = async () => {
-    if (!onSave) return;
+    // Production default: persist through PATCH /profiles/me. Tests inject
+    // onSave instead so no network runs in the runner.
+    const persist =
+      onSave ??
+      (async (patch: { displayName: string; bio: string }) => {
+        await clientPatch("/api/v1/profiles/me", patch);
+      });
     setSaveState("saving");
     try {
-      await onSave({ displayName, bio });
+      await persist({ displayName, bio });
       setSaveState("saved");
       setEditing(false);
       reload();
-    } catch (e) {
+    } catch {
+      // Stay in edit mode with the user's text intact; the error clears
+      // itself after a few seconds so a stale failure cannot linger.
       setSaveState("error");
-      void e;
+      window.setTimeout(() => {
+        setSaveState((s) => (s === "error" ? "idle" : s));
+      }, 4000);
     }
+  };
+
+  const disconnectX = async () => {
+    setXBusy(true);
+    setXError(null);
+    try {
+      await clientPost("/api/v1/auth/x/disconnect");
+      // D-024: the session is over, so its key material ends with it.
+      const { clearSessionKeys } = await import("@/lib/agent-keystore");
+      clearSessionKeys();
+    } catch {
+      setXError("Could not disconnect X.");
+      setXBusy(false);
+      return;
+    }
+    const { notifyMeChanged } = await import("@/lib/me-events");
+    notifyMeChanged();
+    setXBusy(false);
+    // Re-read: a dead session renders the connect CTA (D-024), no redirect.
+    reload();
   };
 
   return (
     <PageShell className="pass-settings">
       <ShellContent>
-      <Section label="Profile and connections">
-        <h1>Profile</h1>
-        <p className="pass-stale">Your public identity and the accounts it is bound to.</p>
-      </Section>
 
       {/* The return leg of the X OAuth round trip. Sits above the profile
           fields because the confirmation is about the account, not the
@@ -469,7 +499,12 @@ export function SettingsClient({
                   </Field>
                   <Field label="Bio">
                     {({ controlId }) => (
-                      <Textarea id={controlId} value={bio} onChange={setBio} />
+                      <Textarea
+                        id={controlId}
+                        value={bio}
+                        onChange={setBio}
+                        autoFocus
+                      />
                     )}
                   </Field>
                   <Inline gap="3">
@@ -499,19 +534,21 @@ export function SettingsClient({
                 </Stack>
               ) : (
                 <Inline gap="4">
+                  {/* Bio is read-only text until clicked: the text itself is
+                      the edit target (no always-on Save). Clicking opens the
+                      form below with the cursor in the bio field. */}
                   <button
                     type="button"
-                    className="pass-btn"
-                    data-variant="primary"
+                    className="pass-bio-edit"
+                    aria-label="Edit bio"
                     onClick={() => startEdit(me)}
                   >
-                    Save
+                    {me.bio ? (
+                      <span className="pass-stale">{me.bio}</span>
+                    ) : (
+                      <span className="pass-stale">No bio yet.</span>
+                    )}
                   </button>
-                  {me.bio ? (
-                    <span className="pass-stale">{me.bio}</span>
-                  ) : (
-                    <span className="pass-stale">No bio yet.</span>
-                  )}
                 </Inline>
               )}
             </Panel>
@@ -540,7 +577,9 @@ export function SettingsClient({
             ) : (
               <>
                 {/* One line per connected account. Disconnected renders its
-                 * CTA inline — the chip and the CTA never appear together. */}
+                 CTA inline — the chip and the CTA never appear together.
+                 Disconnect lives here: the topbar carries no X chip, so
+                 this is the only sign-out path in the UI (D-024). */}
                 <Stack gap="3">
                   {xEntry ? (
                     <ConnectionChip provider="X" tone="connected" label={xEntry.label} />
@@ -551,6 +590,22 @@ export function SettingsClient({
                       tone="displayOnly"
                       label={ethosEntry.label}
                     />
+                  ) : null}
+                  <Inline gap="3">
+                    <button
+                      type="button"
+                      className="pass-btn"
+                      data-variant="ghost"
+                      disabled={xBusy}
+                      onClick={() => void disconnectX()}
+                    >
+                      {xBusy ? "Disconnecting…" : "Disconnect X"}
+                    </button>
+                  </Inline>
+                  {xError ? (
+                    <span className="pass-validation" role="alert">
+                      {xError}
+                    </span>
                   ) : null}
                 </Stack>
               </>

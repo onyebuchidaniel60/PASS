@@ -17,7 +17,7 @@
  * redirects to X — so the only third-party thing in this flow is X's own
  * consent screen, which is the right place for it.
  *
- * THE FOUR STATES, all testable:
+ * THE STATES, all testable:
  *
  *   unknown    — renders NOTHING. `/me` is in flight and we do not know whether
  *                to offer "Sign in". Rendering the button first and hiding it a
@@ -27,19 +27,20 @@
  *   signed out — "Sign in with X". Same 302 as the backend route, so the flow
  *                begins server-side and PKCE/state are minted where the secret
  *                configuration lives.
- *   connected  — a §14.9 chip in the data face (a handle is DATA, §11.6), with a
- *                menu: view profile, settings, disconnect.
+ *   connected  — renders NOTHING in the topbar. The handle chip (and its
+ *                View profile / Settings / Disconnect menu) was removed: it
+ *                duplicated the identity Settings already shows, and its View
+ *                profile link landed on "Profile not found". Sign-out (D-024)
+ *                lives in the Settings X section now.
  *   error      — treated as signed out. A control that shows "disconnected" when
  *                the truth is "we could not tell" is a small lie that produces
  *                a confusing sign-in loop.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/wave2/controls";
-import { clientGet, clientPost } from "@/lib/client";
+import { clientGet } from "@/lib/client";
 import { xConnection, type MePayload } from "@/lib/me";
 
 /**
@@ -67,13 +68,9 @@ function toViewModel(data: unknown): MeIdentity {
 }
 
 export function XIdentityControl() {
-  const router = useRouter();
   // `null` = unknown (still loading). Deliberately not `false`, because
   // "not loaded" and "loaded and signed out" must not render the same thing.
   const [me, setMe] = useState<MeIdentity | null>(null);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -89,63 +86,6 @@ export function XIdentityControl() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") setOpen(false);
-    };
-    const onPointer = (ev: PointerEvent) => {
-      const node = menuRef.current;
-      if (node && ev.target instanceof Node && !node.contains(ev.target)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointer);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointer);
-    };
-  }, [open]);
-
-  const disconnect = useCallback(async () => {
-    setOpen(false);
-    setBusy(true);
-    let ended = false;
-    try {
-      // Caught, not left to propagate. The control has no error surface of its
-      // own — adding one for a single failure would be more machinery than the
-      // situation warrants — but swallowing it into an unhandled rejection is
-      // worse, because it takes the whole test file down and, in a real page,
-      // surfaces as a console error the user cannot act on.
-      //
-      // The outcome is still reported honestly: `load()` below re-reads /me, so
-      // a failed delete leaves the chip connected, which is the truth.
-      await clientPost("/api/v1/auth/x/disconnect");
-      ended = true;
-      // D-024: the session is over, so its key material ends with it. The
-      // in-memory agent key and cached derivation secrets are dropped; the
-      // encrypted IndexedDB record stays (opaque without a fresh wallet
-      // signature) so a returning wallet recovers without re-approval.
-      const { clearSessionKeys } = await import("@/lib/agent-keystore");
-      clearSessionKeys();
-    } catch {
-      // Stay put: the session is still alive, and navigating away would show
-      // a signed-out view that contradicts the live session.
-    } finally {      // Re-read from the server rather than optimistically flipping local state:
-      // if the delete partially failed, an optimistic update would show
-      // "signed out" while X is still connected.
-      await load();
-      // Other open screens hold their own /me snapshot (Bug 2a). Tell them
-      // to re-read rather than leaving them stale until a manual refresh.
-      const { notifyMeChanged } = await import("@/lib/me-events");
-      notifyMeChanged();
-      setBusy(false);
-    }
-    // D-024: disconnect ends the session, so the current route — which was
-    // rendered for a signed-in user — no longer applies. Landing shows no
-    // user data and never flashes a stale profile.
-    if (ended) router.replace("/");
-  }, [load, router]);
 
   // UNKNOWN: render nothing. See the state table above.
   if (me === null) return null;
@@ -186,56 +126,10 @@ export function XIdentityControl() {
     );
   }
 
-  const handle = me.handle;
-
-  return (
-    <span className="pass-x" data-state="connected">
-      <div className="pass-x-menu" ref={menuRef}>
-        <button
-          type="button"
-          className="pass-x-chip"
-          aria-expanded={open}
-          aria-haspopup="menu"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {/* §11.6 a handle is DATA, so mono. The hidden label carries the
-              spoken form so this is announced "X account turnttfup99" rather
-              than a bare "@handle". */}
-          <span className="visually-hidden">{`X account ${handle}`}</span>
-          <span aria-hidden="true" className="pass-x-handle">
-            @{handle}
-          </span>
-        </button>
-
-        {open ? (
-          <div className="pass-x-dropdown" role="menu" aria-label="X account">
-            <p className="pass-x-dropdown-note">
-              Connected as <span className="pass-x-handle">@{handle}</span>
-              {me.displayOnly ? " (display only)" : null}
-            </p>
-
-            {/* Kowalski session: the "View profile" entry (href /u/{handle})
-                is removed. The public Trader route is /u/{slug} (D-019.3)
-                and the X handle is not the profile slug, so the link landed
-                on "Profile not found". Settings owns profile management. */}
-            <Link className="pass-wallet-item" href="/settings" role="menuitem">
-              Settings
-            </Link>
-
-            <button
-              type="button"
-              className="pass-wallet-item pass-wallet-item-danger"
-              role="menuitem"
-              disabled={busy}
-              onClick={() => void disconnect()}
-            >
-              {busy ? "Disconnecting…" : "Disconnect X"}
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </span>
-  );
+  // Connected: render nothing in the topbar. The chip duplicated identity
+  // Settings already shows, and sign-out (D-024) lives in the Settings X
+  // section now.
+  return null;
 }
 
 export default XIdentityControl;
