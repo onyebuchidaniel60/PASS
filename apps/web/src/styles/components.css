@@ -1390,6 +1390,81 @@
   border-block-end: var(--border-hairline);
 }
 
+/* ---------------------------------------------------------------------------
+ * My Passes density pass (Kowalski session).
+ *
+ * Page-scoped: every selector below starts with .pass-my-passes, so no
+ * other page changes a pixel. Findings from measured before-shots at
+ * 375/500/1280 (design/verify/screenshots/my-passes/before-*.png):
+ *  1. unsized .pass-btn links ("Create a Pass", "Connect an account")
+ *     rendered with ZERO horizontal padding — label touching the fill;
+ *  2. .pass-link-btn ("Edit") at 8px and sm buttons ("Cancel") at 12px,
+ *     both under the 16px floor;
+ *  3. the 8-column StatRow crushed to unreadable below ~720px and pushed
+ *     document scrollWidth ~50px past the viewport at 375px;
+ *  4. the StatRow strip ships zero cell padding — figures touch its rules;
+ *  5. stacked ACTIONS put Edit 8px from Cancel, under the 12px floor
+ *     (fixed in MyPassesClient: actions Inline gap 2 -> 3).
+ * ------------------------------------------------------------------------- */
+
+/* 1+2. Buttons: 16px sides on mobile/tablet, 24px on desktop.
+ * min-height stays 44px from the base class, so single-line labels keep
+ * >=10px of vertical air with no extra padding-block. Source order puts
+ * these after the data-size rules, and (0,2,0) beats them either way. */
+.pass-my-passes .pass-btn {
+  padding-inline: var(--space-4);
+}
+.pass-my-passes .pass-link-btn {
+  padding-inline: var(--space-4);
+}
+@media (min-width: 1024px) {
+  .pass-my-passes .pass-btn,
+  .pass-my-passes .pass-link-btn {
+    padding-inline: var(--space-5);
+  }
+}
+
+/* 4. Cell air on every breakpoint. */
+.pass-my-passes .pass-stat-row .pass-metric {
+  padding: var(--space-3);
+}
+
+/* 3. StatRow re-grids where 8 columns cannot fit: 2 columns below 720px
+ * (the same breakpoint where the table stacks), 4 on tablet. Dividers
+ * re-hang on the new grid lines so no hairline doubles a strip edge. */
+@media (max-width: 719px) {
+  .pass-my-passes .pass-stat-row {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pass-my-passes .pass-stat-row > * {
+    border-inline-start: none;
+  }
+  .pass-my-passes .pass-stat-row > *:nth-child(2n) {
+    border-inline-start: var(--border-hairline);
+  }
+  .pass-my-passes .pass-stat-row > *:nth-child(n + 3) {
+    border-block-start: var(--border-hairline);
+  }
+}
+@media (min-width: 720px) and (max-width: 1023px) {
+  .pass-my-passes .pass-stat-row {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .pass-my-passes .pass-stat-row > * {
+    border-inline-start: none;
+  }
+  .pass-my-passes .pass-stat-row > *:nth-child(4n + 2),
+  .pass-my-passes .pass-stat-row > *:nth-child(4n + 3),
+  .pass-my-passes .pass-stat-row > *:nth-child(4n) {
+    border-inline-start: var(--border-hairline);
+  }
+  .pass-my-passes .pass-stat-row > *:nth-child(n + 5) {
+    border-block-start: var(--border-hairline);
+  }
+}
+
 /* A horizontal strip of figures. Separation comes from a hairline on each cell
  * rather than a 1px grid gap over a rule-coloured background: same result, and
  * the divider is a declared border instead of an accident of layout. */

@@ -145,10 +145,12 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     // Author-only by construction: this list holds the viewer's own passes.
     // Edit reuses the Create form (?edit={id}); Cancel confirms, then the
     // row reloads as cancelled and both controls disappear with the state.
+    // gap-3 (12px): the row content and its actions must never touch —
+    // the stacked ACTIONS row measured 8px before the density pass.
     key: "actions",
     label: "ACTIONS",
     render: (p) => (
-      <Inline gap="2">
+      <Inline gap="3">
         {EDITABLE.has(p.status) ? (
           <Link href={`/passes/new?edit=${p.id}`} className="pass-link-btn">
             Edit
@@ -212,7 +214,7 @@ export function MyPassesClient({
   const { me } = useMePayload();
 
   return (
-    <PageShell>
+    <PageShell className="pass-my-passes">
       <Section label="My Passes">
         <div
           style={{
