@@ -303,7 +303,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
 
   return (
     <PageShell>
-      <ShellContent>
+      <ShellContent className={takable ? "pass-detail-takable" : undefined}>
         <Stack gap="6">
           {/* §14.2 THE FOURTH AND LAST bracket frame. The Landing spends two and
               /how-it-works one, so this is the final one the product may use.
@@ -341,6 +341,21 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                   <Timestamp value={data.expiresAt} />. PASS {data.publicId},
                   version {data.version}.
                 </p>
+
+                {/* Take CTA, desktop instance: the in-flow CTA measures at
+                    y≈3241 against an 800px viewport, so desktop readers never
+                    see an action without scrolling. This instance sits with
+                    the status block; the §10.3 item-7 CTA below is untouched.
+                    Rendered only while takable, like the original. */}
+                {takable ? (
+                  <Inline gap="3" className="pass-detail-take-top">
+                    <Link href={takeHref} className="pass-row-link-plain">
+                      <Button variant="primary" size="lg">
+                        Take Pass
+                      </Button>
+                    </Link>
+                  </Inline>
+                ) : null}
               </Stack>
             </CornerBracketFrame>
           </Surface>
@@ -594,6 +609,24 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
           onDismiss={() => setStale(false)}
         />
       </ShellContent>
+
+      {/* Take CTA, mobile instance: a bottom action bar pinned to the
+          viewport, visible from page load and while scrolling (the in-flow
+          CTA measures at y≈3349 against an 800px viewport). Composes the
+          existing Inline + Button primitives — no new component. Rendered
+          only while takable. The .pass-detail-takable clearance below keeps
+          it from covering content. */}
+      {takable ? (
+        <div className="pass-take-sticky">
+          <Inline gap="3">
+            <Link href={takeHref} className="pass-row-link-plain">
+              <Button variant="primary" size="lg">
+                Take Pass
+              </Button>
+            </Link>
+          </Inline>
+        </div>
+      ) : null}
     </PageShell>
   );
 }

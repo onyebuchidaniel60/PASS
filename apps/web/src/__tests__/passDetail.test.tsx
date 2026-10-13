@@ -153,14 +153,18 @@ describe("Pass detail renders a Pass (§10.3)", () => {
     expect(screen.getByText(/Live|Stale/)).toBeInTheDocument();
   });
 
-  it("offers exactly one accent CTA and states that size is the Taker's", async () => {
+  it("offers the Take CTA in-flow, top and sticky bar, and states that size is the Taker's", async () => {
     renderPass();
     await screen.findByRole("heading", { level: 1 });
-    expect(document.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Take Pass" })).toHaveAttribute(
-      "href",
-      "/passes/UvvuxpWPZ4/take",
-    );
+    // Three accent instances of the same CTA (in-flow §10.3 item 7, desktop
+    // top, mobile sticky bar) — CSS shows exactly one per viewport, so the
+    // accent still points at one action per screen.
+    expect(document.querySelectorAll('[data-variant="primary"]')).toHaveLength(3);
+    const links = screen.getAllByRole("link", { name: "Take Pass" });
+    expect(links).toHaveLength(3);
+    for (const l of links) {
+      expect(l).toHaveAttribute("href", "/passes/UvvuxpWPZ4/take");
+    }
     expect(
       screen.getByText(/never selects a size for you/i),
     ).toBeInTheDocument();
@@ -476,10 +480,11 @@ describe("Pass detail reference language (14)", () => {
     expect(numbers).toEqual(["01", "02", "03", "04", "05", "06"]);
   });
 
-  it("keeps exactly one accent fill: the Take Pass CTA", async () => {
+  it("keeps the accent on the Take Pass CTA instances only", async () => {
     const { container } = renderPass();
     await screen.findByRole("heading", { level: 1 });
-    expect(container.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    // In-flow + desktop-top + mobile-sticky instances of the same CTA.
+    expect(container.querySelectorAll('[data-variant="primary"]')).toHaveLength(3);
     // No accent-filled card action either: the only accent on this page is the
     // Take Pass CTA.
     expect(container.querySelectorAll(".pass-card-action")).toHaveLength(0);
@@ -529,13 +534,14 @@ describe("Pass detail — terminal states offer no Take action (Stage C)", () =>
     expect(screen.getByText(/expired and cannot be taken/)).toBeInTheDocument();
   });
 
-  it("an active, unexpired Pass still offers exactly one Take CTA", async () => {
+  it("an active, unexpired Pass still offers the Take CTA in all three instances", async () => {
     renderPass({ status: "active" });
     await screen.findByRole("heading", { level: 1 });
-    expect(screen.getByRole("link", { name: "Take Pass" })).toHaveAttribute(
-      "href",
-      "/passes/UvvuxpWPZ4/take",
-    );
+    const links = screen.getAllByRole("link", { name: "Take Pass" });
+    expect(links).toHaveLength(3);
+    for (const l of links) {
+      expect(l).toHaveAttribute("href", "/passes/UvvuxpWPZ4/take");
+    }
   });
 });
 

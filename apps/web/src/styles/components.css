@@ -3368,3 +3368,46 @@ text-underline-offset: 0.2em;
 .pass-onboarding .pass-panel > .pass-inline + .pass-validation {
   margin-top: var(--space-4);
 }
+
+/* --- Pass detail Take CTA reach (session 2026-10-13) ----------------------
+ * Measured before: the §10.3 item-7 in-flow CTA sat at y≈3349 (375px) and
+ * y≈3241 (1280px) against an 800px viewport — below the fold everywhere.
+ * Two further instances, one per form factor; the in-flow CTA is untouched.
+ * Mobile gets a bottom action bar from existing primitives (Inline +
+ * Button, no new component); desktop gets an instance beside the status
+ * block. Only one instance is ever displayed per viewport. */
+
+/* Hidden by default; each form factor enables its own instance. */
+.pass-detail-take-top,
+.pass-take-sticky {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .pass-detail-take-top {
+    display: flex;
+    margin-top: var(--space-4);
+  }
+}
+
+@media (max-width: 1023px) {
+  .pass-take-sticky {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Under the dialog scrim tier (§5.4 reserves shadow+100 for overlays). */
+    z-index: 50;
+    background-color: var(--color-surface);
+    border-top: var(--border-hairline);
+    padding: var(--space-3) var(--space-4);
+    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  }
+
+  /* Clearance for the bar so it never covers page content. Bar height is
+     one large button plus the bar padding; --space-9 clears it with room. */
+  .pass-detail-takable {
+    padding-bottom: var(--space-9);
+  }
+}

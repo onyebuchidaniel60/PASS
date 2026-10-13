@@ -125,12 +125,12 @@ export function DataCard({
         action.href ? (
           <a className="pass-card-action" href={action.href}>
             <span>{action.label}</span>
-            <span aria-hidden="true">{"\\u2197"}</span>
+            <span aria-hidden="true">{"\u2197"}</span>
           </a>
         ) : (
           <button type="button" className="pass-card-action" onClick={action.onClick}>
             <span>{action.label}</span>
-            <span aria-hidden="true">{"\\u2197"}</span>
+            <span aria-hidden="true">{"\u2197"}</span>
           </button>
         )
       ) : null}
