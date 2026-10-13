@@ -43,7 +43,7 @@ import { SignInXButton } from "@/components/SignInX";
 import { Field, Textarea, TextInput, ValidationMessage } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { EmptyBlock } from "@/components/wave3/data";
-import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
+import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 
 export interface Connection {
@@ -402,7 +402,8 @@ export function SettingsClient({
   };
 
   return (
-    <PageShell>
+    <PageShell className="pass-settings">
+      <ShellContent>
       <Section label="Profile and connections">
         <h1>Profile</h1>
         <p className="pass-stale">Your public identity and the accounts it is bound to.</p>
@@ -600,6 +601,7 @@ export function SettingsClient({
           );
         }}
       </AuthenticatedView>
+      </ShellContent>
     </PageShell>
   );
 }

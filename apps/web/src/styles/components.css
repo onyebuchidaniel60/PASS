@@ -1465,6 +1465,39 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * Settings density pass (Kowalski session).
+ *
+ * Page-scoped: every selector starts with .pass-settings. Measured
+ * before-shots at 375/500/1280
+ * (design/verify/screenshots/settings-fix/before-*.png):
+ *  1. the page skipped the ShellContent wrapper, so section headers sat at
+ *     x=0 with ZERO gutter — fixed by composing ShellContent, not with CSS;
+ *  2. every .pass-btn on the page is unsized (0px sides) or ghost (8px),
+ *     under the 16px floor;
+ *  3. text inputs measured 8px vertical padding, under the 10px floor.
+ * ------------------------------------------------------------------------- */
+
+/* 2. Buttons: 16px sides on mobile/tablet, 24px on desktop. */
+.pass-settings .pass-btn {
+  padding-inline: var(--space-4);
+}
+.pass-settings .pass-link-btn {
+  padding-inline: var(--space-4);
+}
+@media (min-width: 1024px) {
+  .pass-settings .pass-btn,
+  .pass-settings .pass-link-btn {
+    padding-inline: var(--space-5);
+  }
+}
+
+/* 3. Inputs: 12px vertical air (textarea already ships it; the text input
+ * measured 8px). min-height stays 44px from .pass-control. */
+.pass-settings .pass-control {
+  padding-block: var(--space-3);
+}
+
 /* A horizontal strip of figures. Separation comes from a hairline on each cell
  * rather than a 1px grid gap over a rule-coloured background: same result, and
  * the divider is a declared border instead of an accident of layout. */

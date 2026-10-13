@@ -189,13 +189,13 @@ describe("WalletControl — connected", () => {
     expect(chip).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("offers View profile, pointing at the settings route", () => {
+  it("offers no View profile entry (removed: it duplicated Settings)", () => {
+    // Kowalski session: the wallet menu owns address state + Disconnect
+    // only. "View profile" pointed at /settings under a wrong name.
     render(<WalletControl />);
     fireEvent.click(screen.getByRole("button", { name: /Wallet address/ }));
-    expect(screen.getByRole("menuitem", { name: "View profile" })).toHaveAttribute(
-      "href",
-      "/settings",
-    );
+    expect(screen.queryByRole("menuitem", { name: "View profile" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Disconnect" })).toBeInTheDocument();
   });
 
   it("disconnects from the menu", () => {

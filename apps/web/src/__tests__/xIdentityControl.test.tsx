@@ -200,7 +200,9 @@ describe("XIdentityControl — loading", () => {
 });
 
 describe("XIdentityControl — menu", () => {
-  it("opens on click and lists the three actions", async () => {
+  it("opens on click and lists Settings and Disconnect X, no View profile", async () => {
+    // Kowalski session: "View profile" (-> /u/{handle}) is removed — the
+    // handle is not the profile slug, so it landed on "Profile not found".
     mockGet.mockResolvedValue(CONNECTED);
     render(<XIdentityControl />);
     const chip = await screen.findByRole("button");
@@ -210,18 +212,9 @@ describe("XIdentityControl — menu", () => {
 
     const menu = await screen.findByRole("menu");
     expect(menu).toHaveAccessibleName("X account");
-    expect(screen.getByRole("menuitem", { name: "View profile" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "View profile" })).toBeNull();
     expect(screen.getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Disconnect X" })).toBeInTheDocument();
-  });
-
-  it("links View profile to /u/{handle}, the extension route (D-019.3)", async () => {
-    mockGet.mockResolvedValue(CONNECTED);
-    render(<XIdentityControl />);
-    const chip = await screen.findByRole("button");
-    await waitFor(() => chip.click());
-    const link = await screen.findByRole("menuitem", { name: "View profile" });
-    expect(link).toHaveAttribute("href", "/u/turnttfup99");
   });
 
   it("links Settings to /settings", async () => {

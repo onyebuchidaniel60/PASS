@@ -214,11 +214,10 @@ export function XIdentityControl() {
               {me.displayOnly ? " (display only)" : null}
             </p>
 
-            {/* §14.9 the Trader profile route is /u/{handle} (D-019.3). */}
-            <Link className="pass-wallet-item" href={`/u/${handle}`} role="menuitem">
-              View profile
-            </Link>
-
+            {/* Kowalski session: the "View profile" entry (href /u/{handle})
+                is removed. The public Trader route is /u/{slug} (D-019.3)
+                and the X handle is not the profile slug, so the link landed
+                on "Profile not found". Settings owns profile management. */}
             <Link className="pass-wallet-item" href="/settings" role="menuitem">
               Settings
             </Link>

@@ -46,7 +46,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useAccount, useDisconnect } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 
@@ -189,10 +188,9 @@ export function WalletControl({ showNote = false, linked = true }: WalletControl
               )}
             </p>
 
-            <Link className="pass-wallet-item" href="/settings" role="menuitem">
-              View profile
-            </Link>
-
+            {/* Kowalski session: the "View profile" entry (href /settings)
+                duplicated the Settings tab under a wrong name. The wallet
+                menu owns the address state and Disconnect only. */}
             <button
               type="button"
               className="pass-wallet-item pass-wallet-item-danger"
