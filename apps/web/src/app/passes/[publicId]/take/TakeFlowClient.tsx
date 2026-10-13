@@ -677,7 +677,7 @@ export function TakeFlowClient({
     <div className="pass-page">
       <Surface strength="flat" grain>
         <div className="pass-shell">
-          <main className="pass-shell-content pass-stack pass-stack-6">
+          <main className="pass-shell-content pass-stack pass-stack-6 pass-take-flow">
           <section className="pass-section" aria-labelledby="take-step-title">
             <NumberedEyebrow label={STEP_EYEBROW[step]} number={step} />
             {/* §10.6 — progress is MONO TEXT, never a novelty stepper. */}

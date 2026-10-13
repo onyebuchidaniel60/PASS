@@ -3411,3 +3411,19 @@ text-underline-offset: 0.2em;
     padding-bottom: var(--space-9);
   }
 }
+
+/* --- Take flow section rhythm (session 2026-10-13) -------------------------
+ * Measured before: the header <section> carries .pass-section margins
+ * (64px mobile / 96px desktop) AND sits in a 32px stack, so the form began
+ * 96px (mobile) to 128px (desktop) below the header — dead space on every
+ * step, since the header is shared. Scoped to .pass-take-flow: the section
+ * margins go to zero and the 32px stack gap becomes the single header break.
+ * In-step rhythm is untouched and already deliberate (24 / 16 / 12 / 8 down
+ * the Stack gaps); header 32 vs body 24 keeps rhythm, not uniformity. */
+.pass-take-flow.pass-stack-6 {
+  gap: var(--space-6);
+}
+
+.pass-take-flow .pass-section {
+  margin-block: 0;
+}
