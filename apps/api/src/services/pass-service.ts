@@ -114,11 +114,18 @@ export async function createPass(
   }
 
   const publicId = newPublicId();
-  const slug = buildPassSlug({
+  // D-018.4: slug is UNIQUE per (trader_id, slug) but only a human-readable
+  // convenience — the publicId is the identity. The base is deterministic
+  // from (trader, asset, direction), so a bare base collides on the second
+  // Pass with the same triple (production 2026-10-13: every retried publish
+  // 500'd on passes_trader_slug_idx). Suffix with the unique publicId so
+  // every Pass mints a distinct slug while keeping the readable prefix.
+  // Case is preserved so uniqueness is inherited exactly from publicId.
+  const slug = `${buildPassSlug({
     traderSlug,
     asset: input.asset,
     direction: input.direction,
-  });
+  })}-${publicId.slice(0, 6)}`;
 
   const inserted = await ctx.db
     .insert(passes)
