@@ -32,7 +32,7 @@ import { useMePayload } from "@/lib/use-me";
 import { Address, EmptyBlock, Timestamp } from "@/components/wave3/data";
 import { DataCell, PnlCell, PriceCell, Tag } from "@/components/wave3/cells";
 import { DataTable, type DataTableColumn } from "@/components/wave3/table";
-import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
+import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { SegmentedControl } from "@/components/wave2/controls";
 import { fmtPrice, fmtSize, formatRelative, statusLabel } from "@/lib/format";
 import { PERIODS, inWindow, periodWindow, type PeriodId } from "@/lib/period";
@@ -134,6 +134,7 @@ export function ExecutionsClient({
 
   return (
     <PageShell>
+      <ShellContent>
       <Section label="Executions">
         <div
           style={{
@@ -268,6 +269,7 @@ export function ExecutionsClient({
           );
         }}
       </AuthenticatedView>
+      </ShellContent>
     </PageShell>
   );
 }

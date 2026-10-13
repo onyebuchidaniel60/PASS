@@ -37,7 +37,7 @@ import {
   type PassLifecycle,
 } from "@/components/wave3/data";
 import { DataTable, StatRow, type DataTableColumn } from "@/components/wave3/table";
-import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
+import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { fmtPrice, fmtUsd, formatRelative } from "@/lib/format";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 
@@ -215,6 +215,7 @@ export function MyPassesClient({
 
   return (
     <PageShell className="pass-my-passes">
+      <ShellContent>
       <Section label="My Passes">
         <div
           style={{
@@ -334,6 +335,7 @@ export function MyPassesClient({
           );
         }}
       </AuthenticatedView>
+      </ShellContent>
     </PageShell>
   );
 }

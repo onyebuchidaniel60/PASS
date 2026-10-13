@@ -33,7 +33,7 @@ import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { SignInXButton } from "@/components/SignInX";
 import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { Field, Textarea, TextInput } from "@/components/wave2/controls";
-import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
+import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 import { onMeChanged } from "@/lib/me-events";
 import { clientGet, clientPost } from "@/lib/client";
@@ -82,6 +82,7 @@ export function OnboardingFlow({
   if (state.status === "unauthorized") {
     return (
       <PageShell>
+        <ShellContent>
         <Section label="Onboarding">
           <Stack gap="6">
             <Panel className="pass-onboarding-gate">
@@ -106,6 +107,7 @@ export function OnboardingFlow({
             </ol>
           </Stack>
         </Section>
+        </ShellContent>
       </PageShell>
     );
   }
@@ -212,6 +214,7 @@ function FlowInner({
   if (display === HANDOFF) {
     return (
       <PageShell>
+        <ShellContent>
         <XConnectedNotice />
         <Section label="Onboarding complete">
           <Panel>
@@ -232,6 +235,7 @@ function FlowInner({
             </Inline>
           </Panel>
         </Section>
+        </ShellContent>
       </PageShell>
     );
   }

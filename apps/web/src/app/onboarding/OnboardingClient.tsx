@@ -31,7 +31,7 @@
 import { useState, type ReactNode } from "react";
 
 import { PermissionBlock, UnavailableBlock } from "@/components/wave3/data";
-import { Inline, PageShell, Panel, Section, Stack } from "@/components/wave1/layout";
+import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { Eyebrow } from "@/components/wave1/signature";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 
@@ -135,18 +135,21 @@ export function OnboardingClient({
   if (needsAuth && resource.status === "unauthorized") {
     return (
       <PageShell>
+        <ShellContent>
         <Section label="Onboarding">
           <Stack gap="6">
             <StepProgressMono step={step} />
             <PermissionBlock reason="Finish connecting X to continue onboarding." />
           </Stack>
         </Section>
+        </ShellContent>
       </PageShell>
     );
   }
 
   return (
     <PageShell>
+      <ShellContent>
       <Section label="Onboarding">
         <Stack gap="6">
           <StepProgressMono step={step} />
@@ -220,6 +223,7 @@ export function OnboardingClient({
           )}
         </Stack>
       </Section>
+      </ShellContent>
     </PageShell>
   );
 }
