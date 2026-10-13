@@ -38,7 +38,6 @@ import {
 } from "@/lib/me";
 import { clientDelete, clientPatch, clientPost } from "@/lib/client";
 import { truncateAddress } from "@/lib/format";
-import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { SignInXButton } from "@/components/SignInX";
 import { Field, Textarea, TextInput, ValidationMessage } from "@/components/wave2/controls";
 import { Avatar, ConnectionChip } from "@/components/wave3/identity";
@@ -438,11 +437,6 @@ export function SettingsClient({
   return (
     <PageShell className="pass-settings">
       <ShellContent>
-
-      {/* The return leg of the X OAuth round trip. Sits above the profile
-          fields because the confirmation is about the account, not the
-          profile. */}
-      <XConnectedNotice />
 
       <AuthenticatedView
         state={state}

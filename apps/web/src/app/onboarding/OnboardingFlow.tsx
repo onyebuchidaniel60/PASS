@@ -31,7 +31,6 @@ import Link from "next/link";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { SignInXButton } from "@/components/SignInX";
-import { XConnectedNotice } from "@/components/XConnectedNotice";
 import { Field, Textarea, TextInput } from "@/components/wave2/controls";
 import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
@@ -215,7 +214,6 @@ function FlowInner({
     return (
       <PageShell>
         <ShellContent>
-        <XConnectedNotice />
         <Section label="Onboarding complete">
           <Panel>
             <h1>You&apos;re set. Go find a Pass.</h1>
@@ -242,7 +240,6 @@ function FlowInner({
 
   return (
     <>
-      <XConnectedNotice />
       <OnboardingClient
         step={display}
         progress={progress}
