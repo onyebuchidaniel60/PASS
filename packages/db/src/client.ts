@@ -34,6 +34,9 @@ export async function createDb(opts: {
     const { default: postgres } = await import("postgres");
     const client = postgres(opts.databaseUrl, {
       max: 10,
+      // Supabase transaction pooler (port 6543) does not support prepared
+      // statements; every query must use the simple protocol.
+      prepare: false,
       onnotice: () => {},
     });
     const db = drizzlePg(client, { schema });
