@@ -249,7 +249,7 @@ function FlowInner({
         onBack={display > 0 ? () => setManual(display - 1) : undefined}
         stepBody={
           display === 1 ? (
-            <Stack gap="4">
+            <Stack gap="5">
               <Field label="Slug">
                 {({ controlId }) => (
                   <TextInput
@@ -277,7 +277,7 @@ function FlowInner({
               </Field>
             </Stack>
           ) : display === 2 && (ethosResult || ethosFailed) ? (
-            <Stack gap="4">
+            <Stack gap="5">
               {ethosResult && !ethosFailed ? (
                 <>
                   <p className="pass-stale">

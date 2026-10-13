@@ -3318,3 +3318,53 @@ text-underline-offset: 0.2em;
   font-size: var(--type-title-s-size);
   color: var(--color-text-secondary);
 }
+
+/* --- Onboarding step rhythm (Kowalski session 2026-10-13) -----------------
+ * Scoped to .pass-onboarding so no other screen moves. The step buttons use
+ * the bare .pass-btn base, which carries NO horizontal padding — Playwright
+ * measured the label overflowing the fill. Fields stack with zero rhythm
+ * (globals reset all margins), so the Panel's direct children get deliberate
+ * sibling gaps: tight after the question, breathing room before the action.
+ * Token addition for this session: --space-4h (20px), see tokens.css §4. */
+
+/* Buttons: 16px/side mobile, 20px/side desktop, 12px vertical. The 44px
+   min-height floor on the base class already satisfies the 40px minimum. */
+.pass-onboarding .pass-btn {
+  padding: var(--space-3) var(--space-4);
+}
+
+@media (min-width: 1024px) {
+  .pass-onboarding .pass-btn {
+    padding-inline: var(--space-4h);
+  }
+}
+
+/* Fields: 8px label-above / error-below via the Field gap (spec: >=8 / >=6),
+   12px vertical + 16px horizontal inside the control (spec: 12 / 16). */
+.pass-onboarding .pass-field {
+  gap: var(--space-2);
+}
+
+.pass-onboarding .pass-control,
+.pass-onboarding .pass-textarea {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Step rhythm inside the Panel: question -> why sits close, the form and
+   the action row each get a full 24px break above them. */
+.pass-onboarding .pass-panel > h1 + .pass-stale {
+  margin-top: var(--space-3);
+}
+
+.pass-onboarding .pass-panel > .pass-stale + .pass-stack,
+.pass-onboarding .pass-panel > .pass-stale + .pass-inline {
+  margin-top: var(--space-5);
+}
+
+.pass-onboarding .pass-panel > .pass-stack + .pass-inline {
+  margin-top: var(--space-5);
+}
+
+.pass-onboarding .pass-panel > .pass-inline + .pass-validation {
+  margin-top: var(--space-4);
+}

@@ -134,7 +134,7 @@ export function OnboardingClient({
 
   if (needsAuth && resource.status === "unauthorized") {
     return (
-      <PageShell>
+      <PageShell className="pass-onboarding">
         <ShellContent>
         <Section label="Onboarding">
           <Stack gap="6">
@@ -148,14 +148,14 @@ export function OnboardingClient({
   }
 
   return (
-    <PageShell>
+    <PageShell className="pass-onboarding">
       <ShellContent>
       <Section label="Onboarding">
         <Stack gap="6">
           <StepProgressMono step={step} />
 
           {state?.unavailable ? (
-            <Stack gap="4">
+            <Stack gap="5">
               <UnavailableBlock
                 provider={current.action}
                 detail={

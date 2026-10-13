@@ -360,6 +360,9 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  /* Half-step 20px, added 2026-10-13 (onboarding desktop button sides).
+     The §4 scale jumps 16 -> 24 with nothing between. */
+  --space-4h: 20px;
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
