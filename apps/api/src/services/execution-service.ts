@@ -323,11 +323,19 @@ export async function relayExecution(
   try {
     relayed = await ctx.adapters.hyperliquid.relaySignedAction(input.signedPayload);
   } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
     ctx.log.error("hyperliquid relay failed", {
       passId,
       takerId,
-      reason: err instanceof Error ? err.message : String(err),
+      reason,
     });
+    // The relay client throws this distinct error when the exchange
+    // answered without a parseable order id. Preserve it verbatim (with
+    // the raw response it carries) instead of collapsing it into the
+    // generic rejection below.
+    if (/could not read the order id/i.test(reason)) {
+      throw new AppError("ORDER_REJECTED", reason.slice(0, 600));
+    }
     throw new AppError("ORDER_REJECTED", "The order was rejected by the exchange.");
   }
 
@@ -348,11 +356,25 @@ export async function relayExecution(
       takerId,
       status: relayed.status,
     });
+    if (relayed.providerOrderId) {
+      throw new AppError(
+        "ORDER_REJECTED",
+        `The order was rejected by the exchange (${relayed.status}).`,
+      );
+    }
+    // No order id. Two different causes, two different messages — the old
+    // code blamed the mode for both:
+    // - the exchange answered but PASS could not read an id from its
+    //   response (live parse gap; the raw response is attached);
+    // - nothing answered at all (relay disabled/gated: a mode problem).
+    const raw = relayed.rawStatus as { mock?: unknown } | null | undefined;
+    const exchangeResponded = raw != null && raw.mock !== true;
     throw new AppError(
       "ORDER_REJECTED",
-      relayed.providerOrderId
-        ? `The order was rejected by the exchange (${relayed.status}).`
+      exchangeResponded
+        ? `The exchange accepted the order but PASS could not read the order id: ${JSON.stringify(raw).slice(0, 300)}`
         : "Order relay is disabled in this deployment.",
+      exchangeResponded ? { rawStatus: raw } : {},
     );
   }
 
