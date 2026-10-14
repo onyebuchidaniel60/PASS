@@ -66,4 +66,30 @@ Divergences (1 genuine — stated honestly, not padded to 3):
    No third divergence; not invented.
 
 Shots: `pass-detail-before-*` (pre-existing) → `pass-detail-after-*`
-(deployed check).
+(deployed check). Tests: passDetail 47 + reference 56 green.
+
+## Screen 3 — Take flow (`/passes/{id}/take`)
+
+Reference: `(4).png` (numbered process density: every step panel carries
+its number) + take before-shots (desktop viewed; step-1 funnel verified
+against §10.6: empty size field, stepper + range, context strip, single
+accent forward action).
+
+Skill rules applied:
+- Impeccable structure: one shared header serves 4 steps — fix the header
+  once, never per-step branches.
+- Taste: mono step text stays (no novelty stepper); numbering is content.
+- DESIGN §14.3 table (binding): Take flow sections are
+  `01 SIZE, 02 CONSENT, 03 REVIEW, 04 CONFIRM`.
+
+Divergences (1 genuine + 1 noted):
+1. Step header hand-rolled a bare `// … Take a Pass` span with NO number,
+   against the §14.3 table. → shared header renders the real
+   `NumberedEyebrow` (`STEP_EYEBROW[step]`, `number={step}`); `STEP n / 4`
+   mono line and `STEP_TITLE` h1 untouched (both test-pinned).
+2. Sought second/third (context chips, stepper bounds, Review-order
+   ration, Back-to-Pass ghost, consent-first Authorize, SIMULATED
+   receipt): all compliant via takeFlow.test (38 tests) — not re-styled
+   for motion's sake.
+
+Shots: `take-before-*` → `take-after-*` (deployed check).
