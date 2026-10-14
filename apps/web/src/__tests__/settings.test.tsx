@@ -341,6 +341,18 @@ describe("§10.10 Profile and connections", () => {
     // Identity state still renders here.
     expect(screen.getByText("Connected")).toBeInTheDocument();
   });
+
+  it("lays identity out as a header row: avatar beside the identity stack (ref 14)", async () => {
+    const { container } = render(<SettingsClient probe={authed} load={withMe()} />);
+    await screen.findByText("turnttfup99");
+    const head = container.querySelector(".pass-profile-head");
+    expect(head).not.toBeNull();
+    // Avatar and identity are row siblings, not stacked abstractions.
+    expect(head?.querySelector(".pass-avatar")).not.toBeNull();
+    const identity = head?.querySelector(".pass-profile-identity");
+    expect(identity).not.toBeNull();
+    expect(identity?.textContent).toMatch(/turnttfup99/);
+  });
 });
 
 describe("Wallet section — connect / unlink / replace", () => {

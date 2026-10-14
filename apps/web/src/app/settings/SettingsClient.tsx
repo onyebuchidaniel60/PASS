@@ -445,9 +445,12 @@ export function SettingsClient({
             {/* §10.10.2 public profile fields. Display name and bio only —
              * no key material appears here or anywhere in this screen. */}
             <Panel>
-              <Inline gap="4" align="center">
+              {/* Identity header row (ref 14): avatar beside the identity
+                  stack, wrapping to one column on narrow screens. Same
+                  shared row classes as the trader profile header. */}
+              <div className="pass-profile-head">
                 <Avatar handle={me.handle ?? me.displayName} size="lg" />
-                <div style={{ display: "grid", gap: 4, flex: "1 1 auto" }}>
+                <div className="pass-profile-identity" style={{ display: "grid", gap: 4, flex: "1 1 auto" }}>
                   <strong style={{ fontSize: "var(--type-title-m-size)" }}>
                     {me.displayName ?? "Unnamed"}
                   </strong>
@@ -457,7 +460,7 @@ export function SettingsClient({
                     <span className="pass-stale">No public profile yet.</span>
                   )}
                 </div>
-              </Inline>
+              </div>
 
               {editing ? (
                 <Stack gap="4">
