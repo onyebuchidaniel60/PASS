@@ -270,6 +270,75 @@ describe("My Passes — author actions (Stage C)", () => {
   });
 });
 
+describe("My Passes redesign (reference 15)", () => {
+  const TWELVE: MyPass[] = Array.from({ length: 12 }, (_, i) => ({
+    ...PASSES[0],
+    id: `px${i}`,
+    publicId: `Pub${i}cId12`,
+    asset: ["BTC", "ETH", "SOL"][i % 3],
+    status: (["active", "open", "entry_pending", "draft", "cancelled", "expired"] as const)[i % 6] as MyPass["status"],
+  }));
+
+  it("renders the hero", async () => {
+    renderWith({});
+    expect(
+      await screen.findByRole("heading", { name: /all in one place/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the full lifecycle status strip", async () => {
+    renderWith({});
+    const strip = await screen.findByTestId("passes-status-strip");
+    for (const label of [
+      "Draft",
+      "Active",
+      "Entry Pending",
+      "Open",
+      "TP Hit",
+      "SL Hit",
+      "Manually Closed",
+      "Expired",
+      "Cancelled",
+      "Invalidated",
+    ]) {
+      expect(strip.textContent).toMatch(new RegExp(label));
+    }
+  });
+
+  it("filters the table through the Active / All passes tabs", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    const { within } = await import("@testing-library/react");
+    renderWith({ load: async () => TWELVE });
+    await screen.findByTestId("passes-status-strip");
+    const table = (await screen.findAllByTestId("data-table"))[0];
+    // Draft rows visible under All passes.
+    expect(within(table).getAllByText("Draft").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Active" }));
+    await waitFor(() => expect(within(table).queryByText("Draft")).toBeNull());
+    expect(within(table).getAllByText("Active").length).toBeGreaterThan(0);
+  });
+
+  it("paginates the table", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    renderWith({ load: async () => TWELVE });
+    expect(await screen.findByText(/Showing 1–8 of 12 passes/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    expect(await screen.findByText(/Showing 9–12 of 12 passes/)).toBeInTheDocument();
+  });
+
+  it("carries exactly one link per table row", async () => {
+    renderWith({});
+    await screen.findByTestId("passes-status-strip");
+    const table = (await screen.findAllByTestId("data-table"))[0];
+    const { within } = await import("@testing-library/react");
+    for (const link of within(table).getAllByRole("link")) {
+      expect(link.getAttribute("href")).toMatch(/^\/passes\/new\?edit=/);
+    }
+  });
+});
+
 describe("My Passes — status correctness (Stage C, Task 4)", () => {
   const ROWS: MyPass[] = [
     { ...PASSES[0], id: "d", status: "draft", publishedAt: null },

@@ -1,7 +1,13 @@
 "use client";
 
 /**
- * My Passes (§10.8) — the Trader's own inventory.
+ * My Passes (§10.8) — the Trader's own inventory, laid out after
+ * reference 15: hero, full-lifecycle status strip, ACTIVE / ALL PASSES tab
+ * bar, table, pagination.
+ *
+ * Reference 15 is PASS-branded and matched directly. The single DROP is the
+ * row thumbnail: PASS passes carry no image. Columns are PASS's own
+ * (PASS / STATUS / ENTRY / TAKERS / FEES / PUBLISHED / EXPIRY / ACTIONS).
  *
  * Built on `useAuthenticatedResource` + `AuthenticatedView`, so all five states
  * are a state VALUE rendered by a pure view. The unauthorized branch is reached
@@ -15,7 +21,9 @@
  *    reduced text opacity, which would break contrast;
  *  - no horizontal scroller — the table stacks instead, because expiry is the
  *    last column and a sideways scroll hides it;
- *  - `Create a Pass` is accent-filled and sits in the section header.
+ *  - `Create a Pass` is accent-filled and sits in the section header;
+ *  - exactly one link per table row (Edit); Cancel is a button, never a link,
+ *    so rows never nest anchors.
  */
 
 import Link from "next/link";
@@ -23,7 +31,7 @@ import { useEffect, useState } from "react";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { SignInXButton } from "@/components/SignInX";
-import { Button } from "@/components/wave2/controls";
+import { Button, SegmentedControl } from "@/components/wave2/controls";
 import { Dialog } from "@/components/wave5/Dialog";
 import { onMeChanged } from "@/lib/me-events";
 import { clientPost } from "@/lib/client";
@@ -32,11 +40,17 @@ import { useMePayload } from "@/lib/use-me";
 import {
   EmptyBlock,
   LIFECYCLE_LABEL,
-  StatBlock,
   StatusChip,
   type PassLifecycle,
 } from "@/components/wave3/data";
-import { DataTable, StatRow, type DataTableColumn } from "@/components/wave3/table";
+import { DataTable, type DataTableColumn } from "@/components/wave3/table";
+import {
+  DisplayHeadline,
+  MetricCard,
+  NumberedEyebrow,
+  Surface,
+} from "@/components/reference";
+import { paginate, Pager } from "@/components/wave3/pager";
 import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { fmtPrice, fmtUsd, formatRelative } from "@/lib/format";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
@@ -67,12 +81,17 @@ const EDITABLE = new Set<PassLifecycle>(["draft", "active", "entry_pending"]);
 /** The state machine allows cancel from active or entry_pending only. */
 const CANCELLABLE = new Set<PassLifecycle>(["active", "entry_pending"]);
 
+/** The ACTIVE tab: live inventory (waiting on entry, open, or active). */
+const ACTIVE_SET = new Set<PassLifecycle>(["active", "entry_pending", "open"]);
+
 /**
  * Counts are over the REAL lifecycle states, not invented buckets: an author
  * needs to see which Passes are waiting on entry versus genuinely open, so
  * collapsing those together would hide the number they are looking for.
  */
 const SUMMARY = Object.keys(LIFECYCLE_LABEL) as PassLifecycle[];
+
+type PassTab = "active" | "all";
 
 async function fetchPasses(): Promise<MyPass[]> {
   const res = await fetch("/api/v1/me/passes?limit=100", { credentials: "include" });
@@ -145,6 +164,8 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     // Author-only by construction: this list holds the viewer's own passes.
     // Edit reuses the Create form (?edit={id}); Cancel confirms, then the
     // row reloads as cancelled and both controls disappear with the state.
+    // Edit is the row's ONE link; Cancel is a button, so rows never nest
+    // anchors and no per-row accent button exists.
     // gap-3 (12px): the row content and its actions must never touch —
     // the stacked ACTIONS row measured 8px before the density pass.
     key: "actions",
@@ -165,6 +186,67 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     ),
   },
   ];
+}
+
+function PassInventory({ passes, onCancel }: { passes: MyPass[]; onCancel: (id: string) => void }) {
+  const [tab, setTab] = useState<PassTab>("all");
+  const [page, setPage] = useState(1);
+  const filtered = tab === "active" ? passes.filter((p) => ACTIVE_SET.has(p.status)) : passes;
+  const window = paginate(filtered, page, "passes");
+
+  return (
+    <Stack gap="6">
+      {/* §10.8.1 counts are mono and carry no colour coding. The strip marks
+          the states inside the current tab filter. */}
+      <div className="pass-status-strip" data-testid="passes-status-strip">
+        {SUMMARY.map((s) => (
+          <MetricCard
+            key={s}
+            label={LIFECYCLE_LABEL[s]}
+            value={String(passes.filter((p) => p.status === s).length)}
+            selected={tab === "active" && ACTIVE_SET.has(s)}
+          />
+        ))}
+      </div>
+
+      <SegmentedControl
+        label="Pass filter"
+        options={[
+          { value: "active" as PassTab, label: "Active" },
+          { value: "all" as PassTab, label: "All passes" },
+        ]}
+        value={tab}
+        onChange={(t) => {
+          setTab(t);
+          setPage(1);
+        }}
+      />
+
+      {filtered.length === 0 ? (
+        <EmptyBlock title={tab === "active" ? "No active passes" : "No Passes yet"}>
+          {tab === "active"
+            ? "Nothing is live right now. Switch tabs to see the rest of your inventory."
+            : "Author one and it appears here with its live state."}
+        </EmptyBlock>
+      ) : (
+        <Panel>
+          <DataTable
+            caption="Passes you have authored"
+            columns={passColumns(onCancel)}
+            rows={window.pageRows}
+            rowKey={(p) => p.id}
+            isGhost={(p) => GHOST.has(p.status)}
+          />
+          <Pager
+            page={window.page}
+            pageCount={window.pageCount}
+            summary={window.summary}
+            onPage={setPage}
+          />
+        </Panel>
+      )}
+    </Stack>
+  );
 }
 
 export function MyPassesClient({
@@ -216,6 +298,25 @@ export function MyPassesClient({
   return (
     <PageShell className="pass-my-passes">
       <ShellContent>
+      {/* Hero: eyebrow, two-line headline, support line, live count. */}
+      <Surface strength="section">
+        <Stack gap="5">
+          <NumberedEyebrow label="My passes" />
+          <div className="pass-hero-split">
+            <DisplayHeadline
+              lines={[
+                [{ text: "Your" }, { text: "passes." }],
+                [{ text: "All" }, { text: "in" }, { text: "one", accent: true }, { text: "place.", accent: true }],
+              ]}
+            />
+          </div>
+          <p className="pass-stale">
+            Track the performance, status and lifecycle of all your passes.
+            From active to completed, everything is here.
+          </p>
+        </Stack>
+      </Surface>
+
       <Section label="My Passes">
         <div
           style={{
@@ -227,7 +328,7 @@ export function MyPassesClient({
           }}
         >
           <div>
-            <h1>My Passes</h1>
+            <h2>My Passes</h2>
             <p className="pass-stale">Passes you have authored, with their state.</p>
           </div>
           <Link href="/passes/new" className="pass-btn" data-variant="primary">
@@ -268,27 +369,8 @@ export function MyPassesClient({
             );
           }
           return (
-          <Stack gap="6">
-            {/* §10.8.1 counts are mono and carry no colour coding. */}
-            <StatRow>
-              {SUMMARY.map((s) => (
-                <StatBlock
-                  key={s}
-                  label={LIFECYCLE_LABEL[s]}
-                  value={String(passes.filter((p) => p.status === s).length)}
-                />
-              ))}
-            </StatRow>
-
-            <Panel>
-              <DataTable
-                caption="Passes you have authored"
-                columns={passColumns(setConfirmId)}
-                rows={passes}
-                rowKey={(p) => p.id}
-                isGhost={(p) => GHOST.has(p.status)}
-              />
-            </Panel>
+          <>
+            <PassInventory passes={passes} onCancel={setConfirmId} />
             <Dialog
               open={confirmId !== null}
               onClose={() => {
@@ -331,7 +413,7 @@ export function MyPassesClient({
                 </p>
               ) : null}
             </Dialog>
-          </Stack>
+          </>
           );
         }}
       </AuthenticatedView>
