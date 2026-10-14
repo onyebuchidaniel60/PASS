@@ -130,11 +130,16 @@ Cancels an active Pass. Cancellation is terminal for that Pass instance.
 
 ## 8. Execution endpoints
 
-### POST `/me/trading-accounts/{id}/approve-agent`
+### POST `/trading-accounts/{address}/approve-agent`
 
-Approves a Hyperliquid API/agent wallet on behalf of the authenticated owner (see `docs/DECISIONS.md` D-019.1).
+Approves a Hyperliquid API/agent wallet for a wallet (see `docs/DECISIONS.md` D-019.1, D-027).
 
-The client generates the agent key in the browser, asks the **master wallet** to sign the `approveAgent` EIP-712 payload, and submits only the signature and the agent address. The server never receives a private key (D-018.3, D-018.9).
+D-027: wallets are execution devices, not owned. This route is keyed by
+wallet address, requires **no session**, and never checks `user_id` (which
+is informational only). Agent approval authority is the master wallet
+signature: any session, or none, may POST for any wallet.
+
+The client generates the agent key in the browser, asks the **master wallet** to sign the `approveAgent` EIP-712 payload, and submits only the signature and the agent address. The server never receives a private key (D-018.3, D-018.9). The row is resolved by `(provider, account_address)` and created user-less on first use; an existing row is never reassigned.
 
 Request:
 
@@ -159,13 +164,16 @@ Response:
 
 Validation order:
 
-1. authenticate the caller;
-2. resolve the trading account and verify it belongs to the caller;
-3. reject a malformed `agentAddress` or `nonce`;
-4. relay the signed `approveAgent` action to the Hyperliquid Exchange API;
-5. record `trading_accounts.agent_address` **only after** the provider accepts it.
+1. reject a malformed wallet address, `agentAddress`, or `nonce`;
+2. resolve (or create) the trading account by wallet address;
+3. relay the signed `approveAgent` action to the Hyperliquid Exchange API;
+4. record `trading_accounts.agent_address` **only after** the provider accepts it.
 
 A user-cancelled wallet signature produces no request. A provider rejection returns `SIGNATURE_REJECTED` and records nothing, so a rejected approval never leaves a stored agent association.
+
+### POST `/me/trading-accounts/{id}/approve-agent` (deprecated)
+
+Deprecated alias of `POST /trading-accounts/{address}/approve-agent` (D-027). Kept so older clients keep working; new clients must use the address-keyed route. The row id only locates the wallet — ownership is no longer checked. Unknown ids stay indistinguishable (`FORBIDDEN`).
 
 ### POST `/passes/{id}/execution-preview`
 
@@ -233,13 +241,13 @@ Request (exactly one of `accountId`, `accountAddress`):
 
 This is the **server-relay path** (see `docs/DECISIONS.md` D-018.3). The client signs the Hyperliquid action and submits the signed payload here; the server validates it and relays it to the Hyperliquid Exchange API. Server-relay is the only supported path in the MVP — the client must not submit directly to Hyperliquid.
 
-**Session is optional** (see `docs/DECISIONS.md` D-026). Taking a Pass
+**Session is optional** (see `docs/DECISIONS.md` D-026, completed by D-027). Taking a Pass
 requires a wallet signature, not a PASS session. The Taker is resolved
-from the request: `accountId` must name a trading account the session
-user owns (existing behaviour); `accountAddress` resolves the
-`(provider, account_address)` row by address alone, creating it with
-`user_id = null` on first anonymous use, and never reassigning an
-existing row. Anonymous executions are written with
+from the request: `accountId` names a trading-account row, `accountAddress`
+resolves the `(provider, account_address)` row by address alone, creating
+it with `user_id = null` on first anonymous use, and never reassigning an
+existing row. Neither form requires a session or checks ownership (D-027:
+`user_id` is informational only). Anonymous executions are written with
 `taker_user_id = null`.
 
 `{id}` is the internal `passes.id` UUID. Authenticated mutations use the internal UUID; `passes.public_id` is for public reads only (D-018.4).
@@ -262,10 +270,10 @@ order id. Live relays set `simulated: false`.
 
 The server performs these steps, in this order:
 
-1. resolves the Taker — from the session-owned trading account when `accountId` is given, else from the wallet address when `accountAddress` is given (D-026);
+1. resolves the Taker — the trading-account row named by `accountId`, else the wallet-address row named by `accountAddress` (D-027: no session, no ownership check);
 2. verifies the Pass exists and is active;
 3. verifies the Pass version in the request matches the current published version (or an explicitly allowed prior version);
-4. verifies the referenced trading account belongs to the Taker;
+4. verifies the referenced trading account exists;
 5. verifies the `clientRequestId` has not been seen before;
 6. relays the signed payload to the Hyperliquid Exchange API;
 7. records the `provider_order_id` and the execution row;
@@ -279,9 +287,19 @@ The server performs these steps, in this order:
 
 Returns execution state and provider order identifiers.
 
+### GET `/executions?accountAddress={address}`
+
+Returns the execution history for one wallet (see `docs/DECISIONS.md` D-027).
+No session is required and any wallet may be queried — listing is a query
+concern, not a permission. Same item shape as `GET /me/executions`.
+Unknown addresses list as empty, never 404.
+
 ### GET `/me/executions`
 
-Returns the authenticated Taker's execution history.
+Returns the authenticated Taker's execution history (rows attributed to
+their user id at Take time; anonymous executions are excluded). Kept
+because the Executions page and Settings aggregate it; new clients that
+think in wallets should prefer `GET /executions?accountAddress=`.
 
 ## 9. Dashboard endpoints
 
