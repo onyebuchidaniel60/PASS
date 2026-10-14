@@ -8,11 +8,94 @@ import {
   getTradingAccounts,
   linkTradingAccount,
   recordAgentApproval,
+  recordAgentApprovalById,
   refreshEthosReputation,
+  resolveTradingAccountByAddress,
   visibleAgentAddress,
 } from "../services/profile-service.js";
 import { AppError } from "../errors.js";
 import { ETHOS_DISCLAIMER } from "../services/profile-service.js";
+
+const ApproveAgentBody = z
+  .object({
+    agentAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+    nonce: z.number().int().positive(),
+    signature: z.record(z.unknown()),
+  })
+  // Strict: any extra field is refused. This guarantees the endpoint can
+  // never be handed key material (D-018.9, D-019.1).
+  .strict();
+
+type ApproveAgentInput = z.infer<typeof ApproveAgentBody>;
+
+/**
+ * Shared approve-agent core (D-027): resolve the wallet's row by
+ * (provider, account_address) — creating it user-less on first use — relay
+ * the client-signed action, and record the approval by row id. No session
+ * is read and no user_id is checked; the master wallet signature carried
+ * in the body is the approval authority.
+ */
+async function approveAgentForAddress(
+  ctx: AppContext,
+  accountAddress: string,
+  body: ApproveAgentInput,
+) {
+  const normalized = accountAddress.trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(normalized)) {
+    throw new AppError("INVALID_REQUEST", "That is not a valid EVM address.");
+  }
+  const row = await resolveTradingAccountByAddress(ctx, normalized);
+  const agentAddress = body.agentAddress.toLowerCase();
+
+  // Relayed through the provider adapter so mock mode simulates the approval
+  // and never contacts the live Hyperliquid endpoint (D-018.9). The venue
+  // label travels with the action: testnet requires hyperliquidChain
+  // "Testnet" (a "Mainnet" approval is rejected or misfiled there), and it
+  // must match the label the client signed.
+  //
+  // TEMP diagnostic (remove once the testnet approval is confirmed): the
+  // exact action Hyperliquid reconstructs the signature hash from. The
+  // signature itself is never logged (SECURITY_SPEC.md §16) — only the
+  // public action fields the hash is built over.
+  const relayLabel = currentVenue(ctx) === "testnet" ? "Testnet" : "Mainnet";
+  ctx.log.info("approveAgent relay body", {
+    action: {
+      type: "approveAgent",
+      hyperliquidChain: relayLabel,
+      signatureChainId: relayLabel === "Testnet" ? "0x66eee" : "0xa4b1",
+      agentAddress,
+      agentName: "",
+      nonce: body.nonce,
+    },
+    nonce: body.nonce,
+  });
+  try {
+    await ctx.adapters.hyperliquid.relayApproveAgent({
+      agentAddress,
+      nonce: body.nonce,
+      signature: body.signature,
+      hyperliquidChain: relayLabel,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/reject|recover signer|err/i.test(msg)) {
+      throw new AppError("SIGNATURE_REJECTED", `Hyperliquid rejected the agent approval: ${msg.slice(0, 200)}`);
+    }
+    throw new AppError("PROVIDER_UNAVAILABLE", `Could not reach Hyperliquid: ${msg.slice(0, 160)}`);
+  }
+
+  // Recorded only after the provider accepted it, so a rejected approval
+  // never leaves a stored agent association behind. Recorded by row id for
+  // every row — owned or user-less — and no user_id is ever assigned here.
+  await recordAgentApprovalById(ctx, row.id, agentAddress);
+
+  return {
+    ok: true,
+    agentAddress,
+    accountAddress: row.accountAddress,
+    mode: ctx.adapters.hyperliquid.mode,
+  };
+}
 
 export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppContext) {
   /**
@@ -151,103 +234,45 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
   );
 
   /**
-   * Approve an API/agent wallet (docs/DECISIONS.md D-019.1).
+   * Approve an API/agent wallet (docs/DECISIONS.md D-019.1, D-027).
    *
-   * The client signs the approveAgent EIP-712 payload with the MASTER wallet
-   * and submits only the signature plus the agent address. This endpoint never
-   * receives a private key (D-018.3, D-018.9) and relays to the Hyperliquid
-   * Exchange API.
+   * D-027: wallets are execution devices, not owned. The route is keyed by
+   * wallet address, needs no session, and never checks user_id (which is
+   * informational only). Agent approval authority is the master wallet
+   * signature: any session, or none, may POST. The client signs the
+   * approveAgent EIP-712 payload with the MASTER wallet and submits only
+   * the signature plus the agent address. This endpoint never receives a
+   * private key (D-018.3, D-018.9) and relays to the Hyperliquid Exchange
+   * API.
+   */
+  app.post<{ Params: { address: string } }>(
+    "/api/v1/trading-accounts/:address/approve-agent",
+    async (req) => {
+      const body = ApproveAgentBody.parse(req.body);
+      return approveAgentForAddress(ctx, req.params.address, body);
+    },
+  );
+
+  /**
+   * Deprecated alias of the address-keyed route above (D-027). Kept so
+   * older clients keep working; new clients must use the address route.
+   * The row id only locates the wallet — ownership is no longer checked.
    */
   app.post<{ Params: { id: string } }>(
     "/api/v1/me/trading-accounts/:id/approve-agent",
     async (req) => {
-    // D-026: session-optional for anonymous rows only. A row carrying a
-    // user_id keeps the existing behaviour (session + server-side
-    // ownership, SECURITY_SPEC.md §10). A row with user_id NULL belongs
-    // to no one, so no session is required — and it is never reassigned.
-    const userId = req.sessionUserId ?? null;
-    const body = z
-      .object({
-        agentAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-        nonce: z.number().int().positive(),
-        signature: z.record(z.unknown()),
-      })
-      // Strict: any extra field is refused. This guarantees the endpoint can
-      // never be handed key material (D-018.9, D-019.1).
-      .strict()
-      .parse(req.body);
-
-    const { tradingAccounts } = await import("@pass/db");
-    const { eq } = await import("drizzle-orm");
-    const found = await ctx.db
-      .select()
-      .from(tradingAccounts)
-      .where(eq(tradingAccounts.id, req.params.id))
-      .limit(1);
-    const row = found[0];
-    // Ownership is resolved server-side, never trusted from the client
-    // (docs/SECURITY_SPEC.md §10). Unknown ids and other users' rows
-    // stay indistinguishable.
-    if (!row) throw new AppError("FORBIDDEN", "That trading account is not yours.");
-    if (row.userId !== null && row.userId !== userId) {
-      throw new AppError("FORBIDDEN", "That trading account is not yours.");
-    }
-
-    const agentAddress = body.agentAddress.toLowerCase();
-
-    // Relayed through the provider adapter so mock mode simulates the approval
-    // and never contacts the live Hyperliquid endpoint (D-018.9). The venue
-    // label travels with the action: testnet requires hyperliquidChain
-    // "Testnet" (a "Mainnet" approval is rejected or misfiled there), and it
-    // must match the label the client signed.
-    //
-    // TEMP diagnostic (remove once the testnet approval is confirmed): the
-    // exact action Hyperliquid reconstructs the signature hash from. The
-    // signature itself is never logged (SECURITY_SPEC.md §16) — only the
-    // public action fields the hash is built over.
-    const relayLabel = currentVenue(ctx) === "testnet" ? "Testnet" : "Mainnet";
-    ctx.log.info("approveAgent relay body", {
-      action: {
-        type: "approveAgent",
-        hyperliquidChain: relayLabel,
-        signatureChainId: relayLabel === "Testnet" ? "0x66eee" : "0xa4b1",
-        agentAddress,
-        agentName: "",
-        nonce: body.nonce,
-      },
-      nonce: body.nonce,
-    });
-    try {
-      await ctx.adapters.hyperliquid.relayApproveAgent({
-        agentAddress,
-        nonce: body.nonce,
-        signature: body.signature,
-        hyperliquidChain: relayLabel,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/reject|recover signer|err/i.test(msg)) {
-        throw new AppError("SIGNATURE_REJECTED", `Hyperliquid rejected the agent approval: ${msg.slice(0, 200)}`);
-      }
-      throw new AppError("PROVIDER_UNAVAILABLE", `Could not reach Hyperliquid: ${msg.slice(0, 160)}`);
-    }
-
-    // Recorded only after the provider accepted it, so a rejected approval
-    // never leaves a stored agent association behind. Anonymous rows are
-    // recorded by id and never gain a user_id.
-    if (row.userId === null) {
-      const { recordAgentApprovalById } = await import("../services/profile-service.js");
-      await recordAgentApprovalById(ctx, row.id, agentAddress);
-    } else {
-      await recordAgentApproval(ctx, row.userId, row.accountAddress, agentAddress);
-    }
-
-    return {
-      ok: true,
-      agentAddress,
-      accountAddress: row.accountAddress,
-      mode: ctx.adapters.hyperliquid.mode,
-    };
+      const body = ApproveAgentBody.parse(req.body);
+      const { tradingAccounts } = await import("@pass/db");
+      const { eq } = await import("drizzle-orm");
+      const found = await ctx.db
+        .select({ accountAddress: tradingAccounts.accountAddress })
+        .from(tradingAccounts)
+        .where(eq(tradingAccounts.id, req.params.id))
+        .limit(1);
+      const row = found[0];
+      // Unknown ids stay indistinguishable (docs/SECURITY_SPEC.md §10).
+      if (!row) throw new AppError("FORBIDDEN", "That trading account is not yours.");
+      return approveAgentForAddress(ctx, row.accountAddress, body);
     },
   );
 

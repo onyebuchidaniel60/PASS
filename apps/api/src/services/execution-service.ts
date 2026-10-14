@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import { checkTakeRateLimit } from "../take-limiter.js";
@@ -48,20 +48,15 @@ export async function resolvePassForExecution(
 }
 
 /**
- * D-026 account resolution for the Take path (preview + executions).
+ * D-027 account resolution for the Take path (preview + executions).
  *
- * - `accountId` keeps the existing behaviour: it names a session-owned row,
- *   so a session is required and ownership is verified server-side
- *   (docs/SECURITY_SPEC.md §10).
- * - `accountAddress` resolves the `(provider, account_address)` row by
- *   address alone, creating it with `user_id = null` on first anonymous
- *   use. An existing row is never reassigned. When a session is present
- *   and the row belongs to another user, the request is refused rather
- *   than silently borrowing their row.
+ * Wallets are execution devices, not owned. Both identifiers name a row;
+ * neither requires a session nor checks user_id (which is informational
+ * only: who first linked the wallet). An existing row is never reassigned.
+ * The wallet signature on the relayed payload is the authentication.
  */
 async function resolveExecutionAccount(
   ctx: AppContext,
-  takerId: string | null,
   input: { accountId?: string; accountAddress?: string },
 ): Promise<{
   id: string;
@@ -70,13 +65,9 @@ async function resolveExecutionAccount(
   venue: string | null;
 }> {
   if (input.accountId) {
-    if (!takerId) throw new AppError("AUTH_REQUIRED");
-    return assertAccountOwnership(ctx, input.accountId, takerId);
+    return resolveExecutionAccountById(ctx, input.accountId);
   }
   const row = await resolveTradingAccountByAddress(ctx, input.accountAddress ?? "");
-  if (row.userId !== null && takerId !== null && row.userId !== takerId) {
-    throw new AppError("FORBIDDEN", "That trading account is not yours.");
-  }
   return {
     id: row.id,
     accountAddress: row.accountAddress,
@@ -85,43 +76,34 @@ async function resolveExecutionAccount(
   };
 }
 
-function assertAccountOwnership(
+async function resolveExecutionAccountById(
   ctx: AppContext,
   accountId: string,
-  takerId: string,
 ): Promise<{
   id: string;
   accountAddress: string;
   agentAddress: string | null;
   venue: string | null;
 }> {
-  return (async () => {
-    const rows = await ctx.db
-      .select({
-        id: tradingAccounts.id,
-        accountAddress: tradingAccounts.accountAddress,
-        agentAddress: tradingAccounts.agentAddress,
-        venue: tradingAccounts.venue,
-        userId: tradingAccounts.userId,
-      })
-      .from(tradingAccounts)
-      .where(eq(tradingAccounts.id, accountId))
-      .limit(1);
-    const row = rows[0];
-    if (!row) throw new AppError("FORBIDDEN", "Trading account not found.");
-    // Ownership is resolved server-side, never trusted from the client
-    // (docs/SECURITY_SPEC.md §10).
-    if (row.userId !== takerId) {
-      throw new AppError("FORBIDDEN", "That trading account is not yours.");
-    }
-    // Per-venue approval: a stale-venue agent reads as not-approved.
-    return {
-      id: row.id,
-      accountAddress: row.accountAddress,
-      agentAddress: visibleAgentAddress(ctx, row),
-      venue: row.venue,
-    };
-  })();
+  const rows = await ctx.db
+    .select({
+      id: tradingAccounts.id,
+      accountAddress: tradingAccounts.accountAddress,
+      agentAddress: tradingAccounts.agentAddress,
+      venue: tradingAccounts.venue,
+    })
+    .from(tradingAccounts)
+    .where(eq(tradingAccounts.id, accountId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new AppError("FORBIDDEN", "Trading account not found.");
+  // Per-venue approval: a stale-venue agent reads as not-approved.
+  return {
+    id: row.id,
+    accountAddress: row.accountAddress,
+    agentAddress: visibleAgentAddress(ctx, row),
+    venue: row.venue,
+  };
 }
 
 export async function buildExecutionPreview(
@@ -142,7 +124,7 @@ export async function buildExecutionPreview(
     );
   }
 
-  const account = await resolveExecutionAccount(ctx, takerId, input);
+  const account = await resolveExecutionAccount(ctx, input);
   checkTakeRateLimit("preview", account.accountAddress);
 
   const positionSize = toDecimalStringSafe(input.positionSize);
@@ -281,9 +263,10 @@ export async function relayExecution(
     };
   }
 
-  // 1. resolve the Taker (D-026): the session-owned row for `accountId`,
-  // or the wallet address for `accountAddress`. No session is required;
-  // the wallet signature on the relayed payload is the authentication.
+  // 1. resolve the Taker (D-027): a row id for `accountId`, or the
+  // wallet address for `accountAddress`. No session is required and no
+  // ownership is checked; the wallet signature on the relayed payload is
+  // the authentication.
   // (Live verification stays where it is: Hyperliquid verifies the L1
   // signature on relay, exactly as before. The server holds no signing
   // secrets and recovers no signers.)
@@ -308,10 +291,10 @@ export async function relayExecution(
     );
   }
 
-  // 4. resolve the trading account: owned row for `accountId`, or the
-  // address-keyed row (created user-less on first anonymous use) for
-  // `accountAddress`. An existing row is never reassigned.
-  const account = await resolveExecutionAccount(ctx, takerId, input);
+  // 4. resolve the trading account: a row id, or the address-keyed row
+  // (created user-less on first anonymous use) for `accountAddress`.
+  // D-027: neither form checks ownership. An existing row is never reassigned.
+  const account = await resolveExecutionAccount(ctx, input);
   checkTakeRateLimit("execution", account.accountAddress);
 
   // 5. verify the clientRequestId has not been seen before.
@@ -541,6 +524,40 @@ export async function listMyExecutions(ctx: AppContext, takerId: string, limit: 
     .select()
     .from(executions)
     .where(eq(executions.takerUserId, takerId))
+    .orderBy(desc(executions.createdAt))
+    .limit(limit);
+}
+
+/**
+ * D-027 wallet executions: every execution taken with this wallet, no
+ * session required. Reading executions for a wallet the caller did not
+ * link is allowed — listing is a query concern, not a permission.
+ * Unknown addresses list as empty, never 404.
+ */
+export async function listExecutionsByAddress(
+  ctx: AppContext,
+  accountAddress: string,
+  limit: number,
+) {
+  const addr = accountAddress.trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(addr)) {
+    throw new AppError("INVALID_REQUEST", "That is not a valid EVM address.");
+  }
+  const accounts = await ctx.db
+    .select({ id: tradingAccounts.id })
+    .from(tradingAccounts)
+    .where(
+      and(
+        eq(tradingAccounts.provider, "hyperliquid"),
+        eq(tradingAccounts.accountAddress, addr),
+      ),
+    );
+  if (accounts.length === 0) return [];
+  const ids = accounts.map((a) => a.id);
+  return ctx.db
+    .select()
+    .from(executions)
+    .where(inArray(executions.accountId, ids))
     .orderBy(desc(executions.createdAt))
     .limit(limit);
 }
