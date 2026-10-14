@@ -28,7 +28,7 @@
  * requested, echoed or displayed (AGENTS.md).
  */
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { PermissionBlock, UnavailableBlock } from "@/components/wave3/data";
 import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
@@ -104,6 +104,11 @@ export function OnboardingClient({
 }) {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  // Same-tick re-entrancy guard: two clicks landing before React re-renders
+  // (one fast double-click) must not submit twice. `busy` alone cannot cover
+  // it — the second invocation closes over the still-false state — so the
+  // ref decides synchronously.
+  const running = useRef(false);
   const current = STEPS[step] ?? STEPS[0];
   const state = progress?.find((p) => p.step === current.id);
   const error = localError ?? state?.error;
@@ -118,7 +123,8 @@ export function OnboardingClient({
   });
 
   const run = async () => {
-    if (!onAction) return;
+    if (!onAction || running.current) return;
+    running.current = true;
     setBusy(true);
     setLocalError(null);
     try {
@@ -128,6 +134,7 @@ export function OnboardingClient({
       // untouched and stay exactly as they were.
       setLocalError(e instanceof Error ? e.message : "That did not work.");
     } finally {
+      running.current = false;
       setBusy(false);
     }
   };

@@ -185,6 +185,11 @@ function FlowInner({
         displayName: displayName.trim(),
         ...(bio.trim() ? { bio: bio.trim() } : {}),
       });
+      // The profile row is the persisted onboarding-complete state. Identity
+      // readers (notably the root-layout gate) snapshot /me, so notify or
+      // they keep reporting onboarding-incomplete against the fresh row.
+      const { notifyMeChanged } = await import("@/lib/me-events");
+      notifyMeChanged();
       setManual(null);
       reload();
       return;

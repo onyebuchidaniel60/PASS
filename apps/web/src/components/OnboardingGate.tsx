@@ -8,8 +8,12 @@
  *
  * The rule, evaluated from `ready` state only (never on a guess):
  *
- * - on `/onboarding`: signed out → `/`; profile complete → `/discover`;
- *   otherwise stay.
+ * - on `/onboarding`: signed out → `/`; otherwise stay. The FLOW owns
+ *   progression once signed in — it renders the first incomplete step from
+ *   fresh `/me` and ends at the handoff, so the gate must never pull a
+ *   mid-flow user forward: profile completion alone is not flow completion
+ *   (Ethos follows), and yanking to `/discover` would skip the remaining
+ *   step. A complete user re-opening the flow simply sees the handoff.
  * - anywhere else: signed in without a profile → `/onboarding`; otherwise
  *   stay (signed-out visitors and complete users are never intercepted).
  *
@@ -23,6 +27,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
+import { onMeChanged } from "@/lib/me-events";
 import type { MePayload } from "@/lib/me";
 
 interface MeSlug {
@@ -51,12 +56,20 @@ export function OnboardingGate() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const { state } = useAuthenticatedResource<MeSlug>({
+  const { state, reload } = useAuthenticatedResource<MeSlug>({
     load: async () => {
       const { clientGet } = await import("@/lib/client");
       return clientGet<MePayload>("/api/v1/me");
     },
   });
+
+  // The gate decides from its snapshot, so the snapshot must track
+  // mutations: profile creation happens inside the flow (no remount, no
+  // pathname change), and without this subscription the gate keeps
+  // reporting onboarding-incomplete and bounces every client-side arrival
+  // at /discover back to /onboarding — a redirect loop against the flow's
+  // own handoff link. Same Bug 2a discipline as Settings.
+  useEffect(() => onMeChanged(reload), [reload]);
 
   useEffect(() => {
     const onOnboarding =
@@ -75,8 +88,11 @@ export function OnboardingGate() {
     if (state.status !== "ready") return;
 
     if (onOnboarding) {
-      // A complete user re-opening the flow is done already.
-      if (state.data.profileSlug) router.replace("/discover");
+      // Signed-in users stay: the flow renders the first incomplete step
+      // (or the handoff) from its own fresh read. Redirecting a
+      // profile-complete user forward here would fire mid-flow — right
+      // after profile creation, while the Ethos step is still ahead —
+      // and skip the remaining step.
       return;
     }
 

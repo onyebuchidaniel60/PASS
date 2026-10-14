@@ -73,12 +73,16 @@ describe("OnboardingGate", () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
   });
 
-  it("sends a completed user off /onboarding to the main app", async () => {
+  it("leaves a completed user on /onboarding: the flow owns progression", async () => {
+    // Redirecting profile-complete users forward from here fires mid-flow
+    // (right after profile creation, with the Ethos step still ahead) and
+    // skips the remaining step. The flow renders the handoff from its own
+    // fresh read instead.
     mockGet.mockResolvedValue(withProfile);
     path = "/onboarding";
     render(<OnboardingGate />);
     await settled();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/discover"));
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("keeps a profile-less user on /onboarding", async () => {
