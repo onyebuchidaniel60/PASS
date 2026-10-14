@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TraderProfileClient } from "../app/u/[slug]/TraderProfileClient";
@@ -127,7 +127,7 @@ describe("Performance and reputation stay separate (D-007, PRD §12)", () => {
 
 describe("Active Passes (§10.4 item 3)", () => {
   it("renders a Pass row linking to the Pass page", async () => {
-    await renderProfile([
+    const { container } = await renderProfile([
       {
         publicId: "UvvuxpWPZ4",
         asset: "BTC",
@@ -138,9 +138,15 @@ describe("Active Passes (§10.4 item 3)", () => {
         stopLoss: "111900",
       },
     ]);
-    const link = await screen.findByRole("link", { name: /UvvuxpWPZ4|BTC/ });
+    // The table renders twice (wide table + stacked mobile list); scope to
+    // the wide table — both carry the same rows.
+    const table = container.querySelector('[data-testid="data-table"]');
+    if (!table) throw new Error("expected the wide passes table");
+    const link = await within(table as HTMLElement).findByRole("link", {
+      name: /UvvuxpWPZ4|BTC/,
+    });
     expect(link).toHaveAttribute("href", "/p/UvvuxpWPZ4");
-    expect(await screen.findByText("113,400")).toBeInTheDocument();
+    expect(await within(table as HTMLElement).findByText("113,400")).toBeInTheDocument();
   });
 
   it("shows the empty state and the one action that creates a Pass", async () => {
@@ -272,7 +278,7 @@ describe("Trader profile reference language (14.4)", () => {
     expect(text).toMatch(/omitted rather than estimated/i);
   });
 
-it("renders the Active Passes list on the 14.8 grid, not as rows", async () => {
+  it("renders the Active Passes list as a table, not cards", async () => {
     const { container } = await renderProfile([
       {
         publicId: "UvvuxpWPZ4",
@@ -284,13 +290,15 @@ it("renders the Active Passes list on the 14.8 grid, not as rows", async () => {
         stopLoss: "111900",
       },
     ]);
-    const link = await screen.findByRole("link", { name: /BTC/ });
+    const table = container.querySelector('[data-testid="data-table"]');
+    if (!table) throw new Error("expected the wide passes table");
+    const link = await within(table as HTMLElement).findByRole("link", { name: /BTC/ });
     expect(link).toHaveAttribute("href", "/p/UvvuxpWPZ4");
-    expect(container.querySelector(".pass-cards-grid")).toBeTruthy();
+    expect(container.querySelector(".pass-cards-grid")).toBeNull();
   });
 
-  it("makes the whole card the link, with no nested anchor", async () => {
-    await renderProfile([
+  it("links once per row, with no nested anchor", async () => {
+    const { container } = await renderProfile([
       {
         publicId: "UvvuxpWPZ4",
         asset: "BTC",
@@ -298,17 +306,17 @@ it("renders the Active Passes list on the 14.8 grid, not as rows", async () => {
         status: "active",
       },
     ]);
-    await screen.findByRole("link", { name: /BTC/ });
-    // An <a> inside an <a> is invalid HTML and breaks hydration, so the card
-    // must not also pass DataCard an `action`.
-    const nested = Array.from(
-      document.querySelectorAll(".pass-card-link a"),
-    ).filter((a) => a.closest(".pass-card-link") !== a);
-    expect(nested).toHaveLength(0);
+    const table = container.querySelector('[data-testid="data-table"]');
+    if (!table) throw new Error("expected the wide passes table");
+    await within(table as HTMLElement).findByRole("link", { name: /BTC/ });
+    // An <a> inside an <a> is invalid HTML and breaks hydration: each table
+    // row carries exactly one link (the asset line).
+    const links = Array.from(table.querySelectorAll("a") ?? []);
+    expect(links).toHaveLength(1);
   });
 
-  it("keeps the trailing affordance muted, not accent", async () => {
-    await renderProfile([
+  it("spends no accent inside table rows", async () => {
+    const { container } = await renderProfile([
       {
         publicId: "UvvuxpWPZ4",
         asset: "BTC",
@@ -316,12 +324,15 @@ it("renders the Active Passes list on the 14.8 grid, not as rows", async () => {
         status: "active",
       },
     ]);
-    await screen.findByRole("link", { name: /BTC/ });
-    // §2.5: the accent is spent once. An accented "View Pass" per card would
-    // spend it once per card and stop it pointing at anything.
-    expect(document.querySelector(".pass-row-arrow")?.className).not.toMatch(
-      /accent/,
-    );
+    const table = container.querySelector('[data-testid="data-table"]');
+    if (!table) throw new Error("expected the wide passes table");
+    await within(table as HTMLElement).findByRole("link", { name: /BTC/ });
+    // §2.5: the accent is spent once per screen. Row links are plain
+    // pass-link-btn text and status chips carry state colour only — no
+    // accent-filled per-row button exists to spend it again.
+    expect(
+      container.querySelectorAll('[data-testid="data-table"] .pass-btn[data-variant="primary"]'),
+    ).toHaveLength(0);
   });
 
   it("keeps the route slug as a plain datum, not a performance figure", async () => {
@@ -430,7 +441,7 @@ describe("Stage G performance over simulated executions", () => {
 
 describe("Trader profile — disconnected author (single-state rule)", () => {
   it("hides handle link, address and reputation but keeps everything published", async () => {
-    await renderProfile(
+    const { container } = await renderProfile(
       [{ publicId: "UvvuxpWPZ4", asset: "BTC", direction: "long", status: "active" }],
       DISCONNECTED,
     );
@@ -440,9 +451,81 @@ describe("Trader profile — disconnected author (single-state rule)", () => {
     expect(screen.queryByText("X connected")).toBeNull();
     expect(screen.queryByText("Hyperliquid")).toBeNull();
     expect(screen.queryByRole("region", { name: "Reputation" })).toBeNull();
-    // Published identity and passes stay: display name, bio, pass card.
+    // Published identity and passes stay: display name, bio, pass row.
     expect(screen.getByText("Demo Trader")).toBeInTheDocument();
     expect(screen.getByText("BTC / ETH perpetual trader.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /BTC/ })).toBeInTheDocument();
+    const table = container.querySelector('[data-testid="data-table"]');
+    if (!table) throw new Error("expected the wide passes table");
+    expect(
+      await within(table as HTMLElement).findByRole("link", { name: /BTC/ }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Trader profile reference composition (ref 14)", () => {
+  const PERF = {
+    slug: "turnttfup99",
+    publishedPasses: 3,
+    completedPasses: 1,
+    passSuccessMetric: 100,
+    successMetricWindow: "all time",
+    averageRMultiple: 2.1,
+    totalRealizedPnl: "342.50",
+    simulated: true,
+    updatedAt: "2026-10-11T10:00:00.000Z",
+  };
+  const ROWS = [
+    { publicId: "AbC123XyZ9", asset: "BTC", direction: "long", status: "active", entryPrice: "113400", takeProfit: "116000", stopLoss: "111900" },
+    { publicId: "QwE456RtY2", asset: "ETH", direction: "short", status: "tp_hit", entryPrice: "3950", takeProfit: "3800", stopLoss: "4100" },
+  ];
+
+  async function renderRef() {
+    mockGet.mockImplementation((url?: unknown) => {
+      const u = String(url ?? "");
+      if (u.endsWith("/performance")) return Promise.resolve(PERF);
+      if (u.includes("/passes")) return Promise.resolve({ passes: ROWS });
+      return Promise.resolve(PROFILE);
+    });
+    let result!: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(<TraderProfileClient slug="turnttfup99" />);
+    });
+    await screen.findByRole("heading", { level: 1 });
+    return result;
+  }
+
+  it("renders an identity header with avatar, handle, and real-counter stat cards", async () => {
+    const { container } = await renderRef();
+    // Avatar initials (no photo: the API exposes no avatar URL here).
+    expect(container.querySelector(".pass-avatar")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "X" })).toHaveAttribute(
+      "href",
+      "https://x.com/turnttfup99",
+    );
+    // Three stat cards bound to real counters, not invented figures.
+    const strip = container.querySelector(".pass-stat-row");
+    expect(strip).not.toBeNull();
+    expect(strip?.textContent).toMatch(/Active passes/);
+    expect(strip?.textContent).toMatch(/Published/);
+    expect(strip?.textContent).toMatch(/Success/);
+  });
+
+  it("renders passes as a data table with status and plan levels", async () => {
+    const { container } = await renderRef();
+    const table = container.querySelector('[data-testid="data-table"]');
+    expect(table).not.toBeNull();
+    expect(table?.textContent).toMatch(/BTC/);
+    expect(table?.textContent).toMatch(/113,400/);
+    expect(table?.textContent).toMatch(/TP hit/i);
+  });
+
+  it("labels simulated performance and never shows wallet state", async () => {
+    const { container } = await renderRef();
+    expect(
+      screen.getByText("Performance computed from simulated executions."),
+    ).toBeInTheDocument();
+    // D-023: no wallet address, no thumbnails (no photo counterpart).
+    expect(container.innerHTML).not.toContain("0x00000000000000000000000000000000000d3a0");
+    expect(container.querySelector("img")).toBeNull();
   });
 });

@@ -3435,6 +3435,36 @@ text-underline-offset: 0.2em;
   }
 }
 
+/* --- Trader profile reference composition (ref 14, session 2026-10-14) ----
+ * Identity row (avatar + identity) with the stat band a full rhythm step
+ * below; the row wraps to one column on narrow screens. All tokens; the
+ * avatar keeps its own size (lg) with no new treatment. */
+.pass-profile-head {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.pass-profile-head > .pass-avatar {
+  flex: none;
+}
+
+.pass-profile-identity {
+  flex: 2 1 18rem;
+  min-width: 0;
+}
+
+.pass-profile-head + .pass-stat-row {
+  margin-top: var(--space-5);
+}
+
+/* Single 32px rhythm down the profile: the generic section margins
+   (64/96px) would double the stack gap between every block. */
+.pass-trader-profile .pass-section {
+  margin-block: 0;
+}
+
 /* --- Take flow section rhythm (session 2026-10-13) -------------------------
  * Measured before: the header <section> carries .pass-section margins
  * (64px mobile / 96px desktop) AND sits in a 32px stack, so the form began

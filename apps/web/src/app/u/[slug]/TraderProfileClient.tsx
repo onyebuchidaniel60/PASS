@@ -23,6 +23,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { Avatar } from "@/components/wave3/identity";
 import { Button } from "@/components/wave2/controls";
 import { Panel, Rule } from "@/components/wave1/layout";
 import {
@@ -33,13 +34,14 @@ import {
   PerformanceBlock,
   ReputationBlock,
   StatBlock,
+  StatusChip,
   UnavailableBlock,
 } from "@/components/wave3/data";
 import {
   CornerBracketFrame,
-  DataCard,
   type StatusTone,
 } from "@/components/reference";
+import { DataTable, StatRow, type DataTableColumn } from "@/components/wave3/table";
 
 import { clientGet } from "@/lib/client";
 import { connectionByName } from "@/lib/me";
@@ -142,6 +144,49 @@ function toneFor(status: string): StatusTone {
     : "draft";
 }
 
+/**
+ * The trader's passes as table columns (ref 14 activity rhythm). Plan
+ * levels only — never outcome numbers attributed to a Pass the reader has
+ * not taken. One link per row (the asset line); nothing nests inside it.
+ */
+const passTableColumns: DataTableColumn<PassSummary>[] = [
+  {
+    key: "pass",
+    label: "Pass",
+    render: (p) => (
+      <Link href={`/p/${p.publicId}`} className="pass-link-btn">
+        {p.asset} {p.direction === "long" ? "Long" : "Short"}
+      </Link>
+    ),
+  },
+  {
+    key: "status",
+    label: "Status",
+    render: (p) => <StatusChip state={toneFor(p.status)} />,
+  },
+  {
+    key: "entry",
+    label: "Entry",
+    numeric: true,
+    inStack: false,
+    render: (p) => <span className="pass-num">{fmt(p.entryPrice)}</span>,
+  },
+  {
+    key: "tp",
+    label: "Take profit",
+    numeric: true,
+    inStack: false,
+    render: (p) => <span className="pass-num">{fmt(p.takeProfit)}</span>,
+  },
+  {
+    key: "sl",
+    label: "Stop loss",
+    numeric: true,
+    inStack: false,
+    render: (p) => <span className="pass-num">{fmt(p.stopLoss)}</span>,
+  },
+];
+
 export function TraderProfileClient({ slug }: { slug: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [passes, setPasses] = useState<PassSummary[]>([]);
@@ -235,7 +280,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
   return (
     <div className="pass-page">
       <main className="pass-shell">
-        <div className="pass-shell-content pass-stack pass-stack-6">
+        <div className="pass-shell-content pass-stack pass-stack-6 pass-trader-profile">
           {/* ── §14.4 credential header ────────────────────────────────
               A credential, not a bio. The display name is the h1; the
               `@handle is / verified on PASS.` line is the §14.4 status form.
@@ -249,8 +294,23 @@ export function TraderProfileClient({ slug }: { slug: string }) {
               Two went to Landing and one to /how-it-works; this spends the
               ration. A fifth anywhere would mean the ration stopped being a
               ration and became a border style. */}
+          {/* ── Identity header + stat cards (ref 14) ────────────────────
+              Ref 14 composes identity left, counters right: avatar, handle,
+              title, bio and live-connection chips beside three stat cards
+              bound to real PASS counters. Photo avatar, location/joined meta,
+              follower counts, portfolio value + chart, period tabs and the
+              side brand panel have no PASS counterpart and are dropped —
+              never fabricated. The stat cards show profile counters only;
+              computed figures (success, average R, realized) stay in the
+              PASS performance panel below, so no figure renders twice. */}
           <CornerBracketFrame labelledBy="trader-credential">
           <header className="pass-detail-head" id="trader-credential">
+            <div className="pass-profile-head">
+              <Avatar
+                handle={profile.xHandle ?? profile.handle ?? profile.displayName}
+                size="lg"
+              />
+            <div className="pass-profile-identity">
             <span className="pass-numbered-eyebrow">
               <span className="pass-numbered-eyebrow-number">{"//"}</span>
               Trader profile
@@ -300,6 +360,31 @@ export function TraderProfileClient({ slug }: { slug: string }) {
             </div>
 
             {profile.bio ? <p className="pass-thesis">{profile.bio}</p> : null}
+            </div>
+          </div>
+
+          <StatRow>
+            <StatBlock
+              label="Active passes"
+              value={profile.activePassCount ?? "—"}
+              caption="Right now"
+            />
+            <StatBlock
+              label="Published"
+              value={profile.publishedPassCount ?? "—"}
+              caption="All time"
+            />
+            <StatBlock
+              label="Success"
+              value={
+                perf?.passSuccessMetric === null ||
+                perf?.passSuccessMetric === undefined
+                  ? "—"
+                  : `${perf.passSuccessMetric}%`
+              }
+              caption="TP / completed · All time"
+            />
+          </StatRow>
           </header>
           </CornerBracketFrame>
 
@@ -345,18 +430,14 @@ export function TraderProfileClient({ slug }: { slug: string }) {
           <Rule label="End of PASS performance" />
           ) : null}
 
-          {/* ── §14.4 PASS performance card ──────────────────────────
-              PASS-owned counters only. Nothing here is derived from the
-              trader's account, because a Taker's own fills are their own
-              business (PRD §13). Stage G figures (success, average R,
-              realized) render only when the performance route computed
-              them; otherwise the omission note below stands. */}
+          {/* ── PASS performance card ──────────────────────────
+              Computed figures only (success lives in the stat row above,
+              published/active/completed counts beside it): success, average
+              R and realized render solely when the performance route
+              computed them; otherwise the omission note below stands. */}
           <Panel className="pass-data-card">
             <PerformanceBlock
-              publishedPassCount={profile.publishedPassCount}
               completedPassCount={profile.completedPassCount}
-              activePassCount={profile.activePassCount}
-              successMetricPct={perf?.passSuccessMetric ?? undefined}
               averageRMultiple={perf?.averageRMultiple ?? undefined}
               totalRealizedPnl={numOrUndef(perf?.totalRealizedPnl)}
             />
@@ -380,13 +461,17 @@ export function TraderProfileClient({ slug }: { slug: string }) {
             )}
           </Panel>
 
-          {/* ── §14.4 Active Passes ──────────────────────────────────
-              §14.8 grid, §10.2 row anatomy: plan levels only, never
-              outcome numbers attributed to a Pass the reader has not taken. */}
+          {/* ── Passes table (ref 14 activity) ─────────────────────────
+              Ref 14 lists activity as a ruled table: identity, status,
+              plan levels, link. Thumbnails, timestamps and value columns
+              have no counterpart in this endpoint's rows and are dropped.
+              The shared DataTable primitive (wide table, stacked list under
+              720px, no sideways scroll) carries it, so each row links once
+              and never nests anchors. */}
           <section className="pass-section" aria-labelledby="passes-h">
-            <span className="pass-numbered-eyebrow">
+            <span className="pass-numbered-eyebrow" id="passes-h">
               <span className="pass-numbered-eyebrow-number">{"//"}</span>
-              Active Passes
+              Passes
             </span>
             {passes.length === 0 ? (
               <EmptyBlock
@@ -402,46 +487,14 @@ export function TraderProfileClient({ slug }: { slug: string }) {
                 {profile.displayName} has nothing live right now.
               </EmptyBlock>
             ) : (
-              <div className="pass-cards-grid">
-                {passes.map((p) => (
-                  /* The whole card is the link: a target the size of a card is
-                     what a reader aims at, and a small "View" affordance in the
-                     corner of a grid is not. No nested action is passed to
-                     DataCard, because an <a> inside an <a> is invalid and
-                     breaks hydration. */
-                  <Link
-                    key={p.publicId}
-                    href={`/p/${p.publicId}`}
-                    className="pass-card-link"
-                  >
-                    <DataCard
-                      id={p.publicId}
-                      value={p.asset}
-                      sub={p.direction === "long" ? "Long" : "Short"}
-                      status={{
-                        tone: toneFor(p.status),
-                        label: p.status.replace(/_/g, " "),
-                      }}
-                    >
-                      <dl className="pass-card-metrics">
-                        <div className="pass-card-metric">
-                          <dt>Entry</dt>
-                          <dd>{fmt(p.entryPrice)}</dd>
-                        </div>
-                        <div className="pass-card-metric">
-                          <dt>TP</dt>
-                          <dd>{fmt(p.takeProfit)}</dd>
-                        </div>
-                        <div className="pass-card-metric">
-                          <dt>SL</dt>
-                          <dd>{fmt(p.stopLoss)}</dd>
-                        </div>
-                      </dl>
-                      <span className="pass-row-arrow">View Pass</span>
-                    </DataCard>
-                  </Link>
-                ))}
-              </div>
+              <Panel>
+                <DataTable
+                  caption={`Passes by ${profile.displayName}`}
+                  columns={passTableColumns}
+                  rows={passes}
+                  rowKey={(p) => p.publicId}
+                />
+              </Panel>
             )}
           </section>
 
