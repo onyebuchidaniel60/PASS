@@ -231,6 +231,46 @@ describe("Executions (§10.9)", () => {
   });
 });
 
+describe("Executions redesign (reference 16)", () => {
+  const TWELVE: Execution[] = Array.from({ length: 12 }, (_, i) => ({
+    ...EXEC,
+    id: `ex${i}`,
+    providerOrderId: i % 2 === 0 ? `hl-order-77${i}00` : `mock_11111111-2222-3333-4444-55555555555${i}`,
+    simulated: i % 2 !== 0,
+    createdAt: ago(30 * (i + 1)),
+  }));
+
+  it("renders the hero", async () => {
+    render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);
+    expect(
+      await screen.findByRole("heading", { name: /in review order/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the 24H / 7D / 30D / ALL period selector", async () => {
+    render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);
+    await screen.findByRole("heading", { name: /in review order/i });
+    for (const label of ["24H", "7D", "30D", "ALL"]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it("paginates the table", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    render(<ExecutionsClient probe={authed} load={async () => TWELVE} />);
+    expect(await screen.findByText(/Showing 1–8 of 12 executions/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    expect(await screen.findByText(/Showing 9–12 of 12 executions/)).toBeInTheDocument();
+  });
+
+  it("labels simulated rows and never renders a partially-filled status", async () => {
+    render(<ExecutionsClient probe={authed} load={async () => TWELVE} />);
+    expect((await screen.findAllByText(/SIMULATED/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/partially filled/i)).toBeNull();
+  });
+});
+
 describe("Executions — single-state rule (D-023, X-only)", () => {  it("hides the history and shows the CTA when X is disconnected", async () => {
     mockMeGet.mockResolvedValue(ME_OFF);
     render(<ExecutionsClient probe={authed} load={async () => [EXEC]} />);

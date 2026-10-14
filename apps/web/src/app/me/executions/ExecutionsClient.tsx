@@ -1,7 +1,16 @@
 "use client";
 
 /**
- * Executions (§10.9) — auditability (PRD §15, D-008).
+ * Executions (§10.9) — auditability (PRD §15, D-008), laid out after
+ * reference 16: hero, 24H / 7D / 30D / ALL period selector, table,
+ * pagination.
+ *
+ * Reference 16 is PASS-branded and matched directly. PARTIALLY FILLED is
+ * deliberately NOT rendered: no provider status in apps/api produces it, so
+ * inventing the chip would claim a state the reconciler never writes. ENTRY
+ * FILL renders what GET /api/v1/me/executions returns — today that mapping
+ * carries no fill, so the column reads "—" until the mapping grows it. Both
+ * gaps are reported, not filled with invention.
  *
  * Same pattern as §10.8: `useAuthenticatedResource` + `AuthenticatedView`, so
  * every state is a value.
@@ -14,7 +23,11 @@
  *    is the whole auditability requirement;
  *  - the period control is a `SegmentedControl` whose window comes from
  *    `periodWindow` — one helper, half-open `[start, end)`, offset from now, so
- *    the default window never goes stale (§10.9.3, skill §9 rule 2).
+ *    the default window never goes stale (§10.9.3, skill §9 rule 2);
+ *  - every simulated row carries the SIMULATED label in the same view
+ *    (invariant 10);
+ *  - the row Detail control is a button, never a link: rows carry no links,
+ *    so anchors never nest.
  *
  * The window is applied client-side because `/me/executions` does not document a
  * time-range query parameter; the convention is still owned by `period.ts`, so
@@ -32,7 +45,13 @@ import { useMePayload } from "@/lib/use-me";
 import { Address, EmptyBlock, Timestamp } from "@/components/wave3/data";
 import { DataCell, PnlCell, PriceCell, Tag } from "@/components/wave3/cells";
 import { DataTable, type DataTableColumn } from "@/components/wave3/table";
-import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
+import {
+  DisplayHeadline,
+  NumberedEyebrow,
+  Surface,
+} from "@/components/reference";
+import { paginate, Pager } from "@/components/wave3/pager";
+import { Inline, PageShell, Panel, ShellContent, Stack } from "@/components/wave1/layout";
 import { SegmentedControl } from "@/components/wave2/controls";
 import { fmtPrice, fmtSize, formatRelative, statusLabel } from "@/lib/format";
 import { PERIODS, inWindow, periodWindow, type PeriodId } from "@/lib/period";
@@ -120,6 +139,7 @@ export function ExecutionsClient({
 }) {
   const [period, setPeriod] = useState<PeriodId>("7d");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const { state, reload } = useAuthenticatedResource<Execution[]>({
     probe,
@@ -135,22 +155,37 @@ export function ExecutionsClient({
   return (
     <PageShell>
       <ShellContent>
-      <Section label="Executions">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            gap: "4",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <h1>Executions</h1>
-            <p className="pass-stale">Every fill against your own account, in review order.</p>
+      {/* Hero: eyebrow, three-line headline, support line, period selector.
+          The selector sits right of the headline on wide viewports (as in
+          the reference) and wraps below it on narrow ones. */}
+      <Surface strength="section">
+        <Stack gap="5">
+          <NumberedEyebrow label="Executions" />
+          <div className="pass-hero-split">
+            <DisplayHeadline
+              lines={[
+                [{ text: "Executions." }],
+                [{ text: "Every" }, { text: "fill" }, { text: "against" }, { text: "your" }, { text: "own" }, { text: "account," }],
+                [{ text: "in" }, { text: "review", accent: true }, { text: "order.", accent: true }],
+              ]}
+            />
+            {/* §10.9.3: one period control, one window convention. */}
+            <SegmentedControl
+              label="Period"
+              options={PERIODS.map((p) => ({ value: p.id, label: p.label }))}
+              value={period}
+              onChange={(p) => {
+                setPeriod(p);
+                setPage(1);
+              }}
+            />
           </div>
-        </div>
-      </Section>
+          <p className="pass-stale">
+            Here you can see all executions from your passes, including entry,
+            details, status and realized PnL.
+          </p>
+        </Stack>
+      </Surface>
 
       <AuthenticatedView
         state={state}
@@ -186,16 +221,10 @@ export function ExecutionsClient({
             );
           }
 
+          const pageWindow = paginate(rows, page, "executions");
+
           return (
             <Stack gap="6">
-              {/* §10.9.3: one period control, one window convention. */}
-              <SegmentedControl
-                label="Period"
-                options={PERIODS.map((p) => ({ value: p.id, label: p.label }))}
-                value={period}
-                onChange={setPeriod}
-              />
-
               {rows.some(
                 (e) => e.simulated || e.providerOrderId?.startsWith("mock_"),
               ) ? (
@@ -216,7 +245,7 @@ export function ExecutionsClient({
                   <DataTable
                     caption="Your executions"
                     columns={COLUMNS}
-                    rows={rows}
+                    rows={pageWindow.pageRows}
                     rowKey={(e) => e.id}
                     isExpanded={(e) => expanded === e.id}
                     renderRow={(e) => (
@@ -262,6 +291,12 @@ export function ExecutionsClient({
                         <DataCell>{e.providerStatus}</DataCell>
                       </Inline>
                     )}
+                  />
+                  <Pager
+                    page={pageWindow.page}
+                    pageCount={pageWindow.pageCount}
+                    summary={pageWindow.summary}
+                    onPage={setPage}
                   />
                 </Panel>
               )}
