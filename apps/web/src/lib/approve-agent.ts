@@ -228,6 +228,11 @@ export interface ApproveAgentPostBody {
 }
 
 export async function runApproveAgent(deps: {
+  /**
+   * Routing token handed to postApprove as its first argument. D-027:
+   * callers pass the wallet address (the D-027 address-keyed route);
+   * it is never interpreted here beyond forwarding.
+   */
   accountId: string;
   address: `0x${string}`;
   /** Venue-approved agent this client knows about (/me row or preview). */

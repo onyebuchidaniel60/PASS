@@ -842,7 +842,8 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await user.click(document.getElementById("consent") as HTMLInputElement);
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
-    expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({ accountId: "acct-1" });
+    // D-027: approval addresses the connected wallet, not an owned row id.
+    expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({ accountId: ADDR });
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
   });
 
@@ -886,7 +887,8 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
     expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({
-      accountId: "acct-1",
+      // D-027: the routing token is the connected wallet address.
+      accountId: ADDR,
       knownAgentAddress: AGENT,
     });
   });

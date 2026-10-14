@@ -57,7 +57,7 @@ describe("ApproveAgentControl venue derivation", () => {
   it("/health unreachable blocks approval instead of silently signing Mainnet", async () => {
     mockGet.mockRejectedValueOnce(new Error("network down"));
     wallet(421614);
-    render(<ApproveAgentControl accountId="acct-1" />);
+    render(<ApproveAgentControl accountAddress={ADDR} />);
 
     // The venue error surfaces and the button never enables: there is no
     // chain to sign with, so there is nothing to approve with.
@@ -76,7 +76,7 @@ describe("ApproveAgentControl venue derivation", () => {
       agentAddress: "0xagent",
       persisted: true,
     });
-    render(<ApproveAgentControl accountId="acct-1" />);
+    render(<ApproveAgentControl accountAddress={ADDR} />);
 
     const button = await screen.findByRole("button", {
       name: /Approve agent wallet/,
@@ -92,7 +92,7 @@ describe("ApproveAgentControl venue derivation", () => {
   it("venue testnet + Arbitrum One wallet names both chains and never signs", async () => {
     mockGet.mockResolvedValueOnce({ hyperliquidVenue: "testnet" });
     wallet(42161);
-    render(<ApproveAgentControl accountId="acct-1" />);
+    render(<ApproveAgentControl accountAddress={ADDR} />);
 
     const button = await screen.findByRole("button", {
       name: /Approve agent wallet/,

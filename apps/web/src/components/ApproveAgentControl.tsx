@@ -13,18 +13,20 @@ import {
 } from "@/lib/hyperliquid";
 
 /**
- * Approve a Hyperliquid API/agent wallet (docs/DECISIONS.md D-019.1).
+ * Approve a Hyperliquid API/agent wallet (docs/DECISIONS.md D-019.1, D-027).
  *
  *  1. Generate a fresh agent key in the browser (viem generatePrivateKey).
  *  2. Derive its address (privateKeyToAccount).
  *  3. The MASTER wallet signs the approveAgent EIP-712 payload.
- *  4. POST the signature to the API, which relays it (D-018.3).
+ *  4. POST the signature to the address-keyed API route, which relays it (D-018.3).
  *  5. Persist the agent key encrypted under a wallet-derived secret (D-019.2).
  *
- * The agent private key is never sent to the API and never logged. If
- * Hyperliquid rejects the approval the key is NOT persisted.
+ * D-027: wallets are execution devices, not owned. Approval addresses the
+ * wallet itself — no row id, no session, no ownership. The agent private
+ * key is never sent to the API and never logged. If Hyperliquid rejects
+ * the approval the key is NOT persisted.
  */
-export function ApproveAgentControl({ accountId }: { accountId: string | null }) {
+export function ApproveAgentControl({ accountAddress }: { accountAddress: string | null }) {
   const { address, isConnected, chainId: walletChainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
@@ -73,8 +75,8 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
   if (!isConnected) return null;
 
   async function approve() {
-    if (!accountId || !address) {
-      setMsg("Link a Hyperliquid account before approving an agent.");
+    if (!accountAddress || !address) {
+      setMsg("Connect a wallet before approving an agent.");
       return;
     }
     // Fail closed without a verified venue: no chain, no signature.
@@ -104,14 +106,14 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
 
     try {
       const { persisted, warning, skipped } = await runApproveAgent({
-        accountId,
+        accountId: accountAddress,
         address,
         chain: approvalChain,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
-        postApprove: (id, body) =>
+        postApprove: (walletAddress, body) =>
           clientPost<{ agentAddress: string; mode: string }>(
-            `/api/v1/me/trading-accounts/${id}/approve-agent`,
+            `/api/v1/trading-accounts/${walletAddress}/approve-agent`,
             body as unknown as Record<string, unknown>,
           ),
       });
@@ -148,7 +150,7 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
         </p>
       ) : (
         <Button
-          disabled={busy || !accountId || !approvalChain}
+          disabled={busy || !accountAddress || !approvalChain}
           onClick={approve}
         >
           {busy ? "Approving…" : "Approve agent wallet"}

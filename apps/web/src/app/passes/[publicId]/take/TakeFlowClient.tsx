@@ -193,10 +193,6 @@ export function TakeFlowClient({
   // hardcoded default. Drives the approveAgent chain label + domain AND
   // the L1 isTestnet flag.
   const [venue, setVenue] = useState<"mainnet" | "testnet">("mainnet");
-  // D-026: the resolved trading-account row id from the preview. Signed-in
-  // Takers resolve via /me; anonymous Takers learn it from the preview
-  // response (the server resolves by wallet address).
-  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
   // D-026: an anonymous approval completed this page load. The key in
   // memory implies the completed approval; signed-in rows additionally
   // carry their agent address from /me.
@@ -369,7 +365,6 @@ export function TakeFlowClient({
         },
       );
       setPreview(p);
-      setPreviewAccountId(p.accountId ?? row.id);
       goto(2);
     } catch (e) {
       setFailed(e instanceof Error ? e.message : "Preview failed.");
@@ -402,10 +397,9 @@ export function TakeFlowClient({
     // address for this client to re-read.
     if (agentReady && hasAgentKeyInMemory()) return true;
     if (!browserConnected || !address) return false;
-    // The approve URL needs the row id: the linked id, else the id the
-    // preview resolved for this wallet. Fail closed without one.
-    const accountId = row.id ?? previewAccountId;
-    if (!accountId) return false;
+    // D-027: approval addresses the connected wallet itself, not an owned
+    // row — the address is always available, so there is no id to fail
+    // closed on and no ownership to assume.
     setAgentNote("Approving the agent wallet — your master wallet signs once.");
     try {
       // Venue label for the approval, from /health (the server's current
@@ -414,7 +408,7 @@ export function TakeFlowClient({
       // fixed 42161 domain; mainnet takes "Mainnet".
       const approvalChain = venue === "testnet" ? "Testnet" : "Mainnet";
       const done = await runApproveAgent({
-        accountId,
+        accountId: address,
         address,
         // The venue-approved agent this client knows: the owned row, else
         // the preview's row. A match against the stable client agent skips
@@ -423,9 +417,9 @@ export function TakeFlowClient({
         chain: approvalChain,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
-        postApprove: (id, body) =>
+        postApprove: (walletAddress, body) =>
           clientPost<{ agentAddress: string; mode: string }>(
-            `/api/v1/me/trading-accounts/${id}/approve-agent`,
+            `/api/v1/trading-accounts/${walletAddress}/approve-agent`,
             body as unknown as Record<string, unknown>,
           ),
       });
