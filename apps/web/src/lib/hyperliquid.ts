@@ -81,6 +81,23 @@ export function approveAgentDomain(chain: HLChain): {
 /** hex form of 42161, as the docs require for signatureChainId. */
 export const HL_SIGNATURE_CHAIN_ID = "0xa4b1";
 
+/** hex form of 421614 (Arbitrum Sepolia), for testnet approveAgent actions. */
+export const HL_TESTNET_SIGNATURE_CHAIN_ID = "0x66eee";
+
+/**
+ * Wire signatureChainId for a venue ("0xa4b1" on mainnet, "0x66eee" on
+ * testnet). This MUST satisfy
+ * `Number.parseInt(signatureChainIdFor(chain), 16) ===
+ * approveAgentDomain(chain).chainId` — both reference SDKs derive the
+ * EIP-712 domain numerically from the action's own signatureChainId, so any
+ * divergence recovers to a garbage address. Pinned by
+ * `approveAgentRabby.test.ts` ("the wire signatureChainId matches the venue
+ * of the domain chainId").
+ */
+export function signatureChainIdFor(chain: HLChain): "0xa4b1" | "0x66eee" {
+  return chain === "Testnet" ? "0x66eee" : "0xa4b1";
+}
+
 export type HLChain = "Mainnet" | "Testnet";
 
 export function nowNonce(): number {

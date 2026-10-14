@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
 import { Button } from "@pass/ui";
-import { clientPost } from "@/lib/client";
+import { clientGet, clientPost } from "@/lib/client";
 import { hasAgentKeyInMemory } from "@/lib/agent-keystore";
 import { isUserRejection, runApproveAgent } from "@/lib/approve-agent";
+import type { HLChain } from "@/lib/hyperliquid";
 
 /**
  * Approve a Hyperliquid API/agent wallet (docs/DECISIONS.md D-019.1).
@@ -27,6 +28,30 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [approved, setApproved] = useState(false);
+  // Signing venue from /health — the server's own config, never a hardcoded
+  // default. An omitted chain defaults to Mainnet inside runApproveAgent,
+  // which on testnet produces a Mainnet-labelled approval and a garbage
+  // signer; the button stays disabled until the venue is known so that
+  // default can never leak onto testnet.
+  const [approvalChain, setApprovalChain] = useState<HLChain>("Mainnet");
+  const [venueReady, setVenueReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    clientGet<{ hyperliquidVenue?: string | null }>("/health").then(
+      (h) => {
+        if (cancelled) return;
+        setApprovalChain(h?.hyperliquidVenue === "testnet" ? "Testnet" : "Mainnet");
+        setVenueReady(true);
+      },
+      () => {
+        if (!cancelled) setVenueReady(true);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!isConnected) return null;
 
@@ -42,6 +67,7 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
       const { persisted, warning, skipped } = await runApproveAgent({
         accountId,
         address,
+        chain: approvalChain,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
         postApprove: (id, body) =>
@@ -82,7 +108,7 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
           An agent wallet is approved and can sign orders on your behalf.
         </p>
       ) : (
-        <Button disabled={busy || !accountId} onClick={approve}>
+        <Button disabled={busy || !accountId || !venueReady} onClick={approve}>
           {busy ? "Approving…" : "Approve agent wallet"}
         </Button>
       )}

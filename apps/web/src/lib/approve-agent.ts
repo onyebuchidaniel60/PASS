@@ -16,6 +16,7 @@ import {
   APPROVE_AGENT_TYPES,
   approveAgentDomain,
   nowNonce,
+  signatureChainIdFor,
   type HLChain,
 } from "./hyperliquid";
 
@@ -129,6 +130,188 @@ export function isUserRejection(err: unknown): boolean {
   return /user rejected/i.test(e.message ?? "");
 }
 
+/**
+ * True when the wallet rejected the typed-data signature because the EIP-712
+ * domain chainId does not match the wallet's current chain. Rabby's verbatim
+ * wording is "chainId should be same as current chainId" (Rabby on Arbitrum
+ * One, domain 421614 on testnet). Matched case-insensitively and narrowly —
+ * a Hyperliquid "rejected the agent approval" server error must never match
+ * here (see isUserRejection for the same class of mislabelling).
+ */
+export function isChainIdMismatchError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /should be same as current chainid|chainid.*same as current|chain mismatch|wrong chain|incorrect chain/i.test(
+    msg,
+  );
+}
+
+/** True when the provider does not implement the raw signing method. */
+function isMethodNotSupportedError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: number | string; message?: string };
+  if (e.code === -32601 || e.code === -32602 || e.code === 4200) return true;
+  return /method .*not (found|supported|implemented)|not support.*method|unknown method/i.test(
+    e.message ?? "",
+  );
+}
+
+interface Eip1193Provider {
+  selectedAddress?: string;
+  chainId?: string | number | null;
+  networkVersion?: string | null;
+  request?: (args: {
+    method: string;
+    params?: unknown;
+  }) => Promise<unknown>;
+  providers?: Array<{
+    selectedAddress?: string;
+    _state?: { accounts?: string[] };
+  }>;
+}
+
+function readInjectedProvider(): Eip1193Provider | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { ethereum?: Eip1193Provider }).ethereum;
+}
+
+/** Synchronous wallet-chain read (hex preferred, decimal tolerated). */
+function readWalletChainSync(
+  injected: Eip1193Provider | undefined,
+): string | null {
+  const raw = injected?.chainId ?? injected?.networkVersion ?? null;
+  if (raw === null || raw === undefined) return null;
+  return String(raw);
+}
+
+function chainIdToDecimal(value: string | null): number | null {
+  if (!value) return null;
+  const s = value.trim().toLowerCase();
+  const n = s.startsWith("0x")
+    ? Number.parseInt(s, 16)
+    : Number.parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Best-effort live wallet chain via eth_chainId; null when unavailable. */
+async function readWalletChainLive(
+  injected: Eip1193Provider | undefined,
+): Promise<string | null> {
+  if (typeof injected?.request !== "function") return null;
+  try {
+    const res = await injected.request({ method: "eth_chainId" });
+    return typeof res === "string" ? res : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Attempt A — raw eth_signTypedData_v4.
+ *
+ * Calls window.ethereum.request directly instead of the wagmi
+ * signTypedDataAsync wrapper, bypassing any wrapper-level chainId guard.
+ * Rabby shows the typed-data domain to the user and signs it.
+ */
+async function requestRawApproveAgentSignature(
+  injected: Eip1193Provider,
+  address: `0x${string}`,
+  typed: ReturnType<typeof buildApproveAgentTypedData>,
+): Promise<`0x${string}`> {
+  // JSON cannot serialise bigint: the nonce fits in a double (Date.now()),
+  // so it travels as a number. The domain chainId stays numeric.
+  const jsonCompatible = JSON.parse(
+    JSON.stringify(typed, (_key, value: unknown) =>
+      typeof value === "bigint" ? Number(value) : value,
+    ),
+  );
+  const res = await injected.request!({
+    method: "eth_signTypedData_v4",
+    params: [address, JSON.stringify(jsonCompatible)],
+  });
+  if (typeof res !== "string" || !res.startsWith("0x")) {
+    throw new Error(
+      "Wallet returned an unusable approveAgent signature.",
+    );
+  }
+  return res as `0x${string}`;
+}
+
+/**
+ * Attempt B — switch to the venue chain, retry the raw signature, switch
+ * back. A workaround with a UX cost (the wallet prompts a network switch),
+ * used only when Attempt A is rejected by the wallet's chain guard.
+ */
+async function requestRawSignatureWithChainSwitch(
+  injected: Eip1193Provider,
+  address: `0x${string}`,
+  typed: ReturnType<typeof buildApproveAgentTypedData>,
+  previousChainHex: string | null,
+): Promise<`0x${string}`> {
+  const venueChain = typed.message.hyperliquidChain;
+  const targetHex = signatureChainIdFor(venueChain);
+  console.log("[approveAgent]",
+    "chain-switch fallback: switching to venue chain",
+    targetHex,
+    "for",
+    venueChain);
+  try {
+    await injected.request!({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: targetHex }],
+    });
+  } catch (switchErr) {
+    // The venue chain is unknown to the wallet (code 4902): register
+    // Arbitrum Sepolia / Arbitrum One, then retry the switch once.
+    const code = (switchErr as { code?: number })?.code;
+    if (code === 4902) {
+      const addParams =
+        venueChain === "Testnet"
+          ? {
+              chainId: targetHex,
+              chainName: "Arbitrum Sepolia",
+              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc"],
+              blockExplorerUrls: ["https://sepolia.arbiscan.io"],
+            }
+          : {
+              chainId: targetHex,
+              chainName: "Arbitrum One",
+              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://arb1.arbitrum.io/rpc"],
+              blockExplorerUrls: ["https://arbiscan.io"],
+            };
+      await injected.request!({
+        method: "wallet_addEthereumChain",
+        params: [addParams],
+      });
+    } else {
+      throw switchErr;
+    }
+  }
+  try {
+    return await requestRawApproveAgentSignature(injected, address, typed);
+  } finally {
+    // Restore the user's previous chain. Best-effort: a failed restore
+    // must never mask the signature that was just produced.
+    if (
+      previousChainHex &&
+      previousChainHex.toLowerCase() !== targetHex.toLowerCase()
+    ) {
+      try {
+        await injected.request!({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: previousChainHex }],
+        });
+      } catch (restoreErr) {
+        console.log("[approveAgent]",
+          "chain-switch fallback: could not restore previous chain",
+          previousChainHex,
+          restoreErr instanceof Error ? restoreErr.message : String(restoreErr));
+      }
+    }
+  }
+}
+
 export interface ApproveAgentPostBody {
   agentAddress: `0x${string}`;
   nonce: number;
@@ -211,26 +394,29 @@ export async function runApproveAgent(deps: {
 
   // Temporary diagnostics (single Take, then removed): what address the code
   // thinks it is signing with, what the injected wallet exposes as selected,
-  // whether multiple providers are present and which one wins, and what
-  // agent address the typed data actually carries.
+  // whether multiple providers are present and which one wins, what agent
+  // address the typed data actually carries, AND the wallet's chain at the
+  // moment of signing next to the domain chain the wallet is asked to sign.
+  // The Rabby failure ("chainId should be same as current chainId") can only
+  // be diagnosed from what Rabby reports — injected.chainId / eth_chainId —
+  // never from what the code assumes.
   // `window` is guarded for SSR/test runtimes; in a real browser it exists.
-  interface InjectedDiagnostics {
-    selectedAddress?: string;
-    providers?: Array<{
-      selectedAddress?: string;
-      _state?: { accounts?: string[] };
-    }>;
-  }
-  const injected =
-    typeof window !== "undefined"
-      ? (window as unknown as { ethereum?: InjectedDiagnostics }).ethereum
-      : undefined;
+  const injected = readInjectedProvider();
+  const walletChainSync = readWalletChainSync(injected);
+  const walletChainLive = await readWalletChainLive(injected);
+  const walletChainHex = walletChainLive ?? walletChainSync;
   console.log("[approveAgent]",
     "deps.address=", deps.address,
     "rabby=", injected?.selectedAddress,
     "providers=", injected?.providers?.map(
       (p) => p.selectedAddress || p._state?.accounts?.[0]),
-    "typed.agentAddress=", typed.message.agentAddress);
+    "typed.agentAddress=", typed.message.agentAddress,
+    "walletChainId=", walletChainHex,
+    "walletChainIdDec=", chainIdToDecimal(walletChainHex),
+    "domainChainId=", typed.domain.chainId,
+    "domainChainIdHex=", `0x${typed.domain.chainId.toString(16)}`,
+    "hyperliquidChain=", typed.message.hyperliquidChain,
+    "wireSignatureChainId=", signatureChainIdFor(typed.message.hyperliquidChain));
 
   // The signer must be the wagmi-connected master wallet. If wagmi is bound
   // to a different provider than the one the injected wallet exposes, throw
@@ -244,16 +430,62 @@ export async function runApproveAgent(deps: {
     );
   }
 
-  // wagmi's typed-data generics are narrowed to standard EIP-712 primary
-  // types; Hyperliquid's is documented as
-  // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
-  // through structurally. `account` pins the signer to the wagmi-connected
-  // master wallet — without it the call can resolve to a stale or
-  // non-selected account and the venue rejects an unknown signer.
-  const signature = await deps.signTypedDataAsync({
-    ...typed,
-    account: deps.address,
-  } as never);
+  // Signing path (fix/hyperliquid-agent-approval):
+  //  - Attempt A: raw eth_signTypedData_v4 via window.ethereum.request,
+  //    bypassing any wrapper-level chainId guard in wagmi/viem. The wallet
+  //    shows the typed-data domain to the user and signs it.
+  //  - Attempt B: when Attempt A is rejected by the wallet's own chain
+  //    guard, switch to the venue chain, retry the raw signature, then
+  //    switch back (reported as a UX cost — a workaround, not the ideal).
+  //  - Fallback: no raw provider (SSR/tests/legacy wallets) or a provider
+  //    that does not implement the method — the injected wagmi signer.
+  // A user cancellation (EIP-1193 4001) propagates verbatim on every path.
+  let signature: `0x${string}`;
+  let signPath: "raw" | "raw+switch" | "wagmi";
+  if (typeof injected?.request === "function") {
+    try {
+      signature = await requestRawApproveAgentSignature(
+        injected,
+        deps.address,
+        typed,
+      );
+      signPath = "raw";
+    } catch (rawErr) {
+      if (isMethodNotSupportedError(rawErr)) {
+        signature = await deps.signTypedDataAsync({
+          ...typed,
+          account: deps.address,
+        } as never);
+        signPath = "wagmi";
+      } else if (isChainIdMismatchError(rawErr)) {
+        signature = await requestRawSignatureWithChainSwitch(
+          injected,
+          deps.address,
+          typed,
+          walletChainHex,
+        );
+        signPath = "raw+switch";
+      } else {
+        throw rawErr;
+      }
+    }
+  } else {
+    // wagmi's typed-data generics are narrowed to standard EIP-712 primary
+    // types; Hyperliquid's is documented as
+    // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
+    // through structurally. `account` pins the signer to the wagmi-connected
+    // master wallet — without it the call can resolve to a stale or
+    // non-selected account and the venue rejects an unknown signer.
+    signature = await deps.signTypedDataAsync({
+      ...typed,
+      account: deps.address,
+    } as never);
+    signPath = "wagmi";
+  }
+  console.log("[approveAgent]",
+    "signPath=", signPath,
+    "domainChainId=", typed.domain.chainId,
+    "hyperliquidChain=", typed.message.hyperliquidChain);
 
   // viem returns a flat 0x signature; the §8 body carries { r, s, v }.
   const { r, s, v } = parseSignature(signature);
