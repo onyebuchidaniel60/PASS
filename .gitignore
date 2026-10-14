@@ -33,3 +33,10 @@ apps/extension/dist/
 !apps/extension/.env.production
 apps/web/test-results/
 apps/web/playwright-report
+
+# Machine-local agent skill installs (reinstall via `npx skills add`;
+# see docs/AI_HANDOFF.md §14). Never committed.
+.agents/
+.claude/
+.codex/
+agent/
