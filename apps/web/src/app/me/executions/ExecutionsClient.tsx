@@ -162,7 +162,9 @@ export function ExecutionsClient({
         <Stack gap="5">
           <NumberedEyebrow label="Executions" />
           <div className="pass-hero-split">
+            {/* `section`: the Discover hero size (see Settings hero note). */}
             <DisplayHeadline
+              section
               lines={[
                 [{ text: "Executions." }],
                 [{ text: "Every" }, { text: "fill" }, { text: "against" }, { text: "your" }, { text: "own" }, { text: "account," }],

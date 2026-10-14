@@ -303,7 +303,9 @@ export function MyPassesClient({
         <Stack gap="5">
           <NumberedEyebrow label="My passes" />
           <div className="pass-hero-split">
+            {/* `section`: the Discover hero size (see Settings hero note). */}
             <DisplayHeadline
+              section
               lines={[
                 [{ text: "Your" }, { text: "passes." }],
                 [{ text: "All" }, { text: "in" }, { text: "one", accent: true }, { text: "place.", accent: true }],

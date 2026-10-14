@@ -694,7 +694,11 @@ function SettingsReady({
       <Surface strength="section">
         <Stack gap="5">
           <NumberedEyebrow label="Settings" />
+          {/* `section`: the Discover hero size, not the landing hero size.
+              These are data-surface heroes and read over-scaled at the full
+              hero step (§14.4 section step). */}
           <DisplayHeadline
+            section
             lines={[
               [{ text: "Settings." }],
               [{ text: "Your" }, { text: "account.", accent: true }],
