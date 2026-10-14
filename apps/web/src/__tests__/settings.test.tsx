@@ -320,16 +320,19 @@ describe("§10.10 Profile and connections", () => {
     expect(screen.queryByText("X not connected")).toBeNull();
   });
 
-  it("renders no page heading block (removed as redundant)", async () => {
-    // Fix session: the "Profile" h1 + subtitle are gone. Section content
-    // (Wallet and below) is untouched.
-    const { container } = render(<SettingsClient probe={authed} load={withMe()} />);
+  it("renders the reference-14 hero heading (redesign)", async () => {
+    // Redesign: Settings opens with a hero headline, not a bare profile
+    // block. Section content (Wallet and below) is untouched.
+    render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("turnttfup99");
-    expect(container.querySelector("h1")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: /your account/i }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText("Your public identity and the accounts it is bound to."),
     ).toBeNull();
-    expect(screen.getByText("Wallet")).toBeInTheDocument();
+    // Twice on purpose: the section tab and the section heading.
+    expect(screen.getAllByText("Wallet").length).toBe(2);
   });
 
   it("offers NO Disconnect X on Profile — sign-out lives in the topbar menu (D-024)", async () => {
@@ -466,6 +469,122 @@ describe("Wallet section — connect / unlink / replace", () => {
       expect(writeText).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678"),
     );
     expect(await screen.findByText("Copied")).toBeInTheDocument();
+  });
+});
+
+describe("Settings redesign (reference 14)", () => {
+  const EXTRA = {
+    passes: [
+      { id: "p1", status: "active" },
+      { id: "p2", status: "cancelled" },
+    ],
+    executions: [
+      {
+        id: "e1",
+        passId: "p1",
+        passVersion: 1,
+        providerOrderId: "mock_11111111-2222-3333-4444-555555555555",
+        providerStatus: "filled",
+        simulated: true,
+        status: "filled",
+        positionSize: "0.25",
+        asset: "BTC",
+        direction: "LONG",
+        realizedPnl: "642.50",
+        createdAt: new Date(Date.now() - 30 * 60_000).toISOString(),
+      },
+      {
+        id: "e2",
+        passId: "p1",
+        passVersion: 1,
+        providerOrderId: "hl-order-99881",
+        providerStatus: "filled",
+        simulated: false,
+        status: "filled",
+        positionSize: "0.5",
+        asset: "ETH",
+        direction: "SHORT",
+        realizedPnl: "-120.25",
+        createdAt: new Date(Date.now() - 90 * 60_000).toISOString(),
+      },
+    ],
+    ethos: {
+      providerProfileId: "ethos_alexcarbon",
+      credibilityScore: 1742,
+      reviewsCount: 38,
+      vouchesCount: 12,
+      humanVerified: true,
+      sourceUrl: "https://ethos.network/profile/x/turnttfup99",
+      syncedAt: new Date().toISOString(),
+    },
+    performance: {
+      slug: "turnttfup99",
+      publishedPasses: 2,
+      completedPasses: 1,
+      passSuccessMetric: 50,
+      successMetricWindow: "all-time",
+      averageRMultiple: 1.8,
+      totalRealizedPnl: "522.25",
+      simulated: true,
+    },
+  };
+
+  const loadExtra = async () => EXTRA;
+
+  it("renders the settings hero", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    expect(
+      await screen.findByRole("heading", { name: /your account/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the three-counter stat band with real values", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    const band = await screen.findByTestId("settings-stat-band");
+    expect(band.textContent).toMatch(/Passes created/);
+    expect(band.textContent).toMatch(/Executions/);
+    expect(band.textContent).toMatch(/Ethos score/);
+    expect(band.textContent).toMatch(/1,742/);
+  });
+
+  it("renders the Ethos score from the API in the identity header", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    // The score arrives with the overview payload, after the header paints.
+    await screen.findByText("Ethos score 1,742");
+    const identity = await screen.findByTestId("settings-identity");
+    expect(identity.textContent).toMatch(/1,742/);
+  });
+
+  it("carries no wallet address in the identity header (D-023)", async () => {
+    const { container } = render(
+      <SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />,
+    );
+    await screen.findByTestId("settings-identity");
+    const identity = container.querySelector('[data-testid="settings-identity"]');
+    expect(identity?.textContent).not.toMatch(/0x[0-9a-fA-F]{4,}/);
+  });
+
+  it("renders the realized-PnL panel with a sparkline", async () => {
+    const { container } = render(
+      <SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />,
+    );
+    const pnl = await screen.findByTestId("settings-pnl");
+    expect(pnl.textContent).toMatch(/Realized PnL/);
+    expect(pnl.querySelector("svg[aria-label]")).not.toBeNull();
+  });
+
+  it("labels every simulated activity row SIMULATED", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    await screen.findByTestId("settings-activity");
+    expect((await screen.findAllByText(/SIMULATED/)).length).toBeGreaterThan(0);
+  });
+
+  it("offers section navigation: Identity, Connections, Wallet, Tour", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    await screen.findByTestId("settings-identity");
+    for (const label of ["Identity", "Connections", "Wallet", "Tour"]) {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    }
   });
 });
 

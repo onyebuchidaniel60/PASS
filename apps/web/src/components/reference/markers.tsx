@@ -158,6 +158,12 @@ export interface ChipButtonProps {
   toggle?: boolean;
   className?: string;
   type?: "button" | "submit";
+  /**
+   * Accessible name override. Additive and optional: glyph-only chips
+   * (‹ ›) need a spoken name, and forgetting it is invisible. Defaults to
+   * the children text.
+   */
+  label?: string;
 }
 
 /** §14.9. Chamfered, not rounded — consistent with §5.1 and §5.2. */
@@ -170,6 +176,7 @@ export function ChipButton({
   toggle = false,
   className,
   type = "button",
+  label,
 }: ChipButtonProps) {
   const cls = ["pass-chip", className].filter(Boolean).join(" ");
   const pressed = toggle ? selected : undefined;
@@ -180,6 +187,7 @@ export function ChipButton({
         className={cls}
         href={href}
         aria-pressed={pressed}
+        aria-label={label}
         data-selected={selected ? "true" : undefined}
       >
         {children}
@@ -194,6 +202,7 @@ export function ChipButton({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={pressed}
+      aria-label={label}
       data-selected={selected ? "true" : undefined}
     >
       {children}

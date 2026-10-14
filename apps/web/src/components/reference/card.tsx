@@ -153,6 +153,11 @@ export interface MetricCardProps {
   /** Optional second line, muted. §14.5 stat card. */
   sub?: string;
   className?: string;
+  /**
+   * Marks the card as inside the current filter (My Passes status strip).
+   * Additive and optional: the default preserves current rendering.
+   */
+  selected?: boolean;
 }
 
 /**
@@ -160,9 +165,12 @@ export interface MetricCardProps {
  * carries a live figure on its own — which is why it is laid out to five across
  * at 1440 by `auto-fit`, never by a hand-set column count.
  */
-export function MetricCard({ label, value, unit, sub, className }: MetricCardProps) {
+export function MetricCard({ label, value, unit, sub, className, selected = false }: MetricCardProps) {
   return (
-    <div className={["pass-metric-card", className].filter(Boolean).join(" ")}>
+    <div
+      className={["pass-metric-card", className].filter(Boolean).join(" ")}
+      data-selected={selected ? "true" : undefined}
+    >
       <span className="pass-metric-card-label">{label}</span>
       <span className="pass-metric-card-value">
         {/* The figure gets its own element so CSS can keep the FIGURE unbreakable

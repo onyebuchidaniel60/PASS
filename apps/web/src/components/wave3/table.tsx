@@ -18,7 +18,7 @@
  * be readable to be cancelled.
  */
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 export interface DataTableColumn<T> {
   /** Stable key. Also the label used by the stacked mobile layout. */
@@ -107,7 +107,7 @@ export function DataTable<T>({
               ) : null;
 
             return (
-              <>
+              <Fragment key={key}>
                 {renderRow ? (
                   <tr key={key} data-ghost={ghost || undefined}>
                     {renderRow(row, key)}
@@ -118,7 +118,7 @@ export function DataTable<T>({
                   </tr>
                 )}
                 {detail}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

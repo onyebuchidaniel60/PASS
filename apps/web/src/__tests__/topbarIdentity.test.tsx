@@ -125,8 +125,13 @@ describe("topbar identity restoration", () => {
     const clickables = Array.from(document.querySelectorAll("button, a[href]"));
     expect(clickables.length).toBeGreaterThan(0);
     for (const el of clickables) {
+      // pass-chip is a token-styled control (bordered, chamfered, hover and
+      // selected states), not unstyled text: the section-tab anchors on
+      // Settings carry it. The contract is "no unstyled clickables".
       expect(
-        el.classList.contains("pass-btn") || el.classList.contains("pass-link-btn"),
+        el.classList.contains("pass-btn") ||
+          el.classList.contains("pass-link-btn") ||
+          el.classList.contains("pass-chip"),
         `${el.tagName} "${el.textContent?.slice(0, 40)}" has no button affordance class`,
       ).toBe(true);
     }

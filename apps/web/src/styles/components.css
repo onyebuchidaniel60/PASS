@@ -3480,3 +3480,85 @@ text-underline-offset: 0.2em;
 .pass-take-flow .pass-section {
   margin-block: 0;
 }
+
+/* --- Redesign: Settings / My Passes / Executions (references 14-16) -------
+ * Hero split: headline left, live badge right; wraps on narrow viewports. */
+.pass-hero-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  justify-content: space-between;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+/* Status strip: the full lifecycle across desktop, wrapping below it. */
+.pass-status-strip {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-status-strip {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-status-strip {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+}
+
+/* A strip cell inside the current tab filter. The word carries the state;
+   the edge only reinforces which filter is showing. */
+.pass-metric-card[data-selected="true"] {
+  border-color: var(--color-accent-edge);
+}
+
+/* Status-strip density: ten cells share one row at desktop, so the label
+   wraps instead of ellipsizing ("ENTRY PENDING" must read in full) and the
+   figure steps down one size. Both values are existing tokens. */
+.pass-status-strip .pass-metric-card-label {
+  white-space: normal;
+}
+
+.pass-status-strip .pass-metric-card-value {
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+  letter-spacing: var(--type-data-l-track);
+}
+
+/* Settings data grid: PnL panel beside the slogan rail on desktop, stacked
+   on narrow viewports. */
+.pass-settings-grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .pass-settings-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+/* Pager: summary left, page controls right; wraps on narrow viewports. */
+.pass-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  border-top: var(--border-hairline);
+  padding-top: var(--space-4);
+  min-width: 0;
+}
+
+/* Anchored settings sections clear the sticky topbar when jumped to. */
+.pass-anchor {
+  scroll-margin-top: var(--layout-topbar);
+}
