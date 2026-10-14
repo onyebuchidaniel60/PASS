@@ -9,22 +9,27 @@ import {
   buildApproveAgentTypedData,
   runApproveAgent,
 } from "../lib/approve-agent";
-import { signatureChainIdFor } from "../lib/hyperliquid";
+import { signatureChainIdFor, venueToHLChain } from "../lib/hyperliquid";
 
 /**
  * Rabby chainId guard regression (branch fix/hyperliquid-agent-approval).
  *
- * Context: Rabby sits on Arbitrum One (chain 42161). When wagmi's
- * signTypedDataAsync is asked to sign an approveAgent payload whose EIP-712
- * domain carries chainId 421614 (testnet), Rabby throws
- * "chainId should be same as current chainId". The domain is correct; the
- * wallet's chain guard (plus wagmi's wrapper-level check) is the obstacle.
+ * Live reproduction (second session): the wallet sat on Arbitrum Sepolia
+ * (walletChainId 0x66eee / 421614) while the code signed domainChainId
+ * 42161, hyperliquidChain "Mainnet", wire 0xa4b1 — MetaMask refused with
+ * 'Provided chainId "42161" must match the active chainId "421614"'. The
+ * venue-to-chain derivation collapsed everything that was not literally
+ * "testnet" (including an unreachable /health) to Mainnet. The fix:
+ * venueToHLChain returns null when the venue is unknown so callers refuse
+ * to sign, and runApproveAgent throws a clear Chain mismatch naming both
+ * chains instead of requesting a signature the wallet must reject.
  *
- * Required behaviour (task):
- *  - the master wallet signs without a chainId rejection;
- *  - the recovered signer equals the master address;
- *  - the domain chainId is 421614 on testnet, 42161 on mainnet;
- *  - the wire signatureChainId is 0x66eee / 0xa4b1 respectively;
+ * Required behaviour:
+ *  - wallet on Sepolia + venue testnet → domain 421614, "Testnet", 0x66eee;
+ *  - wallet on Arbitrum One + venue mainnet → domain 42161, "Mainnet",
+ *    0xa4b1;
+ *  - wallet/venue mismatch → clear error naming both, never a silent
+ *    Mainnet fallback;
  *  - no signing secret touches the server.
  */
 const ADDR = "0x1234567890abcdef1234567890abcdef12345678" as const;
@@ -35,6 +40,56 @@ const FIXTURE_NONCE = 1760000000000;
 function setEthereum(stub: unknown) {
   (window as unknown as { ethereum?: unknown }).ethereum = stub;
 }
+
+describe("venueToHLChain (no silent Mainnet default)", () => {
+  it('maps venue "testnet" to chain "Testnet"', () => {
+    expect(venueToHLChain("testnet")).toBe("Testnet");
+  });
+
+  it('maps venue "mainnet" to chain "Mainnet"', () => {
+    expect(venueToHLChain("mainnet")).toBe("Mainnet");
+  });
+
+  it('maps venue "mock" to chain "Mainnet" (the mock relay is label-blind)', () => {
+    expect(venueToHLChain("mock")).toBe("Mainnet");
+  });
+
+  it("returns null when the venue is unknown — the caller must refuse, not guess", () => {
+    // The /health-unreachable path: null, undefined and garbage must never
+    // collapse to Mainnet. A null chain blocks approval with a venue error
+    // instead of signing a Mainnet-labelled payload on testnet.
+    expect(venueToHLChain(null)).toBeNull();
+    expect(venueToHLChain(undefined)).toBeNull();
+    expect(venueToHLChain("")).toBeNull();
+    expect(venueToHLChain("garbage")).toBeNull();
+  });
+
+  it("venue testnet end to end: domain 421614, Testnet label, wire 0x66eee", () => {
+    const chain = venueToHLChain("testnet");
+    expect(chain).toBe("Testnet");
+    const payload = buildApproveAgentTypedData({
+      agentAddress: FIXTURE_AGENT,
+      nonce: FIXTURE_NONCE,
+      chain: chain ?? undefined,
+    });
+    expect(payload.domain.chainId).toBe(421614);
+    expect(payload.message.hyperliquidChain).toBe("Testnet");
+    expect(signatureChainIdFor(payload.message.hyperliquidChain)).toBe("0x66eee");
+  });
+
+  it("venue mainnet end to end: domain 42161, Mainnet label, wire 0xa4b1", () => {
+    const chain = venueToHLChain("mainnet");
+    expect(chain).toBe("Mainnet");
+    const payload = buildApproveAgentTypedData({
+      agentAddress: FIXTURE_AGENT,
+      nonce: FIXTURE_NONCE,
+      chain: chain ?? undefined,
+    });
+    expect(payload.domain.chainId).toBe(42161);
+    expect(payload.message.hyperliquidChain).toBe("Mainnet");
+    expect(signatureChainIdFor(payload.message.hyperliquidChain)).toBe("0xa4b1");
+  });
+});
 
 describe("approveAgent domain chainIds (venue-driven, never defaulted)", () => {
   it('buildApproveAgentTypedData({ chain: "Testnet" }) returns domain.chainId === 421614', () => {
@@ -118,12 +173,13 @@ describe("runApproveAgent prefers raw eth_signTypedData_v4 (Attempt A)", () => {
   });
 
   it("bypasses the wagmi wrapper via window.ethereum.request when available", async () => {
+    // Wallet and venue agree (Sepolia + Testnet): the raw path signs.
     const request = vi.fn(async (args: { method: string }) => {
       if (args.method === "eth_signTypedData_v4") return FLAT_SIG;
-      if (args.method === "eth_chainId") return "0xa4b1";
+      if (args.method === "eth_chainId") return "0x66eee";
       throw new Error(`unexpected method ${args.method}`);
     });
-    setEthereum({ selectedAddress: ADDR, chainId: "0xa4b1", request });
+    setEthereum({ selectedAddress: ADDR, chainId: "0x66eee", request });
     const signTypedDataAsync = vi.fn(async () => {
       throw new Error("wagmi wrapper must not be called when raw RPC is available");
     });
@@ -180,7 +236,7 @@ describe("runApproveAgent logs the wallet chainId at signing time", () => {
 
   it("diagnostics include the wallet chain and the domain chain together", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    setEthereum({ selectedAddress: ADDR, chainId: "0xa4b1" });
+    setEthereum({ selectedAddress: ADDR, chainId: "0x66eee" });
     await runApproveAgent({
       accountId: "acct-1",
       address: ADDR,
@@ -190,16 +246,58 @@ describe("runApproveAgent logs the wallet chainId at signing time", () => {
       postApprove: async () => ({}),
     });
     const logged = logSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-    // The diagnosis must be grounded in what Rabby reports, not assumed:
-    // wallet chain (0xa4b1 = 42161, or decimal 42161) next to the domain
-    // chain (421614 on testnet).
+    // The diagnosis must be grounded in what the wallet reports, not
+    // assumed: wallet chain (0x66eee / 421614) next to the domain chain
+    // (421614 on testnet).
     expect(logged).toMatch(/chainId/i);
     expect(logged).toContain("421614");
+    expect(logged).toContain("0x66eee");
+    logSpy.mockRestore();
+  });
+
+  it("names the lone provider when no multi-provider array exists", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    setEthereum({ selectedAddress: ADDR, chainId: "0x66eee" });
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      chain: "Testnet",
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync: async () => FLAT_SIG,
+      postApprove: async () => ({}),
+    });
+    const logged = logSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    // A single-provider wallet (MetaMask alone) has no .providers array;
+    // the diagnostic must still show which provider was read.
+    expect(logged).toContain("lone-provider");
+    expect(logged).toContain(ADDR.toLowerCase());
+    logSpy.mockRestore();
+  });
+
+  it("lists every provider when a multi-provider array exists", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const OTHER = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    setEthereum({
+      selectedAddress: ADDR,
+      chainId: "0x66eee",
+      providers: [{ selectedAddress: ADDR }, { selectedAddress: OTHER }],
+    });
+    await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      chain: "Testnet",
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync: async () => FLAT_SIG,
+      postApprove: async () => ({}),
+    });
+    const logged = logSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain(ADDR.toLowerCase());
+    expect(logged).toContain(OTHER.toLowerCase());
     logSpy.mockRestore();
   });
 });
 
-describe("runApproveAgent chain-switch fallback (Attempt B)", () => {
+describe("runApproveAgent wallet/venue agreement (clear error, no silent fallback)", () => {
   beforeEach(async () => {
     await forgetAgentKey();
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -209,45 +307,72 @@ describe("runApproveAgent chain-switch fallback (Attempt B)", () => {
     delete (window as unknown as { ethereum?: unknown }).ethereum;
   });
 
-  it("on a chainId rejection it switches to the venue chain, retries, and switches back", async () => {
-    const seen: string[] = [];
-    let signAttempts = 0;
-    const request = vi.fn(async (args: { method: string; params?: unknown }) => {
-      seen.push(args.method);
+  function mismatchProvider(walletHex: string) {
+    return vi.fn(async (args: { method: string }) => {
+      if (args.method === "eth_chainId") return walletHex;
+      throw new Error(`unexpected method ${args.method}`);
+    });
+  }
+
+  async function runMismatched(chain: "Testnet" | "Mainnet", walletHex: string) {
+    const request = mismatchProvider(walletHex);
+    setEthereum({ selectedAddress: ADDR, chainId: walletHex, request });
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    const postApprove = vi.fn(async () => ({}));
+    const err = (await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      chain,
+      signMessageAsync: async () => "0xderivationsecret",
+      signTypedDataAsync,
+      postApprove,
+    }).catch((e: unknown) => e)) as Error;
+    expect(String(err.message)).toMatch(/Chain mismatch/);
+    return { err, request, signTypedDataAsync, postApprove };
+  }
+
+  it("testnet venue + Arbitrum One wallet: names 42161 and 421614, signs nothing", async () => {
+    // The live failure shape: the wallet's chain is not the venue's
+    // domain. The error must name both so the operator knows which side
+    // to move — never a Mainnet-labelled guess signed into the void.
+    const { err, request, signTypedDataAsync, postApprove } =
+      await runMismatched("Testnet", "0xa4b1");
+    expect(String(err.message)).toContain("42161");
+    expect(String(err.message)).toContain("421614");
+    expect(String(err.message)).toMatch(/Arbitrum Sepolia/);
+    expect(request).not.toHaveBeenCalledWith(
+      expect.objectContaining({ method: "eth_signTypedData_v4" }),
+    );
+    expect(signTypedDataAsync).not.toHaveBeenCalled();
+    expect(postApprove).not.toHaveBeenCalled();
+  });
+
+  it("mainnet venue + Sepolia wallet: names 421614 and 42161, signs nothing", async () => {
+    const { err } = await runMismatched("Mainnet", "0x66eee");
+    expect(String(err.message)).toContain("421614");
+    expect(String(err.message)).toContain("42161");
+    expect(String(err.message)).toMatch(/Arbitrum One/);
+  });
+
+  it("matching wallet and venue signs without complaint (mainnet pair)", async () => {
+    const request = vi.fn(async (args: { method: string }) => {
+      if (args.method === "eth_signTypedData_v4") return FLAT_SIG;
       if (args.method === "eth_chainId") return "0xa4b1";
-      if (args.method === "wallet_switchEthereumChain") return null;
-      if (args.method === "eth_signTypedData_v4") {
-        signAttempts += 1;
-        if (signAttempts === 1) {
-          throw new Error("chainId should be same as current chainId");
-        }
-        return FLAT_SIG;
-      }
       throw new Error(`unexpected method ${args.method}`);
     });
     setEthereum({ selectedAddress: ADDR, chainId: "0xa4b1", request });
-    const signTypedDataAsync = vi.fn(async () => {
-      throw new Error("wagmi wrapper must not shadow the raw retry path");
-    });
-
+    const postApprove = vi.fn(async () => ({}));
     await runApproveAgent({
       accountId: "acct-1",
       address: ADDR,
-      chain: "Testnet",
+      chain: "Mainnet",
       signMessageAsync: async () => "0xderivationsecret",
-      signTypedDataAsync,
-      postApprove: async () => ({}),
+      signTypedDataAsync: async () => {
+        throw new Error("raw path must win when the wallet matches");
+      },
+      postApprove,
     });
-
-    // Switched to the venue chain (0x66eee = Arbitrum Sepolia) for the
-    // retry, then back to the user's previous chain (0xa4b1).
-    const switches = request.mock.calls.filter(
-      (c) => (c[0] as { method: string }).method === "wallet_switchEthereumChain",
-    );
-    expect(switches.length).toBeGreaterThanOrEqual(2);
-    expect(JSON.stringify(switches[0])).toContain("0x66eee");
-    expect(JSON.stringify(switches[switches.length - 1])).toContain("0xa4b1");
-    expect(signTypedDataAsync).not.toHaveBeenCalled();
+    expect(postApprove).toHaveBeenCalledTimes(1);
   });
 });
 
