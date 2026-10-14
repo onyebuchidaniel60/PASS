@@ -6,7 +6,11 @@ import { Button } from "@pass/ui";
 import { clientGet, clientPost } from "@/lib/client";
 import { hasAgentKeyInMemory } from "@/lib/agent-keystore";
 import { isUserRejection, runApproveAgent } from "@/lib/approve-agent";
-import type { HLChain } from "@/lib/hyperliquid";
+import {
+  approveAgentDomain,
+  venueToHLChain,
+  type HLChain,
+} from "@/lib/hyperliquid";
 
 /**
  * Approve a Hyperliquid API/agent wallet (docs/DECISIONS.md D-019.1).
@@ -21,31 +25,44 @@ import type { HLChain } from "@/lib/hyperliquid";
  * Hyperliquid rejects the approval the key is NOT persisted.
  */
 export function ApproveAgentControl({ accountId }: { accountId: string | null }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId: walletChainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
 
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [approved, setApproved] = useState(false);
-  // Signing venue from /health — the server's own config, never a hardcoded
-  // default. An omitted chain defaults to Mainnet inside runApproveAgent,
-  // which on testnet produces a Mainnet-labelled approval and a garbage
-  // signer; the button stays disabled until the venue is known so that
-  // default can never leak onto testnet.
-  const [approvalChain, setApprovalChain] = useState<HLChain>("Mainnet");
+  // Signing chain from /health via venueToHLChain — the server's own config,
+  // never a hardcoded default. Null means unknown: an unreachable /health
+  // (or an unrecognised venue) must refuse to sign rather than silently
+  // default to Mainnet, which on testnet produces a Mainnet-labelled
+  // approval the wallet must reject (live MetaMask refusal: 'Provided
+  // chainId "42161" must match the active chainId "421614"').
+  const [approvalChain, setApprovalChain] = useState<HLChain | null>(null);
   const [venueReady, setVenueReady] = useState(false);
+  const [venueError, setVenueError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     clientGet<{ hyperliquidVenue?: string | null }>("/health").then(
       (h) => {
         if (cancelled) return;
-        setApprovalChain(h?.hyperliquidVenue === "testnet" ? "Testnet" : "Mainnet");
+        const chain = venueToHLChain(h?.hyperliquidVenue ?? null);
+        setApprovalChain(chain);
+        setVenueError(
+          chain
+            ? null
+            : `The server reported venue "${h?.hyperliquidVenue ?? "unknown"}", which has no signing chain. Refusing to sign rather than guessing.`,
+        );
         setVenueReady(true);
       },
       () => {
-        if (!cancelled) setVenueReady(true);
+        if (cancelled) return;
+        setApprovalChain(null);
+        setVenueError(
+          "Could not reach /health, so the signing venue is unknown. Refusing to sign rather than guessing Mainnet.",
+        );
+        setVenueReady(true);
       },
     );
     return () => {
@@ -58,6 +75,28 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
   async function approve() {
     if (!accountId || !address) {
       setMsg("Link a Hyperliquid account before approving an agent.");
+      return;
+    }
+    // Fail closed without a verified venue: no chain, no signature.
+    if (!approvalChain) {
+      setMsg(
+        venueError ??
+          "The signing venue is still unknown. Wait for it to load or reload before approving.",
+      );
+      return;
+    }
+    // Wallet/venue agreement before any popup: a wallet on the wrong
+    // network for the venue names both chains instead of requesting a
+    // signature the wallet must refuse.
+    const expectedDomain = approveAgentDomain(approvalChain).chainId;
+    if (typeof walletChainId === "number" && walletChainId !== expectedDomain) {
+      const wantNet =
+        approvalChain === "Testnet" ? "Arbitrum Sepolia" : "Arbitrum One";
+      setMsg(
+        `Chain mismatch: your wallet is on chain ${walletChainId} but venue ` +
+          `"${approvalChain}" requires domain ${expectedDomain}. Switch your ` +
+          `wallet to ${wantNet} and try again. No signature was requested.`,
+      );
       return;
     }
     setBusy(true);
@@ -108,9 +147,17 @@ export function ApproveAgentControl({ accountId }: { accountId: string | null })
           An agent wallet is approved and can sign orders on your behalf.
         </p>
       ) : (
-        <Button disabled={busy || !accountId || !venueReady} onClick={approve}>
+        <Button
+          disabled={busy || !accountId || !approvalChain}
+          onClick={approve}
+        >
           {busy ? "Approving…" : "Approve agent wallet"}
         </Button>
+      )}
+      {venueReady && !approvalChain && venueError && (
+        <p role="note" className="pass-note pass-note-status">
+          {venueError}
+        </p>
       )}
       {msg && (
         <p role="status" className="pass-note pass-note-status">

@@ -130,21 +130,6 @@ export function isUserRejection(err: unknown): boolean {
   return /user rejected/i.test(e.message ?? "");
 }
 
-/**
- * True when the wallet rejected the typed-data signature because the EIP-712
- * domain chainId does not match the wallet's current chain. Rabby's verbatim
- * wording is "chainId should be same as current chainId" (Rabby on Arbitrum
- * One, domain 421614 on testnet). Matched case-insensitively and narrowly —
- * a Hyperliquid "rejected the agent approval" server error must never match
- * here (see isUserRejection for the same class of mislabelling).
- */
-export function isChainIdMismatchError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err ?? "");
-  return /should be same as current chainid|chainid.*same as current|chain mismatch|wrong chain|incorrect chain/i.test(
-    msg,
-  );
-}
-
 /** True when the provider does not implement the raw signing method. */
 function isMethodNotSupportedError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
@@ -234,82 +219,6 @@ async function requestRawApproveAgentSignature(
     );
   }
   return res as `0x${string}`;
-}
-
-/**
- * Attempt B — switch to the venue chain, retry the raw signature, switch
- * back. A workaround with a UX cost (the wallet prompts a network switch),
- * used only when Attempt A is rejected by the wallet's chain guard.
- */
-async function requestRawSignatureWithChainSwitch(
-  injected: Eip1193Provider,
-  address: `0x${string}`,
-  typed: ReturnType<typeof buildApproveAgentTypedData>,
-  previousChainHex: string | null,
-): Promise<`0x${string}`> {
-  const venueChain = typed.message.hyperliquidChain;
-  const targetHex = signatureChainIdFor(venueChain);
-  console.log("[approveAgent]",
-    "chain-switch fallback: switching to venue chain",
-    targetHex,
-    "for",
-    venueChain);
-  try {
-    await injected.request!({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: targetHex }],
-    });
-  } catch (switchErr) {
-    // The venue chain is unknown to the wallet (code 4902): register
-    // Arbitrum Sepolia / Arbitrum One, then retry the switch once.
-    const code = (switchErr as { code?: number })?.code;
-    if (code === 4902) {
-      const addParams =
-        venueChain === "Testnet"
-          ? {
-              chainId: targetHex,
-              chainName: "Arbitrum Sepolia",
-              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-              rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc"],
-              blockExplorerUrls: ["https://sepolia.arbiscan.io"],
-            }
-          : {
-              chainId: targetHex,
-              chainName: "Arbitrum One",
-              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-              rpcUrls: ["https://arb1.arbitrum.io/rpc"],
-              blockExplorerUrls: ["https://arbiscan.io"],
-            };
-      await injected.request!({
-        method: "wallet_addEthereumChain",
-        params: [addParams],
-      });
-    } else {
-      throw switchErr;
-    }
-  }
-  try {
-    return await requestRawApproveAgentSignature(injected, address, typed);
-  } finally {
-    // Restore the user's previous chain. Best-effort: a failed restore
-    // must never mask the signature that was just produced.
-    if (
-      previousChainHex &&
-      previousChainHex.toLowerCase() !== targetHex.toLowerCase()
-    ) {
-      try {
-        await injected.request!({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: previousChainHex }],
-        });
-      } catch (restoreErr) {
-        console.log("[approveAgent]",
-          "chain-switch fallback: could not restore previous chain",
-          previousChainHex,
-          restoreErr instanceof Error ? restoreErr.message : String(restoreErr));
-      }
-    }
-  }
 }
 
 export interface ApproveAgentPostBody {
@@ -405,11 +314,16 @@ export async function runApproveAgent(deps: {
   const walletChainSync = readWalletChainSync(injected);
   const walletChainLive = await readWalletChainLive(injected);
   const walletChainHex = walletChainLive ?? walletChainSync;
+  // Multi-provider wallets expose .providers; a lone wallet (MetaMask
+  // alone) does not, so the diagnostic names the lone provider instead of
+  // logging `providers= undefined` and leaving the check dead.
+  const providerAddrs = injected?.providers?.map(
+    (p) => p.selectedAddress || p._state?.accounts?.[0],
+  );
   console.log("[approveAgent]",
     "deps.address=", deps.address,
     "rabby=", injected?.selectedAddress,
-    "providers=", injected?.providers?.map(
-      (p) => p.selectedAddress || p._state?.accounts?.[0]),
+    "providers=", providerAddrs ?? [`lone-provider:${injected?.selectedAddress ?? "none"}`],
     "typed.agentAddress=", typed.message.agentAddress,
     "walletChainId=", walletChainHex,
     "walletChainIdDec=", chainIdToDecimal(walletChainHex),
@@ -430,18 +344,33 @@ export async function runApproveAgent(deps: {
     );
   }
 
+  // Wallet/venue agreement, checked BEFORE any signature is requested. When
+  // the wallet sits on a different chain than the venue's domain (the live
+  // failure: wallet 0x66eee/Sepolia, approval Mainnet-labelled 42161),
+  // requesting the signature can only produce the wallet's chainId refusal.
+  // Throw a clear error naming both sides instead — never a silent fallback,
+  // and never a programmatic network switch of the user's wallet.
+  const walletDec = chainIdToDecimal(walletChainHex);
+  if (walletDec !== null && walletDec !== typed.domain.chainId) {
+    const want = typed.message.hyperliquidChain;
+    throw new Error(
+      `Chain mismatch: wallet is on chain ${walletDec} (${walletChainHex}) ` +
+      `but venue "${want}" requires domain ${typed.domain.chainId} ` +
+      `(${signatureChainIdFor(typed.message.hyperliquidChain)}). ` +
+      `Switch your wallet to ${want === "Testnet" ? "Arbitrum Sepolia" : "Arbitrum One"} and try again. ` +
+      `No signature was requested.`,
+    );
+  }
+
   // Signing path (fix/hyperliquid-agent-approval):
-  //  - Attempt A: raw eth_signTypedData_v4 via window.ethereum.request,
-  //    bypassing any wrapper-level chainId guard in wagmi/viem. The wallet
-  //    shows the typed-data domain to the user and signs it.
-  //  - Attempt B: when Attempt A is rejected by the wallet's own chain
-  //    guard, switch to the venue chain, retry the raw signature, then
-  //    switch back (reported as a UX cost — a workaround, not the ideal).
+  //  - Raw eth_signTypedData_v4 via window.ethereum.request, bypassing any
+  //    wrapper-level chainId guard in wagmi/viem. The wallet shows the
+  //    typed-data domain to the user and signs it.
   //  - Fallback: no raw provider (SSR/tests/legacy wallets) or a provider
   //    that does not implement the method — the injected wagmi signer.
   // A user cancellation (EIP-1193 4001) propagates verbatim on every path.
   let signature: `0x${string}`;
-  let signPath: "raw" | "raw+switch" | "wagmi";
+  let signPath: "raw" | "wagmi";
   if (typeof injected?.request === "function") {
     try {
       signature = await requestRawApproveAgentSignature(
@@ -457,14 +386,6 @@ export async function runApproveAgent(deps: {
           account: deps.address,
         } as never);
         signPath = "wagmi";
-      } else if (isChainIdMismatchError(rawErr)) {
-        signature = await requestRawSignatureWithChainSwitch(
-          injected,
-          deps.address,
-          typed,
-          walletChainHex,
-        );
-        signPath = "raw+switch";
       } else {
         throw rawErr;
       }

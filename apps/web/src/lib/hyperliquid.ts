@@ -98,6 +98,27 @@ export function signatureChainIdFor(chain: HLChain): "0xa4b1" | "0x66eee" {
   return chain === "Testnet" ? "0x66eee" : "0xa4b1";
 }
 
+/**
+ * Server venue (GET /health `hyperliquidVenue`: "mainnet" | "testnet" |
+ * "mock") to signing chain. Returns null when the venue is unknown —
+ * unreachable /health, or a value with no signing chain — so the caller
+ * refuses to sign rather than silently defaulting to Mainnet. A silent
+ * Mainnet default on testnet produces a Mainnet-labelled approval and a
+ * garbage signer (live MetaMask refusal: 'Provided chainId "42161" must
+ * match the active chainId "421614"').
+ *
+ * "mock" maps to Mainnet explicitly: the mock relay is label-blind
+ * (mock approvals are sent nowhere), so mock flows keep their prior label
+ * instead of being blocked. Pinned by `approveAgentRabby.test.ts`.
+ */
+export function venueToHLChain(
+  venue: string | null | undefined,
+): HLChain | null {
+  if (venue === "testnet") return "Testnet";
+  if (venue === "mainnet" || venue === "mock") return "Mainnet";
+  return null;
+}
+
 export type HLChain = "Mainnet" | "Testnet";
 
 export function nowNonce(): number {
