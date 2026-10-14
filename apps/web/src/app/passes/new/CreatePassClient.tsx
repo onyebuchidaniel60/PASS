@@ -29,6 +29,7 @@ import {
   ChamferPanel,
   Inline,
   PageShell,
+  Panel,
   Section,
   ShellContent,
   Stack,
@@ -54,6 +55,7 @@ import {
   LoadingBlock,
   PermissionBlock,
 } from "@/components/wave3/data";
+import { SignInXButton } from "@/components/SignInX";
 
 import { clientGet, clientPatch, clientPost } from "@/lib/client";
 import { isXConnected, type MePayload } from "@/lib/me";
@@ -72,6 +74,19 @@ const DIRECTIONS: readonly SegmentedOption<"long" | "short">[] = [
 const ENTRY_TYPES: readonly SegmentedOption<"limit" | "market">[] = [
   { value: "limit", label: "Limit" },
   { value: "market", label: "Market" },
+];
+
+/** The form's fields, as a signed-out journey preview (no values invented). */
+const CREATE_FIELDS = [
+  "Asset",
+  "Direction",
+  "Entry type",
+  "Entry price",
+  "Take profit",
+  "Stop loss",
+  "Leverage",
+  "Thesis",
+  "Expiry",
 ];
 
 /** One validation result per field. Absent key means the field is valid. */
@@ -448,14 +463,30 @@ export function CreatePassClient() {
     return (
       <PageShell>
         <ShellContent>
-          <PermissionBlock
-            reason="Publishing a Pass requires a connected X identity. Connect to author a plan."
-            action={
-              <Link href="/" className="pass-link-btn">
-                Go to the start
-              </Link>
-            }
-          />
+          <Section label="Create a Pass">
+            <Stack gap="6">
+              <Panel className="pass-onboarding-gate">
+                <h1>Author a plan.</h1>
+                <p className="pass-stale">
+                  Publishing a Pass requires a connected X identity. Connect
+                  to author a plan — nine fields, one preview, then publish.
+                </p>
+                <Inline gap="3">
+                  <SignInXButton />
+                </Inline>
+              </Panel>
+              <ol className="pass-onboarding-preview" aria-label="The Pass form fields">
+                {CREATE_FIELDS.map((f, i) => (
+                  <li key={f} className="pass-onboarding-preview-step">
+                    <span className="pass-onboarding-preview-num" aria-hidden="true">
+                      {`0${i + 1}`}
+                    </span>
+                    <span className="pass-onboarding-preview-question">{f}</span>
+                  </li>
+                ))}
+              </ol>
+            </Stack>
+          </Section>
         </ShellContent>
       </PageShell>
     );
