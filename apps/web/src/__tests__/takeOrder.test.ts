@@ -5,6 +5,7 @@ import {
   entrySourceLabel,
   executionBody,
   floorBaseSize,
+  marketablePrice,
   newClientRequestId,
   resolveEntryPrice,
 } from "../lib/take-order";
@@ -62,6 +63,47 @@ describe("D-025.2 base size floor", () => {
   });
 });
 
+describe("marketable price (market entries fill instead of resting)", () => {
+  it("prices a buy above the mid by the tolerance", () => {
+    // 113500 + 50bps = 114067.5, 0 decimals -> "114068", strictly above mid.
+    expect(
+      marketablePrice({ midPrice: "113500", isBuy: true, slippageToleranceBps: 50 }),
+    ).toBe("114068");
+  });
+
+  it("prices a sell below the mid by the tolerance", () => {
+    // 113500 - 50bps = 112932.5 -> "112932", strictly below mid.
+    expect(
+      marketablePrice({ midPrice: "113500", isBuy: false, slippageToleranceBps: 50 }),
+    ).toBe("112932");
+  });
+
+  it("keeps the mid's decimal precision", () => {
+    // 4120.55 + 50bps = 4141.15275 -> "4141.15", still above mid.
+    expect(
+      marketablePrice({ midPrice: "4120.55", isBuy: true, slippageToleranceBps: 50 }),
+    ).toBe("4141.15");
+  });
+
+  it("never lands on the mid, even when rounding would", () => {
+    // 0bps tolerance: raw equals mid, so the nudge keeps it aggressive.
+    expect(
+      marketablePrice({ midPrice: "100", isBuy: true, slippageToleranceBps: 0 }),
+    ).toBe("101");
+    expect(
+      marketablePrice({ midPrice: "100", isBuy: false, slippageToleranceBps: 0 }),
+    ).toBe("99");
+  });
+
+  it("returns null for an unusable mid", () => {
+    expect(marketablePrice({ midPrice: null, isBuy: true })).toBeNull();
+    expect(marketablePrice({ midPrice: "", isBuy: true })).toBeNull();
+    expect(marketablePrice({ midPrice: "abc", isBuy: true })).toBeNull();
+    expect(marketablePrice({ midPrice: "0", isBuy: true })).toBeNull();
+    expect(marketablePrice({ midPrice: "-5", isBuy: true })).toBeNull();
+  });
+});
+
 describe("take bracket assembly", () => {
   it("emits entry plus both exits in one normalTpsl action", () => {
     const action = buildTakeAction({
@@ -81,6 +123,30 @@ describe("take bracket assembly", () => {
     expect(sl).toMatchObject({ b: false, r: true });
     expect((tp?.t as { trigger: { tpsl: string } }).trigger.tpsl).toBe("tp");
     expect((sl?.t as { trigger: { tpsl: string } }).trigger.tpsl).toBe("sl");
+  });
+
+  it("defaults the entry to Gtc and forwards an Ioc override for market entries", () => {
+    const def = buildTakeAction({
+      assetIndex: 0,
+      isBuy: true,
+      entryPrice: "113400",
+      baseSize: "0.01102",
+      takeProfit: null,
+      stopLoss: null,
+    });
+    expect((def.orders[0]?.t as { limit: { tif: string } }).limit.tif).toBe("Gtc");
+    const ioc = buildTakeAction({
+      assetIndex: 0,
+      isBuy: true,
+      entryPrice: "114068",
+      baseSize: "0.01095",
+      takeProfit: null,
+      stopLoss: null,
+      tif: "Ioc",
+    });
+    const [entry] = ioc.orders as Array<Record<string, unknown>>;
+    expect(entry).toMatchObject({ p: "114068", r: false });
+    expect((entry?.t as { limit: { tif: string } }).limit.tif).toBe("Ioc");
   });
 });
 

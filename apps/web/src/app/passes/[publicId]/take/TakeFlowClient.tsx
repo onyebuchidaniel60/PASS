@@ -60,7 +60,11 @@ import {
 } from "@/components/wave3/data";
 
 import { NumberedEyebrow, Surface } from "@/components/reference";
-import { MAX_LEVERAGE, MIN_ORDER_VALUE_USD } from "@pass/contracts";
+import {
+  DEFAULT_SLIPPAGE_TOLERANCE_BPS,
+  MAX_LEVERAGE,
+  MIN_ORDER_VALUE_USD,
+} from "@pass/contracts";
 import { clientGet, clientPost } from "@/lib/client";
 import { fmtUsd } from "@/lib/format";
 import type { MePayload, MeTradingAccount } from "@/lib/me";
@@ -71,6 +75,7 @@ import {
   entrySourceLabel,
   executionBody,
   floorBaseSize,
+  marketablePrice,
   newClientRequestId,
   resolveEntryPrice,
 } from "@/lib/take-order";
@@ -289,15 +294,28 @@ export function TakeFlowClient({
     | { error: string } {
     if (!assetMeta) return { error: "Market data is unavailable for this asset." };
     const mid = preview?.markPrice ?? initialPass.market?.markPrice ?? null;
-    const entryPrice = resolveEntryPrice({
-      entryType: initialPass.entryType ?? "limit",
-      entryPrice: initialPass.entryPrice ?? null,
-      midPrice: mid,
-    });
+    const type = initialPass.entryType ?? "limit";
+    // A market entry is signed at the marketable price (mid ± the preview's
+    // slippage tolerance), not at the raw mid: Hyperliquid has no native
+    // market order, and a Gtc limit at mid would rest when the book moves.
+    // Display and signing share this one computation (D-025).
+    const entryPrice =
+      type === "market"
+        ? marketablePrice({
+            midPrice: mid,
+            isBuy: long,
+            slippageToleranceBps:
+              preview?.slippageToleranceBps ?? DEFAULT_SLIPPAGE_TOLERANCE_BPS,
+          })
+        : resolveEntryPrice({
+            entryType: type,
+            entryPrice: initialPass.entryPrice ?? null,
+            midPrice: mid,
+          });
     if (!entryPrice) {
       return {
         error:
-          (initialPass.entryType ?? "limit") === "limit"
+          type === "limit"
             ? "This Pass has no entry price to sign."
             : "No market price is available for a market entry right now.",
       };
@@ -368,7 +386,7 @@ export function TakeFlowClient({
           ...(row.id ? { accountId: row.id } : { accountAddress: row.accountAddress }),
           positionSize: size.trim(),
           leverage: String(leverage),
-          slippageToleranceBps: 50,
+          slippageToleranceBps: DEFAULT_SLIPPAGE_TOLERANCE_BPS,
         },
       );
       setPreview(p);
@@ -488,6 +506,10 @@ export function TakeFlowClient({
         isBuy: long,
         size: nums.baseSize,
         limitPx: nums.entryPrice,
+        // Hyperliquid has no native market order: a market entry is an Ioc
+        // limit at the marketable price, so it fills instead of resting. A
+        // limit entry stays Gtc at the Pass's price — resting is expected.
+        tif: entryType === "market" ? "Ioc" : "Gtc",
         takeProfit: initialPass.takeProfit ?? null,
         stopLoss: initialPass.stopLoss ?? null,
       });

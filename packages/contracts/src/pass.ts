@@ -9,7 +9,7 @@ import {
   PublicId,
   Uuid,
 } from "./common.js";
-import { MAX_LEVERAGE } from "./limits.js";
+import { DEFAULT_SLIPPAGE_TOLERANCE_BPS, MAX_LEVERAGE } from "./limits.js";
 
 /**
  * Leverage at the API boundary: 1–MAX_LEVERAGE. The venue rejects anything
@@ -181,7 +181,7 @@ export const ExecutionPreviewRequest = z
       .optional(),
     positionSize: z.union([DecimalString, z.number().positive()]),
     leverage: z.union([LeverageString, z.number().positive().max(MAX_LEVERAGE)]).optional(),
-    slippageToleranceBps: z.number().int().min(0).max(10_000).default(50),
+    slippageToleranceBps: z.number().int().min(0).max(10_000).default(DEFAULT_SLIPPAGE_TOLERANCE_BPS),
   })
   .strict()
   .refine((v) => (v.accountId ? !v.accountAddress : !!v.accountAddress), {

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -674,7 +674,7 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
     expect(sl).toMatchObject({ b: false, r: true });
   });
 
-  it("a market Pass signs the mid, labelled Current mid", async () => {
+  it("a market Pass signs an Ioc order at the marketable price, labelled Current mid", async () => {
     const market = { ...PASS, entryType: "market" as const };
     mockPost
       .mockResolvedValueOnce({ ...PREVIEW, markPrice: "113500", requestedEntry: null })
@@ -683,7 +683,8 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
     const user = await typeSize("1250");
     await user.click(screen.getByRole("button", { name: "Review order" }));
     await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
-    expect(screen.getByText("Current mid 113,500")).toBeInTheDocument();
+    // 113500 + 50bps = 114067.5 -> "114068": the signed price, shown before signing.
+    expect(screen.getByText("Current mid 114,068")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Authorize" }));
     await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
     await user.click(document.getElementById("consent") as HTMLInputElement);
@@ -694,7 +695,32 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
     const action = (
       body.signedPayload as { exchangeRequest: { action: { orders: Array<Record<string, unknown>> } } }
     ).exchangeRequest.action;
-    expect(action.orders[0]?.p).toBe("113500");
+    // Ioc at the aggressive price: fills instead of resting on the book.
+    expect(action.orders[0]?.p).toBe("114068");
+    expect((action.orders[0]?.t as { limit: { tif: string } }).limit.tif).toBe("Ioc");
+  });
+
+  it("a limit Pass still signs Gtc at the Pass entry price", async () => {
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ executionId: "ex-gtc", providerOrderId: "hl-13", status: "open" });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+
+    const body = executionsBody();
+    const action = (
+      body.signedPayload as { exchangeRequest: { action: { orders: Array<Record<string, unknown>> } } }
+    ).exchangeRequest.action;
+    // Resting is correct for a limit order: Gtc at the authored price.
+    expect(action.orders[0]?.p).toBe("113400");
+    expect((action.orders[0]?.t as { limit: { tif: string } }).limit.tif).toBe("Gtc");
   });
 
   it("floors the base size instead of rounding up", async () => {

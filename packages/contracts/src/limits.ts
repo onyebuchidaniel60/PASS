@@ -20,3 +20,12 @@ export const MIN_ORDER_VALUE_USD = 10;
  * are out of scope and continue to apply at the venue.
  */
 export const MAX_LEVERAGE = 10;
+
+/**
+ * Slippage tolerance for market entries, in basis points. Hyperliquid has no
+ * native market order: a market entry is a limit order with tif="Ioc" priced
+ * aggressively at mid ± this tolerance. The execution preview defaults to
+ * this value, shows it, and the Take flow signs the aggressive price derived
+ * from it — one constant, three uses, so preview and submit cannot disagree.
+ */
+export const DEFAULT_SLIPPAGE_TOLERANCE_BPS = 50;

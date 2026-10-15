@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { CreatePassRequest, ExecutionPreviewRequest } from "./pass.js";
-import { MAX_LEVERAGE, MIN_ORDER_VALUE_USD } from "./limits.js";
+import {
+  DEFAULT_SLIPPAGE_TOLERANCE_BPS,
+  MAX_LEVERAGE,
+  MIN_ORDER_VALUE_USD,
+} from "./limits.js";
 
 const BASE_PASS = {
   asset: "BTC",
@@ -25,6 +29,10 @@ describe("shared venue limits", () => {
   it("pins the $10 minimum and the 10x ceiling", () => {
     expect(MIN_ORDER_VALUE_USD).toBe(10);
     expect(MAX_LEVERAGE).toBe(10);
+  });
+
+  it("pins the 50bps market-entry slippage tolerance", () => {
+    expect(DEFAULT_SLIPPAGE_TOLERANCE_BPS).toBe(50);
   });
 
   it("rejects CreatePass leverage above 10 at the API schema", () => {
