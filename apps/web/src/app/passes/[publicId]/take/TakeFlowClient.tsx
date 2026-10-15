@@ -32,6 +32,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
 import { ConnectKitButton } from "connectkit";
+import { privateKeyToAccount } from "viem/accounts";
 
 import {
   ChamferPanel,
@@ -69,7 +70,12 @@ import { clientGet, clientPost } from "@/lib/client";
 import { fmtUsd } from "@/lib/format";
 import type { MePayload, MeTradingAccount } from "@/lib/me";
 import { hasAgentKeyInMemory, getMemoryAgentKey } from "@/lib/agent-keystore";
-import { isMemoryKeyApprovedFor, isUserRejection, runApproveAgent } from "@/lib/approve-agent";
+import {
+  isAgentActiveOnVenue,
+  isMemoryKeyApprovedFor,
+  isUserRejection,
+  runApproveAgent,
+} from "@/lib/approve-agent";
 import { buildExchangeRequest, signExchangeRequest } from "@/lib/signer";
 import {
   entrySourceLabel,
@@ -410,17 +416,49 @@ export function TakeFlowClient({
     accountAddress: string;
     agentAddress: string | null;
     venue: string | null;
-  }): Promise<boolean> {    // Skip only when the in-memory key IS the recorded agent. A bare
-    // key-exists check skips past a rotation and signs with an agent the
-    // venue never approved ("User or API Wallet … does not exist").
-    if (isMemoryKeyApprovedFor(row.agentAddress, getMemoryAgentKey())) {
-      setAgentReady(true);
-      return true;
+  }): Promise<boolean> {
+    // Live: the venue is the source of truth for approval. The DB row (or
+    // the page-load flag) may say approved while Hyperliquid has
+    // deregistered the agent — one unnamed agent per master, and the
+    // and the Hyperliquid UI's "Enable Trading" replaces ours. Verify the
+    // derived agent against the venue's agent list before skipping, every
+    // time; anything else falls through to runApproveAgent (which
+    // re-verifies and re-approves as needed).
+    if (execMode === "live") {
+      if (browserConnected && address) {
+        let derived: string | null = null;
+        const memKey = getMemoryAgentKey();
+        try {
+          derived = memKey ? privateKeyToAccount(memKey).address : null;
+        } catch {
+          derived = null;
+        }
+        if (
+          derived &&
+          (await isAgentActiveOnVenue({
+            masterAddress: address,
+            agentAddress: derived,
+            chain: venue === "testnet" ? "Testnet" : "Mainnet",
+          }))
+        ) {
+          setAgentReady(true);
+          return true;
+        }
+      }
+    } else {
+      // Mock: fully offline by design — no venue network calls. Skip only
+      // when the in-memory key IS the recorded agent. A bare key-exists
+      // check skips past a rotation and signs with an agent the venue never
+      // approved ("User or API Wallet … does not exist").
+      if (isMemoryKeyApprovedFor(row.agentAddress, getMemoryAgentKey())) {
+        setAgentReady(true);
+        return true;
+      }
+      // D-026: an anonymous approval completed earlier this page load counts —
+      // the key in memory implies it, since anonymous rows carry no agent
+      // address for this client to re-read.
+      if (agentReady && hasAgentKeyInMemory()) return true;
     }
-    // D-026: an anonymous approval completed earlier this page load counts —
-    // the key in memory implies it, since anonymous rows carry no agent
-    // address for this client to re-read.
-    if (agentReady && hasAgentKeyInMemory()) return true;
     if (!browserConnected || !address) return false;
     // D-027: approval addresses the connected wallet itself, not an owned
     // row — the address is always available, so there is no id to fail
@@ -440,6 +478,9 @@ export function TakeFlowClient({
         // approval entirely (changed wallets re-prompt).
         knownAgentAddress: row.agentAddress ?? preview?.agentAddress ?? null,
         chain: approvalChain,
+        // Live execution verifies the skip against the venue; mock stays
+        // fully offline and keeps the legacy DB-comparison skip.
+        verifyOnVenue: execMode === "live",
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
         postApprove: (walletAddress, body) =>

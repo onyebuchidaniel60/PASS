@@ -32,6 +32,7 @@ const {
   mockHasKey,
   mockMemoryKey,
   mockRunApprove,
+  mockVenueActive,
 } = vi.hoisted(() => ({
   mockPost: vi.fn(),
   mockGet: vi.fn(),
@@ -41,6 +42,7 @@ const {
   mockHasKey: vi.fn(),
   mockMemoryKey: vi.fn(),
   mockRunApprove: vi.fn(),
+  mockVenueActive: vi.fn(),
 }));
 
 vi.mock("@/lib/client", () => ({
@@ -65,13 +67,16 @@ vi.mock("@/lib/agent-keystore", () => ({
 }));
 // runApproveAgent is mocked (wallet signatures are injected in
 // approveAgent.test.ts instead); isMemoryKeyApprovedFor stays REAL so the
-// skip wiring is exercised, not stubbed out.
+// skip wiring is exercised, not stubbed out. The venue check is mocked so
+// no test touches the live Info API; its real behavior is pinned in
+// approveAgent.test.ts with a stubbed fetch.
 vi.mock("@/lib/approve-agent", async (importOriginal) => {
   const actual =
     await importOriginal<typeof ApproveAgentLib>();
   return {
     ...actual,
     runApproveAgent: (...a: unknown[]) => mockRunApprove(...a),
+    isAgentActiveOnVenue: (...a: unknown[]) => mockVenueActive(...a),
   };
 });
 
@@ -138,6 +143,7 @@ function defaultMocks() {
   mockHasKey.mockReturnValue(true);
   mockMemoryKey.mockReturnValue(AGENT_KEY);
   mockRunApprove.mockResolvedValue({ agentAddress: AGENT, persisted: true });
+  mockVenueActive.mockResolvedValue(true);
 }
 
 /**
@@ -158,6 +164,7 @@ beforeEach(() => {
   mockHasKey.mockReset();
   mockMemoryKey.mockReset();
   mockRunApprove.mockReset();
+  mockVenueActive.mockReset();
   meResponse = ME_READY;
   defaultMocks();
 });
@@ -922,6 +929,61 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
     expect(mockRunApprove.mock.calls[0]?.[0]).toMatchObject({ chain: "Testnet" });
+  });
+
+  it("skips only when the venue still lists the agent (live mode)", async () => {
+    // Live execution with the stable key in memory: the venue check runs
+    // before any skip decision. Venue confirms → no approval popup.
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path === "/api/v1/me") return Promise.resolve(meResponse);
+      if (path.includes("/api/v1/markets")) return Promise.resolve(MARKETS);
+      if (path.includes("/health")) return Promise.resolve(HEALTH_TESTNET);
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    mockVenueActive.mockResolvedValue(true);
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ executionId: "ex-v", providerOrderId: "hl-20", status: "open" });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+    expect(mockVenueActive).toHaveBeenCalledWith(
+      expect.objectContaining({ masterAddress: ADDR, chain: "Testnet" }),
+    );
+    expect(mockRunApprove).not.toHaveBeenCalled();
+  });
+
+  it("re-approves when the venue dropped the agent (live mode)", async () => {
+    // The deregistration case: DB row matches, venue does not. The flow
+    // must fall through to approval instead of signing with a dead agent.
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path === "/api/v1/me") return Promise.resolve(meResponse);
+      if (path.includes("/api/v1/markets")) return Promise.resolve(MARKETS);
+      if (path.includes("/health")) return Promise.resolve(HEALTH_TESTNET);
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    mockVenueActive.mockResolvedValue(false);
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ executionId: "ex-v2", providerOrderId: "hl-21", status: "open" });
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() => expect(mockRunApprove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
   });
 
   it("surfaces a server approval rejection verbatim, never as a cancellation", async () => {

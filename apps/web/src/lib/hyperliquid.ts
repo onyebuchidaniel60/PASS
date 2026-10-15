@@ -34,6 +34,8 @@ import { arbitrum } from "viem/chains";
 
 export const HYPERLIQUID_EXCHANGE_URL = "https://api.hyperliquid.xyz/exchange";
 export const HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info";
+/** Testnet Info API: same paths, testnet host (read-only venue agent list lives here). */
+export const HYPERLIQUID_TESTNET_INFO_URL = "https://api.hyperliquid-testnet.xyz/info";
 
 /** Arbitrum mainnet: Hyperliquid L1 signs with chain id 42161 (0xa4b1). */
 export const hyperliquidChain = {

@@ -15,6 +15,8 @@ import {
   APPROVE_AGENT_PRIMARY_TYPE,
   APPROVE_AGENT_TYPES,
   approveAgentDomain,
+  HYPERLIQUID_INFO_URL,
+  HYPERLIQUID_TESTNET_INFO_URL,
   nowNonce,
   signatureChainIdFor,
   type HLChain,
@@ -110,6 +112,103 @@ export function isMemoryKeyApprovedFor(
       recordedAgent.toLowerCase()
     );
   } catch {
+    return false;
+  }
+}
+
+/**
+ * One entry of the venue's agent list (Info API `extraAgents`).
+ *
+ * Verified against the official Python SDK (`Info.extra_agents` posts
+ * `{type: "extraAgents", user}` and returns `[{name, address, validUntil}]`)
+ * and the published Info API references: `validUntil` is a millisecond
+ * timestamp. Hyperliquid drops deregistered agents from the list, so
+ * presence is the approval signal and the timestamp only gates time-boxed
+ * approvals; a missing or zero timestamp reads as non-expiring.
+ */
+export interface VenueAgent {
+  address: string;
+  name?: string | null;
+  validUntil?: number | null;
+}
+
+/** Read-only agent list for a master account. Throws on transport or shape errors. */
+export async function listVenueAgents(params: {
+  masterAddress: string;
+  chain?: HLChain;
+  fetchImpl?: typeof fetch;
+}): Promise<VenueAgent[]> {
+  const infoUrl =
+    params.chain === "Testnet" ? HYPERLIQUID_TESTNET_INFO_URL : HYPERLIQUID_INFO_URL;
+  const res = await (params.fetchImpl ?? fetch)(infoUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "extraAgents", user: params.masterAddress }),
+  });
+  if (!res.ok) {
+    throw new Error(`Hyperliquid Info API answered ${res.status} for extraAgents.`);
+  }
+  const body = (await res.json()) as unknown;
+  if (!Array.isArray(body)) {
+    throw new Error("Hyperliquid Info API answered extraAgents with a non-list.");
+  }
+  return body
+    .filter(
+      (e): e is Record<string, unknown> =>
+        typeof e === "object" && e !== null && typeof (e as { address?: unknown }).address === "string",
+    )
+    .map((e) => ({
+      address: e.address as string,
+      name: typeof e.name === "string" ? (e.name as string) : null,
+      validUntil:
+        typeof e.validUntil === "number" && Number.isFinite(e.validUntil)
+          ? (e.validUntil as number)
+          : null,
+    }));
+}
+
+/**
+ * Venue-checked approval state. True only when the venue's own agent list
+ * contains the agent AND it has not expired.
+ *
+ * Hyperliquid permits one unnamed agent per master account: the
+ * Hyperliquid UI's "Enable Trading" deregisters PASS's agent, while PASS's
+ * DB row still says approved. The row is a cache, never the source of
+ * truth — this check runs before every skip decision.
+ *
+ * Never throws: any failure (network, shape, unknown) returns false so the
+ * caller falls through to approval. Re-approving a live agent is one extra
+ * popup; signing with a dead agent is a rejected order.
+ */
+export async function isAgentActiveOnVenue(params: {
+  masterAddress: string;
+  agentAddress: string;
+  chain?: HLChain;
+  fetchImpl?: typeof fetch;
+  now?: number;
+}): Promise<boolean> {
+  try {
+    const agents = await listVenueAgents({
+      masterAddress: params.masterAddress,
+      chain: params.chain,
+      fetchImpl: params.fetchImpl,
+    });
+    const found = agents.find(
+      (a) => a.address.toLowerCase() === params.agentAddress.toLowerCase(),
+    );
+    if (!found) return false;
+    if (
+      found.validUntil === null ||
+      found.validUntil === undefined ||
+      found.validUntil === 0
+    )
+      return true;
+    return found.validUntil > (params.now ?? Date.now());
+  } catch (err) {
+    console.warn(
+      "[approveAgent] venue agent check failed; falling through to approval:",
+      err instanceof Error ? err.message : String(err),
+    );
     return false;
   }
 }
@@ -253,6 +352,14 @@ export async function runApproveAgent(deps: {
     accountId: string,
     body: ApproveAgentPostBody,
   ) => Promise<{ agentAddress?: string }>;
+  /**
+   * Venue-check the skip (default true). False preserves the legacy
+   * DB-comparison skip for callers that must stay fully offline (mock
+   * execution mode makes no venue network calls).
+   */
+  verifyOnVenue?: boolean;
+  /** Injected Info API fetch for tests. Defaults to the global fetch. */
+  fetchImpl?: typeof fetch;
 }): Promise<{
   agentAddress: `0x${string}`;
   persisted: boolean;
@@ -293,14 +400,32 @@ export async function runApproveAgent(deps: {
     agentAddress = fresh.agentAddress;
   }
 
-  // Already approved: the venue knows exactly the agent this client would
-  // sign with, and its key is in memory. Skip — no popup, no POST.
+  // Already approved: the client would sign with exactly the recorded
+  // agent, and its key is in memory. The recorded address alone is NOT
+  // enough — the venue may have deregistered it (one unnamed agent per
+  // master: the Hyperliquid UI's "Enable Trading" replaces ours). Confirm
+  // against the venue's agent list first; anything else falls through to
+  // re-approval below. Skip — no popup, no POST — only on venue proof.
   if (
     !freshKey &&
     deps.knownAgentAddress &&
     deps.knownAgentAddress.toLowerCase() === agentAddress.toLowerCase()
   ) {
-    return { agentAddress, persisted: true, skipped: true };
+    if (deps.verifyOnVenue === false) {
+      return { agentAddress, persisted: true, skipped: true };
+    }
+    const active = await isAgentActiveOnVenue({
+      masterAddress: deps.address,
+      agentAddress,
+      chain: deps.chain,
+      fetchImpl: deps.fetchImpl,
+    });
+    if (active) {
+      return { agentAddress, persisted: true, skipped: true };
+    }
+    console.warn(
+      "[approveAgent] agent not active on the venue; re-approving instead of skipping.",
+    );
   }
 
   const nonce = nowNonce();

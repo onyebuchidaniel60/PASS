@@ -8,6 +8,7 @@ import { forgetAgentKey, hasAgentKeyInMemory } from "../lib/agent-keystore";
 import { clearSessionKeys } from "../lib/agent-keystore";
 import {
   buildApproveAgentTypedData,
+  isAgentActiveOnVenue,
   isMemoryKeyApprovedFor,
   isUserRejection,
   runApproveAgent,
@@ -171,12 +172,14 @@ describe("runApproveAgent session behaviour (popup table)", () => {
 
     // Same session, venue already knows this exact agent: derivation comes
     // from the session cache and approval is skipped — no popup at all.
+    // The skip is venue-checked: the stubbed agent list contains the agent.
     const second = await runApproveAgent({
       ...deps(),
       signMessageAsync: d.signMessageAsync,
       signTypedDataAsync: d.signTypedDataAsync,
       postApprove: d.postApprove,
       knownAgentAddress: first.agentAddress,
+      fetchImpl: venueWith([first.agentAddress]),
     });
     expect(second.skipped).toBe(true);
     expect(second.agentAddress).toBe(first.agentAddress);
@@ -205,6 +208,238 @@ describe("runApproveAgent session behaviour (popup table)", () => {
     expect(d.signMessageAsync).toHaveBeenCalledTimes(2);
     expect(after.skipped).toBeUndefined();
     expect(d.postApprove).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * Venue-checked skip: the DB row saying "approved" is not enough, because
+ * Hyperliquid permits one unnamed agent per master and the Hyperliquid UI's
+ * "Enable Trading" deregisters ours. The skip fires only on venue proof.
+ *
+ * fetchImpl is stubbed throughout — no test here touches the network.
+ */
+function venueWith(
+  addrs: string[],
+  validUntil: number | null = Date.now() + 3_600_000,
+) {
+  return vi.fn(async () =>
+    ({
+      ok: true,
+      json: async () =>
+        addrs.map((address) => ({ address, name: "", validUntil })),
+    }) as unknown as Response,
+  );
+}
+
+describe("isAgentActiveOnVenue", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  const MASTER = "0x9999999999999999999999999999999999999999";
+
+  it("is true when the venue lists the agent unexpired", async () => {
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT,
+        fetchImpl: venueWith([AGENT]),
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("matches addresses case-insensitively", async () => {
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT.toUpperCase(),
+        fetchImpl: venueWith([AGENT.toLowerCase()]),
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("treats a missing or zero validUntil as non-expiring", async () => {
+    const missing = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          json: async () => [{ address: AGENT, name: "" }],
+        }) as unknown as Response,
+    );
+    await expect(
+      isAgentActiveOnVenue({ masterAddress: MASTER, agentAddress: AGENT, fetchImpl: missing }),
+    ).resolves.toBe(true);
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT,
+        fetchImpl: venueWith([AGENT], 0),
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("is false when the agent expired", async () => {
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT,
+        fetchImpl: venueWith([AGENT], Date.now() - 1_000),
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("is false when the venue list does not contain the agent", async () => {
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT,
+        fetchImpl: venueWith(["0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]),
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("is false — never throws — when the Info API errors", async () => {
+    const down = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    await expect(
+      isAgentActiveOnVenue({ masterAddress: MASTER, agentAddress: AGENT, fetchImpl: down }),
+    ).resolves.toBe(false);
+    const badStatus = vi.fn(
+      async () => ({ ok: false, status: 503 }) as unknown as Response,
+    );
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT,
+        fetchImpl: badStatus as never,
+      }),
+    ).resolves.toBe(false);
+    const badShape = vi.fn(
+      async () => ({ ok: true, json: async () => ({}) }) as unknown as Response,
+    );
+    await expect(
+      isAgentActiveOnVenue({
+        masterAddress: MASTER,
+        agentAddress: AGENT,
+        fetchImpl: badShape as never,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it("posts extraAgents for the master account to the chain's Info URL", async () => {
+    const fetchImpl = venueWith([AGENT]);
+    await isAgentActiveOnVenue({
+      masterAddress: MASTER,
+      agentAddress: AGENT,
+      chain: "Testnet",
+      fetchImpl,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
+      string,
+      { body?: string },
+    ];
+    expect(url).toBe("https://api.hyperliquid-testnet.xyz/info");
+    expect(JSON.parse(init.body ?? "{}")).toEqual({ type: "extraAgents", user: MASTER });
+  });
+
+  it("defaults to the mainnet Info URL", async () => {
+    const fetchImpl = venueWith([AGENT]);
+    await isAgentActiveOnVenue({ masterAddress: MASTER, agentAddress: AGENT, fetchImpl });
+    const [url] = fetchImpl.mock.calls[0] as unknown as [string];
+    expect(url).toBe("https://api.hyperliquid.xyz/info");
+  });
+});
+
+describe("runApproveAgent venue-checked skip", () => {
+  beforeEach(async () => {
+    await forgetAgentKey();
+    (window as unknown as { ethereum?: unknown }).ethereum = {
+      selectedAddress: ADDR,
+    };
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { ethereum?: unknown }).ethereum;
+  });
+
+  function approvedDeps(knownAgentAddress: string) {
+    return {
+      accountId: "acct-1",
+      address: ADDR,
+      signMessageAsync: vi.fn(async () => "0xderivationsecret"),
+      signTypedDataAsync: vi.fn(async () => FLAT_SIG),
+      postApprove: vi.fn(async () => ({})),
+      knownAgentAddress,
+    };
+  }
+
+  it("fires approval when the venue list does NOT contain the derived agent", async () => {
+    // The deregistration case: the DB row matches, but the venue dropped
+    // the agent. Old code skipped here and signed with a dead agent.
+    const d = approvedDeps(AGENT);
+    // Seed the stable key so the derived agent equals the known address:
+    // restore path needs the derivation secret + a stored key. Instead,
+    // approve once without a known address, then re-run with it.
+    const first = await runApproveAgent({ ...d, knownAgentAddress: undefined });
+    const second = await runApproveAgent({
+      ...approvedDeps(first.agentAddress),
+      signMessageAsync: d.signMessageAsync,
+      fetchImpl: venueWith(["0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]),
+    });
+    expect(second.skipped).toBeUndefined();
+    expect(second.agentAddress).toBe(first.agentAddress);
+  });
+
+  it("skips when the venue list DOES contain the agent", async () => {
+    const d = approvedDeps("0xunused");
+    const first = await runApproveAgent({ ...d, knownAgentAddress: undefined });
+    const signTypedDataAsync = vi.fn(async () => FLAT_SIG);
+    const postApprove = vi.fn(async () => ({}));
+    const second = await runApproveAgent({
+      accountId: "acct-1",
+      address: ADDR,
+      signMessageAsync: d.signMessageAsync,
+      signTypedDataAsync,
+      postApprove,
+      knownAgentAddress: first.agentAddress,
+      fetchImpl: venueWith([first.agentAddress]),
+    });
+    expect(second.skipped).toBe(true);
+    expect(signTypedDataAsync).not.toHaveBeenCalled();
+    expect(postApprove).not.toHaveBeenCalled();
+  });
+
+  it("fires approval when the Info API errors", async () => {
+    const d = approvedDeps("0xunused");
+    const first = await runApproveAgent({ ...d, knownAgentAddress: undefined });
+    const down = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    const second = await runApproveAgent({
+      ...approvedDeps(first.agentAddress),
+      fetchImpl: down,
+    });
+    // Safe direction: re-approve rather than sign with a maybe-dead agent.
+    expect(second.skipped).toBeUndefined();
+  });
+
+  it("keeps the legacy DB-comparison skip when verifyOnVenue is false", async () => {
+    const d = approvedDeps("0xunused");
+    const first = await runApproveAgent({ ...d, knownAgentAddress: undefined });
+    const fetchImpl = vi.fn(async (): Promise<Response> => {
+      throw new Error("must stay offline in mock mode");
+    });
+    const second = await runApproveAgent({
+      ...approvedDeps(first.agentAddress),
+      verifyOnVenue: false,
+      fetchImpl,
+    });
+    expect(second.skipped).toBe(true);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
 
