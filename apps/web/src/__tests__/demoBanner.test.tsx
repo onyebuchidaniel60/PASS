@@ -4,13 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DemoBanner } from "../components/DemoBanner";
 
 /**
- * The banner previously rendered unconditionally and claimed "provider
- * integrations are running in mock mode". Once Ethos and Hyperliquid reads went
- * live that sentence was simply false, and it said nothing about the surface
- * that still mattered: order execution.
+ * The banner names the venue always, names which surfaces are not live, and
+ * never uses simulation language: orders execute on Hyperliquid and no
+ * surface is labelled as a demo.
  *
- * The rule that matters most is the last one: the banner must never let a
- * reader conclude that taking a Pass is real while execution is mock.
+ * The rule that matters most: the banner must never let a reader conclude
+ * that taking a Pass is live while execution is not.
  */
 
 function mockHealth(body: unknown, ok = true) {
@@ -34,14 +33,28 @@ afterEach(() => {
 
 describe("DemoBanner reflects the real per-surface modes", () => {
   it("renders nothing before /health answers", () => {
-    // Otherwise every screen load flashes "demo mode", including on a fully
-    // live deployment.
     vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
     const { container } = render(<DemoBanner />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing when every surface is live", async () => {
+  it("names the venue when every surface is live", async () => {
+    mockHealth({
+      modes: {
+        hyperliquidReads: "live",
+        hyperliquidExecution: "live",
+        ethos: "live",
+        x: "live",
+        database: "live",
+      },
+      hyperliquidVenue: "testnet",
+    });
+    render(<DemoBanner />);
+    // The persistent indicator — and the only thing rendered when live.
+    expect(await screen.findByText("Hyperliquid Testnet")).toBeInTheDocument();
+  });
+
+  it("renders nothing when live but the venue is unknown", async () => {
     mockHealth({
       modes: {
         hyperliquidReads: "live",
@@ -53,11 +66,10 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     });
     const { container } = render(<DemoBanner />);
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(container).toBeEmptyDOMElement();
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  it("names the simulated surfaces when reads are live but execution is not", async () => {
-    // This is the current production state.
+  it("names the surfaces that are not live when reads are live but execution is not", async () => {
     mockHealth({
       modes: {
         hyperliquidReads: "live",
@@ -65,19 +77,22 @@ describe("DemoBanner reflects the real per-surface modes", () => {
         ethos: "live",
         x: "mock",
       },
+      hyperliquidVenue: "testnet",
     });
     render(<DemoBanner />);
 
     const banner = await screen.findByRole("status");
-    // Live surfaces are NOT named as simulated.
-    expect(banner.textContent).not.toMatch(/simulated[^.]*market data/i);
-    expect(banner.textContent).not.toMatch(/simulated[^.]*ethos/i);
-    // The mock ones are.
+    // Live surfaces are NOT named as not-live.
+    expect(banner.textContent).not.toMatch(/not live[^.]*market data/i);
+    expect(banner.textContent).not.toMatch(/not live[^.]*ethos/i);
+    // The non-live ones are.
     expect(banner.textContent).toMatch(/order execution/);
     expect(banner.textContent).toMatch(/\bx identity\b/);
+    // The venue indicator still shows.
+    expect(banner.textContent).toMatch(/Hyperliquid Testnet/);
   });
 
-  it("says the deployment is partly live, not fully demo", async () => {
+  it("says the deployment is partly live, not fully offline", async () => {
     mockHealth({
       modes: {
         hyperliquidReads: "live",
@@ -89,25 +104,21 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     render(<DemoBanner />);
     const banner = await screen.findByRole("status");
     expect(banner.textContent).toMatch(/Partly live/);
-    expect(banner.textContent).not.toMatch(/Demo mode\./);
+    expect(banner.textContent).not.toMatch(/Offline mode\./);
   });
 
-  it("states plainly that execution is simulated and orders are not placed", async () => {
+  it("states plainly that execution is paused and orders are not placed", async () => {
     mockHealth({
       modes: { hyperliquidReads: "live", hyperliquidExecution: "mock", ethos: "live", x: "mock" },
     });
     render(<DemoBanner />);
     // The most important sentences on the screen: a reader must never
-    // think a Take would move real money, and must know the live path is
-    // one flag away rather than a rebuild.
+    // think a Take would move money while execution is not live.
     expect(
-      await screen.findByText(/Hyperliquid execution is simulated/i),
+      await screen.findByText(/Hyperliquid execution is paused/i),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Market data is live/i)).toBeInTheDocument();
     expect(await screen.findByText(/Orders are not placed/i)).toBeInTheDocument();
-    expect(
-      await screen.findByText(/one environment flag away/i),
-    ).toBeInTheDocument();
   });
 
   it("omits the execution sentence when execution really is live", async () => {
@@ -121,8 +132,8 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     });
     render(<DemoBanner />);
     await screen.findByRole("status");
-    expect(screen.queryByText(/Hyperliquid execution is simulated/i)).toBeNull();
-    // Ethos alone is still demo, so the banner stays.
+    expect(screen.queryByText(/Hyperliquid execution is paused/i)).toBeNull();
+    // Ethos alone is still not live, so the banner stays.
     expect(screen.getByRole("status").textContent).toMatch(/ethos reputation/);
   });
 
@@ -131,14 +142,30 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     mockHealth({ modes: { hyperliquid: "mock", ethos: "mock", x: "mock" } });
     render(<DemoBanner />);
     const banner = await screen.findByRole("status");
-    expect(banner.textContent).toMatch(/Demo mode\./);
+    expect(banner.textContent).toMatch(/Offline mode\./);
     expect(banner.textContent).toMatch(/order execution/);
     expect(banner.textContent).toMatch(/market data/);
   });
 
+  it("never renders simulation language", async () => {
+    mockHealth({
+      modes: {
+        hyperliquidReads: "live",
+        hyperliquidExecution: "mock",
+        ethos: "live",
+        x: "mock",
+      },
+      hyperliquidVenue: "testnet",
+    });
+    render(<DemoBanner />);
+    const banner = await screen.findByRole("status");
+    const text = banner.textContent ?? "";
+    for (const w of ["SIMULATED", "simulated", "mock", "Mock", "demo", "Demo"]) {
+      expect(text, w).not.toContain(w);
+    }
+  });
+
   it("says the mode is unknown when /health is unreachable", async () => {
-    // Claiming "live" after a failed fetch would be the dangerous lie, and
-    // claiming "demo" would be untrue. Only "unknown" is honest.
     vi.stubGlobal(
       "fetch",
       vi.fn().mockRejectedValue(new Error("network down")),

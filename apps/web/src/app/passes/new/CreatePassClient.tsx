@@ -57,7 +57,9 @@ import {
 } from "@/components/wave3/data";
 import { SignInXButton } from "@/components/SignInX";
 
+import { MAX_LEVERAGE } from "@pass/contracts";
 import { clientGet, clientPatch, clientPost } from "@/lib/client";
+import { formatDateTime } from "@/lib/format";
 import { isXConnected, type MePayload } from "@/lib/me";
 
 interface Market {
@@ -149,9 +151,12 @@ export function validate(p: {
     }
   }
 
+  // Effective ceiling: the venue's per-asset limit, never above the
+  // product-wide MAX_LEVERAGE (single source: @pass/contracts).
   const market = p.markets.find((m) => m.asset === p.asset);
-  if (market && p.leverage > market.maxLeverage) {
-    e.leverage = `Maximum leverage for ${p.asset} is ${market.maxLeverage}x.`;
+  const cap = Math.min(market?.maxLeverage ?? MAX_LEVERAGE, MAX_LEVERAGE);
+  if (p.leverage > cap) {
+    e.leverage = `Maximum leverage for ${p.asset} is ${cap}x.`;
   }
 
   if (!p.expiry) {
@@ -306,8 +311,11 @@ export function CreatePassClient() {
       direction,
       entryType,
       // A market Pass must not carry an entry price, and "" is not a decimal
-      // string at the API boundary — empty inputs cross as null.
-      entryPrice: emptyToNull(entry),
+      // string at the API boundary — empty inputs cross as null. A market
+      // entry is derived from the live market at execution time (D-025.1),
+      // never typed by the author, so a stale typed value must not leak
+      // through when the author switches limit -> market.
+      entryPrice: entryType === "market" ? null : emptyToNull(entry),
       stopLoss: emptyToNull(sl),
       takeProfit: emptyToNull(tp),
       leverage: String(leverage),
@@ -593,24 +601,28 @@ export function CreatePassClient() {
               )}
             </Field>
 
-            <Field
-              label="Entry price"
-              required={entryType === "limit"}
-              error={errors.entry}
-              helper={entryType === "market" ? "Market entry uses the current price." : undefined}
-            >
-              {({ controlId, describedBy }) => (
-                <NumericInput
-                  id={controlId}
-                  value={entry}
-                  onChange={setEntry}
-                  describedBy={describedBy}
-                  invalid={Boolean(errors.entry)}
-                  placeholder="0.00"
-                  suffix="USDC"
-                />
-              )}
-            </Field>
+            {/* Market entries use the live market at execution time
+                (D-025.1) — the author never types a price, so no input
+                renders. Limit entries keep the input as-is. */}
+            {entryType === "limit" ? (
+              <Field label="Entry price" required error={errors.entry}>
+                {({ controlId, describedBy }) => (
+                  <NumericInput
+                    id={controlId}
+                    value={entry}
+                    onChange={setEntry}
+                    describedBy={describedBy}
+                    invalid={Boolean(errors.entry)}
+                    placeholder="0.00"
+                    suffix="USDC"
+                  />
+                )}
+              </Field>
+            ) : (
+              <p className="pass-stale" role="note">
+                Market entry uses the current market price at execution time.
+              </p>
+            )}
 
             <Field label="Stop loss" required error={errors.sl}>
               {({ controlId, describedBy }) => (
@@ -647,7 +659,7 @@ export function CreatePassClient() {
                   value={leverage}
                   onChange={setLeverage}
                   min={1}
-                  max={20}
+                  max={MAX_LEVERAGE}
                   describedBy={describedBy}
                 />
               )}
@@ -677,6 +689,13 @@ export function CreatePassClient() {
                 />
               )}
             </Field>
+            {/* Display only: the raw input value above is what the API
+                receives. This line reads it back human-readably. */}
+            {expiry && !Number.isNaN(new Date(expiry).getTime()) ? (
+              <p className="pass-stale" role="note">
+                Expires {formatDateTime(expiry)} (your local time).
+              </p>
+            ) : null}
           </Stack>
 
           {/* §10.5 — Publish is disabled WITH AN INLINE REASON until valid. */}

@@ -1,0 +1,12 @@
+-- DOWN migration for 0008_d027_wallet_execution_device.sql (D-027).
+--
+-- NOT auto-applied: the migration runner (packages/db/src/migrate.ts)
+-- executes only top-level *.sql files; this file lives in down/ precisely
+-- so it never runs unattended.
+--
+-- Re-applies NOT NULL to trading_accounts.user_id. This FAILS while any
+-- NULL user_id row exists (anonymous/linker-unknown wallets, which D-027
+-- permits), which is the correct rollback semantic: delete or reassign
+-- those rows first, then run this statement manually. No data is deleted
+-- by this statement itself.
+ALTER TABLE trading_accounts ALTER COLUMN user_id SET NOT NULL;

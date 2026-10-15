@@ -48,6 +48,25 @@ export function fmtCompact(v: string | number | null | undefined): string {
   return n.toLocaleString("en-US");
 }
 
+/**
+ * Human-readable absolute date and time ("Oct 15, 2026, 2:30 PM").
+ * Same locale-aware `toLocaleString("en-US", …)` convention as the number
+ * formatters above — no new date library. Display only; the underlying
+ * value sent to the API is unchanged.
+ */
+export function formatDateTime(v: string | null | undefined): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function fmtUtc(v: string | null | undefined): string {
   if (!v) return "—";
   const d = new Date(v);

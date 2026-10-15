@@ -20,6 +20,7 @@ const PASSES = [
     asset: "BTC",
     direction: "long",
     status: "active",
+    entryType: "limit",
     entryPrice: "113400",
     takeProfit: "116000",
     stopLoss: "111900",
@@ -31,6 +32,7 @@ const PASSES = [
     asset: "ETH",
     direction: "short",
     status: "open",
+    entryType: "market",
     entryPrice: "4120.55",
     takeProfit: "3950",
     stopLoss: "4280",
@@ -74,6 +76,14 @@ describe("Discover list (§10.2 item 1)", () => {
     // asserts presence without conflating the two.
     expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Open").length).toBeGreaterThan(0);
+  });
+
+  it("chips each card Market or Limit from the Pass's own order type", async () => {
+    await renderDiscover();
+    await waitFor(() => expect(screen.getByText("BTC LONG")).toBeInTheDocument());
+    // Limit Pass chips Limit, market Pass chips Market — read, never inferred.
+    expect(screen.getByText("BTC LONG").closest("article")?.textContent).toMatch(/Limit/);
+    expect(screen.getByText("ETH SHORT").closest("article")?.textContent).toMatch(/Market/);
   });
 
   it("shows entry, TP and SL as labelled metric rows", async () => {

@@ -80,6 +80,13 @@ describe("validatePlan", () => {
     expect(f[0]).toMatchObject({ field: "asset", code: "INVALID_ASSET" });
   });
 
+  it("caps leverage at the 10x product ceiling", () => {
+    const over = validatePlan({ ...base, leverage: "11" }, { now: NOW });
+    expect(over).toHaveLength(1);
+    expect(over[0]).toMatchObject({ field: "leverage", code: "INVALID_LEVERAGE" });
+    expect(validatePlan({ ...base, leverage: "10" }, { now: NOW })).toHaveLength(0);
+  });
+
   it("only ever emits canonical error codes", () => {
     const allowed = new Set([
       "INVALID_ASSET",

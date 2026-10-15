@@ -540,3 +540,24 @@ sign-in; taking a Pass does not.
 - If a signed-out Taker later signs in, their prior anonymous
   executions do not retroactively attach to their account. Deferred
   as a possible future feature.
+
+## D-027 — Wallets are execution-only, not owned
+
+Supersedes the ownership check in the approve-agent path. Refines D-023 and
+completes D-026.
+
+- A wallet is an execution device. A user may connect any wallet, at any
+  time, signed in or signed out.
+- PASS does not associate a wallet with an account. There is no "your
+  wallet" on PASS. There is a wallet you are currently using.
+- trading_accounts is keyed by (provider, account_address). user_id is
+  nullable and informational: it records who first linked the wallet, and
+  never gates an action.
+- Agent approval authority is the master wallet signature. Any session, or
+  none, may POST an approveAgent for any wallet. The signature is the proof.
+- Executions reference account_address, never user_id. "My executions"
+  is a query by wallet address, not by ownership.
+- A signed-in user may view executions for wallets they have connected.
+  That is a query concern. It is not a permission.
+- A signed-out user may Take a Pass with any connected wallet. D-026
+  becomes fully supported, not partially.

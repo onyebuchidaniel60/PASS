@@ -15,7 +15,10 @@ import {
   APPROVE_AGENT_PRIMARY_TYPE,
   APPROVE_AGENT_TYPES,
   approveAgentDomain,
+  HYPERLIQUID_INFO_URL,
+  HYPERLIQUID_TESTNET_INFO_URL,
   nowNonce,
+  signatureChainIdFor,
   type HLChain,
 } from "./hyperliquid";
 
@@ -114,6 +117,103 @@ export function isMemoryKeyApprovedFor(
 }
 
 /**
+ * One entry of the venue's agent list (Info API `extraAgents`).
+ *
+ * Verified against the official Python SDK (`Info.extra_agents` posts
+ * `{type: "extraAgents", user}` and returns `[{name, address, validUntil}]`)
+ * and the published Info API references: `validUntil` is a millisecond
+ * timestamp. Hyperliquid drops deregistered agents from the list, so
+ * presence is the approval signal and the timestamp only gates time-boxed
+ * approvals; a missing or zero timestamp reads as non-expiring.
+ */
+export interface VenueAgent {
+  address: string;
+  name?: string | null;
+  validUntil?: number | null;
+}
+
+/** Read-only agent list for a master account. Throws on transport or shape errors. */
+export async function listVenueAgents(params: {
+  masterAddress: string;
+  chain?: HLChain;
+  fetchImpl?: typeof fetch;
+}): Promise<VenueAgent[]> {
+  const infoUrl =
+    params.chain === "Testnet" ? HYPERLIQUID_TESTNET_INFO_URL : HYPERLIQUID_INFO_URL;
+  const res = await (params.fetchImpl ?? fetch)(infoUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "extraAgents", user: params.masterAddress }),
+  });
+  if (!res.ok) {
+    throw new Error(`Hyperliquid Info API answered ${res.status} for extraAgents.`);
+  }
+  const body = (await res.json()) as unknown;
+  if (!Array.isArray(body)) {
+    throw new Error("Hyperliquid Info API answered extraAgents with a non-list.");
+  }
+  return body
+    .filter(
+      (e): e is Record<string, unknown> =>
+        typeof e === "object" && e !== null && typeof (e as { address?: unknown }).address === "string",
+    )
+    .map((e) => ({
+      address: e.address as string,
+      name: typeof e.name === "string" ? (e.name as string) : null,
+      validUntil:
+        typeof e.validUntil === "number" && Number.isFinite(e.validUntil)
+          ? (e.validUntil as number)
+          : null,
+    }));
+}
+
+/**
+ * Venue-checked approval state. True only when the venue's own agent list
+ * contains the agent AND it has not expired.
+ *
+ * Hyperliquid permits one unnamed agent per master account: the
+ * Hyperliquid UI's "Enable Trading" deregisters PASS's agent, while PASS's
+ * DB row still says approved. The row is a cache, never the source of
+ * truth — this check runs before every skip decision.
+ *
+ * Never throws: any failure (network, shape, unknown) returns false so the
+ * caller falls through to approval. Re-approving a live agent is one extra
+ * popup; signing with a dead agent is a rejected order.
+ */
+export async function isAgentActiveOnVenue(params: {
+  masterAddress: string;
+  agentAddress: string;
+  chain?: HLChain;
+  fetchImpl?: typeof fetch;
+  now?: number;
+}): Promise<boolean> {
+  try {
+    const agents = await listVenueAgents({
+      masterAddress: params.masterAddress,
+      chain: params.chain,
+      fetchImpl: params.fetchImpl,
+    });
+    const found = agents.find(
+      (a) => a.address.toLowerCase() === params.agentAddress.toLowerCase(),
+    );
+    if (!found) return false;
+    if (
+      found.validUntil === null ||
+      found.validUntil === undefined ||
+      found.validUntil === 0
+    )
+      return true;
+    return found.validUntil > (params.now ?? Date.now());
+  } catch (err) {
+    console.warn(
+      "[approveAgent] venue agent check failed; falling through to approval:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return false;
+  }
+}
+
+/**
  * True only when the WALLET reports the user cancelled (EIP-1193 4001 /
  * UserRejectedRequestError). Anything else — a server rejection, a network
  * failure, a malformed signature — is a REAL error and must surface
@@ -129,6 +229,97 @@ export function isUserRejection(err: unknown): boolean {
   return /user rejected/i.test(e.message ?? "");
 }
 
+/** True when the provider does not implement the raw signing method. */
+function isMethodNotSupportedError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: number | string; message?: string };
+  if (e.code === -32601 || e.code === -32602 || e.code === 4200) return true;
+  return /method .*not (found|supported|implemented)|not support.*method|unknown method/i.test(
+    e.message ?? "",
+  );
+}
+
+interface Eip1193Provider {
+  selectedAddress?: string;
+  chainId?: string | number | null;
+  networkVersion?: string | null;
+  request?: (args: {
+    method: string;
+    params?: unknown;
+  }) => Promise<unknown>;
+  providers?: Array<{
+    selectedAddress?: string;
+    _state?: { accounts?: string[] };
+  }>;
+}
+
+function readInjectedProvider(): Eip1193Provider | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { ethereum?: Eip1193Provider }).ethereum;
+}
+
+/** Synchronous wallet-chain read (hex preferred, decimal tolerated). */
+function readWalletChainSync(
+  injected: Eip1193Provider | undefined,
+): string | null {
+  const raw = injected?.chainId ?? injected?.networkVersion ?? null;
+  if (raw === null || raw === undefined) return null;
+  return String(raw);
+}
+
+function chainIdToDecimal(value: string | null): number | null {
+  if (!value) return null;
+  const s = value.trim().toLowerCase();
+  const n = s.startsWith("0x")
+    ? Number.parseInt(s, 16)
+    : Number.parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Best-effort live wallet chain via eth_chainId; null when unavailable. */
+async function readWalletChainLive(
+  injected: Eip1193Provider | undefined,
+): Promise<string | null> {
+  if (typeof injected?.request !== "function") return null;
+  try {
+    const res = await injected.request({ method: "eth_chainId" });
+    return typeof res === "string" ? res : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Attempt A — raw eth_signTypedData_v4.
+ *
+ * Calls window.ethereum.request directly instead of the wagmi
+ * signTypedDataAsync wrapper, bypassing any wrapper-level chainId guard.
+ * Rabby shows the typed-data domain to the user and signs it.
+ */
+async function requestRawApproveAgentSignature(
+  injected: Eip1193Provider,
+  address: `0x${string}`,
+  typed: ReturnType<typeof buildApproveAgentTypedData>,
+): Promise<`0x${string}`> {
+  // JSON cannot serialise bigint: the nonce fits in a double (Date.now()),
+  // so it travels as a number. The domain chainId stays numeric.
+  const jsonCompatible = JSON.parse(
+    JSON.stringify(typed, (_key, value: unknown) =>
+      typeof value === "bigint" ? Number(value) : value,
+    ),
+  );
+  const res = await injected.request!({
+    method: "eth_signTypedData_v4",
+    params: [address, JSON.stringify(jsonCompatible)],
+  });
+  if (typeof res !== "string" || !res.startsWith("0x")) {
+    throw new Error(
+      "Wallet returned an unusable approveAgent signature.",
+    );
+  }
+  return res as `0x${string}`;
+}
+
 export interface ApproveAgentPostBody {
   agentAddress: `0x${string}`;
   nonce: number;
@@ -136,6 +327,11 @@ export interface ApproveAgentPostBody {
 }
 
 export async function runApproveAgent(deps: {
+  /**
+   * Routing token handed to postApprove as its first argument. D-027:
+   * callers pass the wallet address (the D-027 address-keyed route);
+   * it is never interpreted here beyond forwarding.
+   */
   accountId: string;
   address: `0x${string}`;
   /** Venue-approved agent this client knows about (/me row or preview). */
@@ -156,6 +352,14 @@ export async function runApproveAgent(deps: {
     accountId: string,
     body: ApproveAgentPostBody,
   ) => Promise<{ agentAddress?: string }>;
+  /**
+   * Venue-check the skip (default true). False preserves the legacy
+   * DB-comparison skip for callers that must stay fully offline (mock
+   * execution mode makes no venue network calls).
+   */
+  verifyOnVenue?: boolean;
+  /** Injected Info API fetch for tests. Defaults to the global fetch. */
+  fetchImpl?: typeof fetch;
 }): Promise<{
   agentAddress: `0x${string}`;
   persisted: boolean;
@@ -196,14 +400,32 @@ export async function runApproveAgent(deps: {
     agentAddress = fresh.agentAddress;
   }
 
-  // Already approved: the venue knows exactly the agent this client would
-  // sign with, and its key is in memory. Skip — no popup, no POST.
+  // Already approved: the client would sign with exactly the recorded
+  // agent, and its key is in memory. The recorded address alone is NOT
+  // enough — the venue may have deregistered it (one unnamed agent per
+  // master: the Hyperliquid UI's "Enable Trading" replaces ours). Confirm
+  // against the venue's agent list first; anything else falls through to
+  // re-approval below. Skip — no popup, no POST — only on venue proof.
   if (
     !freshKey &&
     deps.knownAgentAddress &&
     deps.knownAgentAddress.toLowerCase() === agentAddress.toLowerCase()
   ) {
-    return { agentAddress, persisted: true, skipped: true };
+    if (deps.verifyOnVenue === false) {
+      return { agentAddress, persisted: true, skipped: true };
+    }
+    const active = await isAgentActiveOnVenue({
+      masterAddress: deps.address,
+      agentAddress,
+      chain: deps.chain,
+      fetchImpl: deps.fetchImpl,
+    });
+    if (active) {
+      return { agentAddress, persisted: true, skipped: true };
+    }
+    console.warn(
+      "[approveAgent] agent not active on the venue; re-approving instead of skipping.",
+    );
   }
 
   const nonce = nowNonce();
@@ -211,26 +433,34 @@ export async function runApproveAgent(deps: {
 
   // Temporary diagnostics (single Take, then removed): what address the code
   // thinks it is signing with, what the injected wallet exposes as selected,
-  // whether multiple providers are present and which one wins, and what
-  // agent address the typed data actually carries.
+  // whether multiple providers are present and which one wins, what agent
+  // address the typed data actually carries, AND the wallet's chain at the
+  // moment of signing next to the domain chain the wallet is asked to sign.
+  // The Rabby failure ("chainId should be same as current chainId") can only
+  // be diagnosed from what Rabby reports — injected.chainId / eth_chainId —
+  // never from what the code assumes.
   // `window` is guarded for SSR/test runtimes; in a real browser it exists.
-  interface InjectedDiagnostics {
-    selectedAddress?: string;
-    providers?: Array<{
-      selectedAddress?: string;
-      _state?: { accounts?: string[] };
-    }>;
-  }
-  const injected =
-    typeof window !== "undefined"
-      ? (window as unknown as { ethereum?: InjectedDiagnostics }).ethereum
-      : undefined;
+  const injected = readInjectedProvider();
+  const walletChainSync = readWalletChainSync(injected);
+  const walletChainLive = await readWalletChainLive(injected);
+  const walletChainHex = walletChainLive ?? walletChainSync;
+  // Multi-provider wallets expose .providers; a lone wallet (MetaMask
+  // alone) does not, so the diagnostic names the lone provider instead of
+  // logging `providers= undefined` and leaving the check dead.
+  const providerAddrs = injected?.providers?.map(
+    (p) => p.selectedAddress || p._state?.accounts?.[0],
+  );
   console.log("[approveAgent]",
     "deps.address=", deps.address,
     "rabby=", injected?.selectedAddress,
-    "providers=", injected?.providers?.map(
-      (p) => p.selectedAddress || p._state?.accounts?.[0]),
-    "typed.agentAddress=", typed.message.agentAddress);
+    "providers=", providerAddrs ?? [`lone-provider:${injected?.selectedAddress ?? "none"}`],
+    "typed.agentAddress=", typed.message.agentAddress,
+    "walletChainId=", walletChainHex,
+    "walletChainIdDec=", chainIdToDecimal(walletChainHex),
+    "domainChainId=", typed.domain.chainId,
+    "domainChainIdHex=", `0x${typed.domain.chainId.toString(16)}`,
+    "hyperliquidChain=", typed.message.hyperliquidChain,
+    "wireSignatureChainId=", signatureChainIdFor(typed.message.hyperliquidChain));
 
   // The signer must be the wagmi-connected master wallet. If wagmi is bound
   // to a different provider than the one the injected wallet exposes, throw
@@ -244,16 +474,69 @@ export async function runApproveAgent(deps: {
     );
   }
 
-  // wagmi's typed-data generics are narrowed to standard EIP-712 primary
-  // types; Hyperliquid's is documented as
-  // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
-  // through structurally. `account` pins the signer to the wagmi-connected
-  // master wallet — without it the call can resolve to a stale or
-  // non-selected account and the venue rejects an unknown signer.
-  const signature = await deps.signTypedDataAsync({
-    ...typed,
-    account: deps.address,
-  } as never);
+  // Wallet/venue agreement, checked BEFORE any signature is requested. When
+  // the wallet sits on a different chain than the venue's domain (the live
+  // failure: wallet 0x66eee/Sepolia, approval Mainnet-labelled 42161),
+  // requesting the signature can only produce the wallet's chainId refusal.
+  // Throw a clear error naming both sides instead — never a silent fallback,
+  // and never a programmatic network switch of the user's wallet.
+  const walletDec = chainIdToDecimal(walletChainHex);
+  if (walletDec !== null && walletDec !== typed.domain.chainId) {
+    const want = typed.message.hyperliquidChain;
+    throw new Error(
+      `Chain mismatch: wallet is on chain ${walletDec} (${walletChainHex}) ` +
+      `but venue "${want}" requires domain ${typed.domain.chainId} ` +
+      `(${signatureChainIdFor(typed.message.hyperliquidChain)}). ` +
+      `Switch your wallet to ${want === "Testnet" ? "Arbitrum Sepolia" : "Arbitrum One"} and try again. ` +
+      `No signature was requested.`,
+    );
+  }
+
+  // Signing path (fix/hyperliquid-agent-approval):
+  //  - Raw eth_signTypedData_v4 via window.ethereum.request, bypassing any
+  //    wrapper-level chainId guard in wagmi/viem. The wallet shows the
+  //    typed-data domain to the user and signs it.
+  //  - Fallback: no raw provider (SSR/tests/legacy wallets) or a provider
+  //    that does not implement the method — the injected wagmi signer.
+  // A user cancellation (EIP-1193 4001) propagates verbatim on every path.
+  let signature: `0x${string}`;
+  let signPath: "raw" | "wagmi";
+  if (typeof injected?.request === "function") {
+    try {
+      signature = await requestRawApproveAgentSignature(
+        injected,
+        deps.address,
+        typed,
+      );
+      signPath = "raw";
+    } catch (rawErr) {
+      if (isMethodNotSupportedError(rawErr)) {
+        signature = await deps.signTypedDataAsync({
+          ...typed,
+          account: deps.address,
+        } as never);
+        signPath = "wagmi";
+      } else {
+        throw rawErr;
+      }
+    }
+  } else {
+    // wagmi's typed-data generics are narrowed to standard EIP-712 primary
+    // types; Hyperliquid's is documented as
+    // "HyperliquidTransaction:<ActionTypeName>", so the payload is passed
+    // through structurally. `account` pins the signer to the wagmi-connected
+    // master wallet — without it the call can resolve to a stale or
+    // non-selected account and the venue rejects an unknown signer.
+    signature = await deps.signTypedDataAsync({
+      ...typed,
+      account: deps.address,
+    } as never);
+    signPath = "wagmi";
+  }
+  console.log("[approveAgent]",
+    "signPath=", signPath,
+    "domainChainId=", typed.domain.chainId,
+    "hyperliquidChain=", typed.message.hyperliquidChain);
 
   // viem returns a flat 0x signature; the §8 body carries { r, s, v }.
   const { r, s, v } = parseSignature(signature);

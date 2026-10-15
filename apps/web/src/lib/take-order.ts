@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_SLIPPAGE_TOLERANCE_BPS } from "@pass/contracts";
+
 import { buildOrderAction } from "./hyperliquid";
 
 /**
@@ -24,6 +26,41 @@ export function resolveEntryPrice(params: {
 
 export function entrySourceLabel(entryType: "limit" | "market"): "Pass limit" | "Current mid" {
   return entryType === "limit" ? "Pass limit" : "Current mid";
+}
+
+/**
+ * Marketable price for a market entry (Hyperliquid has no native market
+ * order). The mid ± the preview's slippage tolerance, rounded to the mid's
+ * own decimal precision and nudged one last-decimal unit when rounding
+ * would land exactly on the mid — the result is always strictly aggressive
+ * (above mid for a buy, below for a sell) so an Ioc entry fills instead of
+ * resting. Returns null when the mid is unusable. Pure math, no network.
+ */
+export function marketablePrice(params: {
+  midPrice: string | null;
+  isBuy: boolean;
+  slippageToleranceBps?: number;
+}): string | null {
+  const raw = (params.midPrice ?? "").trim();
+  const mid = Number(raw);
+  const bps = params.slippageToleranceBps ?? DEFAULT_SLIPPAGE_TOLERANCE_BPS;
+  if (!raw || !Number.isFinite(mid) || mid <= 0) return null;
+  if (!Number.isFinite(bps) || bps < 0) return null;
+  const decimals = raw.includes(".") ? (raw.split(".")[1]?.length ?? 0) : 0;
+  const factor = params.isBuy ? 1 + bps / 10_000 : 1 - bps / 10_000;
+  if (!(factor > 0)) return null;
+  const quantum = 10 ** -decimals;
+  // ±1e-9 absorbs float dust (113500 * 1.005 === 114067.49999999999, which
+  // would round the wrong way) without ever pushing a true value across a
+  // tick: the nudge points away from the mid, same direction as the trade.
+  const dust = params.isBuy ? 1e-9 : -1e-9;
+  let px = Number((mid * factor + dust).toFixed(decimals));
+  // Rounding may land exactly on the mid (or, pathologically, across it):
+  // nudge one quantum so the price stays strictly marketable.
+  if (params.isBuy && !(px > mid)) px = Number((px + quantum).toFixed(decimals));
+  if (!params.isBuy && !(px < mid)) px = Number((px - quantum).toFixed(decimals));
+  if (!Number.isFinite(px) || px <= 0) return null;
+  return px.toFixed(decimals);
 }
 
 /**
@@ -77,6 +114,8 @@ export function buildTakeAction(params: {
   baseSize: string;
   takeProfit: string | null;
   stopLoss: string | null;
+  /** Entry time-in-force. Defaults to Gtc (limit semantics); market entries pass Ioc. */
+  tif?: "Alo" | "Ioc" | "Gtc";
 }) {
   return buildOrderAction({
     assetIndex: params.assetIndex,
@@ -84,7 +123,7 @@ export function buildTakeAction(params: {
     price: params.entryPrice,
     size: params.baseSize,
     reduceOnly: false,
-    tif: "Gtc",
+    tif: params.tif ?? "Gtc",
     grouping: "normalTpsl",
     takeProfit: params.takeProfit,
     stopLoss: params.stopLoss,
@@ -120,24 +159,5 @@ export function executionBody(params: {
   };
 }
 
-/**
- * A connect failure rendered specifically, never ConnectKit's generic
- * screen. Names the wallet and the cause: a rejection is the user's own
- * action, a chain problem is correctable in the wallet, a missing
- * provider means conflicting extensions, and anything else is quoted
- * verbatim rather than swallowed.
- */
-export function connectFailureMessage(err: unknown, walletName: string): string {
-  const name = (err as { name?: string } | null)?.name ?? "";
-  const raw = err instanceof Error ? err.message : String(err);
-  if (/UserRejected/i.test(name) || /rejected|denied|cancell?ed/i.test(raw)) {
-    return `You rejected the connection in ${walletName}. Nothing was connected — try again when ready.`;
-  }
-  if (/ChainMismatch|ChainNotConfigured|ChainId|4902/.test(`${name} ${raw}`)) {
-    return `${walletName} is on the wrong network. PASS signs on Arbitrum (chain 42161) — switch networks in ${walletName} and try again.`;
-  }
-  if (/ProviderNotFound/i.test(name)) {
-    return `No ${walletName} provider was found, even though an extension seemed present. Disable conflicting wallet extensions so only one manages the browser provider, reload, and try again.`;
-  }
-  return `${walletName} could not connect: ${raw}`;
-}
+/** Removed with the custom wallet tile list (Item 10): the Take flow opens
+ * ConnectKit's own modal now, which owns connect-error rendering. */

@@ -111,10 +111,6 @@ afterAll(async () => {
   await handle.close();
 });
 
-async function code(res: { statusCode: number; body: string }): Promise<string> {
-  return (JSON.parse(res.body) as { error: { code: string } }).error.code;
-}
-
 describe("POST /me/trading-accounts replace semantics", () => {
   it("links the first wallet", async () => {
     const userId = await mkUser();
@@ -245,7 +241,8 @@ describe("POST /me/trading-accounts replace semantics", () => {
     expect(execRows).toHaveLength(1);
   });
 
-  it("an address owned by another user is never reassigned", async () => {    const owner = await mkUser();
+  it("D-027: linking an already-linked wallet adopts it without reassigning user_id", async () => {
+    const owner = await mkUser();
     const other = await mkUser();
     await app.inject({
       method: "POST",
@@ -253,14 +250,23 @@ describe("POST /me/trading-accounts replace semantics", () => {
       headers: { cookie: await cookie(owner) },
       payload: { accountAddress: T6.A },
     });
+    // Wallets are execution devices, not owned: connecting an address
+    // another user linked is allowed (was 403 before D-027). The recorded
+    // first-linker is never reassigned by someone else's use.
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/me/trading-accounts",
       headers: { cookie: await cookie(other) },
       payload: { accountAddress: T6.A },
     });
-    expect(res.statusCode).toBe(403);
-    expect(await code(res)).toBe("FORBIDDEN");
+    expect(res.statusCode).toBe(200);
+    const adopted = res.json() as { id: string };
+    const [row] = await db
+      .select()
+      .from(tradingAccounts)
+      .where(eq(tradingAccounts.accountAddress, T6.A));
+    expect(adopted.id).toBe(row!.id);
+    expect(row!.userId).toBe(owner);
     expect(await rowsFor(other)).toHaveLength(0);
   });
 

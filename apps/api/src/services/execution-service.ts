@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import { checkTakeRateLimit } from "../take-limiter.js";
@@ -7,11 +7,13 @@ import { BUILDER_FEE_BPS, computeFee, isStaleVersion, splitFee } from "@pass/dom
 import { executions, feeLedger, passEvents, tradingAccounts, type PassRow } from "@pass/db";
 import { getPassById, getPassVersion } from "./pass-service.js";
 import { resolveTradingAccountByAddress, visibleAgentAddress } from "./profile-service.js";
+import { MAX_LEVERAGE, MIN_ORDER_VALUE_USD } from "@pass/contracts";
 import type {
   ExecutionPreviewRequest,
   ExecutionRequest,
   ExecutionPreviewDto,
 } from "@pass/contracts";
+import { ProviderError } from "@pass/integrations";
 
 /**
  * Server-relay execution (docs/DECISIONS.md D-018.3).
@@ -48,20 +50,15 @@ export async function resolvePassForExecution(
 }
 
 /**
- * D-026 account resolution for the Take path (preview + executions).
+ * D-027 account resolution for the Take path (preview + executions).
  *
- * - `accountId` keeps the existing behaviour: it names a session-owned row,
- *   so a session is required and ownership is verified server-side
- *   (docs/SECURITY_SPEC.md §10).
- * - `accountAddress` resolves the `(provider, account_address)` row by
- *   address alone, creating it with `user_id = null` on first anonymous
- *   use. An existing row is never reassigned. When a session is present
- *   and the row belongs to another user, the request is refused rather
- *   than silently borrowing their row.
+ * Wallets are execution devices, not owned. Both identifiers name a row;
+ * neither requires a session nor checks user_id (which is informational
+ * only: who first linked the wallet). An existing row is never reassigned.
+ * The wallet signature on the relayed payload is the authentication.
  */
 async function resolveExecutionAccount(
   ctx: AppContext,
-  takerId: string | null,
   input: { accountId?: string; accountAddress?: string },
 ): Promise<{
   id: string;
@@ -70,13 +67,9 @@ async function resolveExecutionAccount(
   venue: string | null;
 }> {
   if (input.accountId) {
-    if (!takerId) throw new AppError("AUTH_REQUIRED");
-    return assertAccountOwnership(ctx, input.accountId, takerId);
+    return resolveExecutionAccountById(ctx, input.accountId);
   }
   const row = await resolveTradingAccountByAddress(ctx, input.accountAddress ?? "");
-  if (row.userId !== null && takerId !== null && row.userId !== takerId) {
-    throw new AppError("FORBIDDEN", "That trading account is not yours.");
-  }
   return {
     id: row.id,
     accountAddress: row.accountAddress,
@@ -85,43 +78,34 @@ async function resolveExecutionAccount(
   };
 }
 
-function assertAccountOwnership(
+async function resolveExecutionAccountById(
   ctx: AppContext,
   accountId: string,
-  takerId: string,
 ): Promise<{
   id: string;
   accountAddress: string;
   agentAddress: string | null;
   venue: string | null;
 }> {
-  return (async () => {
-    const rows = await ctx.db
-      .select({
-        id: tradingAccounts.id,
-        accountAddress: tradingAccounts.accountAddress,
-        agentAddress: tradingAccounts.agentAddress,
-        venue: tradingAccounts.venue,
-        userId: tradingAccounts.userId,
-      })
-      .from(tradingAccounts)
-      .where(eq(tradingAccounts.id, accountId))
-      .limit(1);
-    const row = rows[0];
-    if (!row) throw new AppError("FORBIDDEN", "Trading account not found.");
-    // Ownership is resolved server-side, never trusted from the client
-    // (docs/SECURITY_SPEC.md §10).
-    if (row.userId !== takerId) {
-      throw new AppError("FORBIDDEN", "That trading account is not yours.");
-    }
-    // Per-venue approval: a stale-venue agent reads as not-approved.
-    return {
-      id: row.id,
-      accountAddress: row.accountAddress,
-      agentAddress: visibleAgentAddress(ctx, row),
-      venue: row.venue,
-    };
-  })();
+  const rows = await ctx.db
+    .select({
+      id: tradingAccounts.id,
+      accountAddress: tradingAccounts.accountAddress,
+      agentAddress: tradingAccounts.agentAddress,
+      venue: tradingAccounts.venue,
+    })
+    .from(tradingAccounts)
+    .where(eq(tradingAccounts.id, accountId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new AppError("FORBIDDEN", "Trading account not found.");
+  // Per-venue approval: a stale-venue agent reads as not-approved.
+  return {
+    id: row.id,
+    accountAddress: row.accountAddress,
+    agentAddress: visibleAgentAddress(ctx, row),
+    venue: row.venue,
+  };
 }
 
 export async function buildExecutionPreview(
@@ -142,12 +126,21 @@ export async function buildExecutionPreview(
     );
   }
 
-  const account = await resolveExecutionAccount(ctx, takerId, input);
+  const account = await resolveExecutionAccount(ctx, input);
   checkTakeRateLimit("preview", account.accountAddress);
 
   const positionSize = toDecimalStringSafe(input.positionSize);
   if (Number(positionSize) <= 0) {
     throw new AppError("INVALID_POSITION_SIZE");
+  }
+  // Hyperliquid rejects orders below a $10 notional. Refuse before the
+  // user signs — the venue's own rejection would arrive only after.
+  if (Number(positionSize) < MIN_ORDER_VALUE_USD) {
+    throw new AppError(
+      "BELOW_MIN_ORDER_VALUE",
+      `Order size $${positionSize} is below Hyperliquid's $${MIN_ORDER_VALUE_USD} minimum order value.`,
+      { positionSize, minOrderValueUsd: MIN_ORDER_VALUE_USD },
+    );
   }
 
   let mark: string | null = null;
@@ -196,8 +189,8 @@ export async function buildExecutionPreview(
     margin = toDecimalStringSafe(notional / Number(leverage || "1"));
   }
 
-  if (Number(leverage) > 40) {
-    warnings.push({ code: "INVALID_LEVERAGE", message: "Leverage is above the supported maximum." });
+  if (Number(leverage) > MAX_LEVERAGE) {
+    warnings.push({ code: "INVALID_LEVERAGE", message: `Leverage is above the ${MAX_LEVERAGE}x maximum.` });
   }
   if (markNum !== null && Number.isFinite(markNum)) {
     if (snapshot.entryPrice !== null) {
@@ -281,9 +274,10 @@ export async function relayExecution(
     };
   }
 
-  // 1. resolve the Taker (D-026): the session-owned row for `accountId`,
-  // or the wallet address for `accountAddress`. No session is required;
-  // the wallet signature on the relayed payload is the authentication.
+  // 1. resolve the Taker (D-027): a row id for `accountId`, or the
+  // wallet address for `accountAddress`. No session is required and no
+  // ownership is checked; the wallet signature on the relayed payload is
+  // the authentication.
   // (Live verification stays where it is: Hyperliquid verifies the L1
   // signature on relay, exactly as before. The server holds no signing
   // secrets and recovers no signers.)
@@ -308,10 +302,10 @@ export async function relayExecution(
     );
   }
 
-  // 4. resolve the trading account: owned row for `accountId`, or the
-  // address-keyed row (created user-less on first anonymous use) for
-  // `accountAddress`. An existing row is never reassigned.
-  const account = await resolveExecutionAccount(ctx, takerId, input);
+  // 4. resolve the trading account: a row id, or the address-keyed row
+  // (created user-less on first anonymous use) for `accountAddress`.
+  // D-027: neither form checks ownership. An existing row is never reassigned.
+  const account = await resolveExecutionAccount(ctx, input);
   checkTakeRateLimit("execution", account.accountAddress);
 
   // 5. verify the clientRequestId has not been seen before.
@@ -340,11 +334,23 @@ export async function relayExecution(
   try {
     relayed = await ctx.adapters.hyperliquid.relaySignedAction(input.signedPayload);
   } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
     ctx.log.error("hyperliquid relay failed", {
       passId,
       takerId,
-      reason: err instanceof Error ? err.message : String(err),
+      reason,
     });
+    // The relay client throws ProviderError with the venue's own reason —
+    // a per-order rejection (e.g. the $10 minimum) or the distinct
+    // no-parseable-order-id error. Preserve it verbatim (with the raw
+    // response it carries) instead of collapsing it into the generic
+    // rejection below.
+    if (err instanceof ProviderError) {
+      const raw = (err.details as { raw?: unknown } | undefined)?.raw;
+      throw new AppError("ORDER_REJECTED", reason.slice(0, 600), {
+        ...(raw !== undefined ? { rawStatus: raw } : {}),
+      });
+    }
     throw new AppError("ORDER_REJECTED", "The order was rejected by the exchange.");
   }
 
@@ -365,11 +371,25 @@ export async function relayExecution(
       takerId,
       status: relayed.status,
     });
+    if (relayed.providerOrderId) {
+      throw new AppError(
+        "ORDER_REJECTED",
+        `The order was rejected by the exchange (${relayed.status}).`,
+      );
+    }
+    // No order id. Two different causes, two different messages — the old
+    // code blamed the mode for both:
+    // - the exchange answered but PASS could not read an id from its
+    //   response (live parse gap; the raw response is attached);
+    // - nothing answered at all (relay disabled/gated: a mode problem).
+    const raw = relayed.rawStatus as { mock?: unknown } | null | undefined;
+    const exchangeResponded = raw != null && raw.mock !== true;
     throw new AppError(
       "ORDER_REJECTED",
-      relayed.providerOrderId
-        ? `The order was rejected by the exchange (${relayed.status}).`
+      exchangeResponded
+        ? `The exchange accepted the order but PASS could not read the order id: ${JSON.stringify(raw).slice(0, 300)}`
         : "Order relay is disabled in this deployment.",
+      exchangeResponded ? { rawStatus: raw } : {},
     );
   }
 
@@ -541,6 +561,40 @@ export async function listMyExecutions(ctx: AppContext, takerId: string, limit: 
     .select()
     .from(executions)
     .where(eq(executions.takerUserId, takerId))
+    .orderBy(desc(executions.createdAt))
+    .limit(limit);
+}
+
+/**
+ * D-027 wallet executions: every execution taken with this wallet, no
+ * session required. Reading executions for a wallet the caller did not
+ * link is allowed — listing is a query concern, not a permission.
+ * Unknown addresses list as empty, never 404.
+ */
+export async function listExecutionsByAddress(
+  ctx: AppContext,
+  accountAddress: string,
+  limit: number,
+) {
+  const addr = accountAddress.trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(addr)) {
+    throw new AppError("INVALID_REQUEST", "That is not a valid EVM address.");
+  }
+  const accounts = await ctx.db
+    .select({ id: tradingAccounts.id })
+    .from(tradingAccounts)
+    .where(
+      and(
+        eq(tradingAccounts.provider, "hyperliquid"),
+        eq(tradingAccounts.accountAddress, addr),
+      ),
+    );
+  if (accounts.length === 0) return [];
+  const ids = accounts.map((a) => a.id);
+  return ctx.db
+    .select()
+    .from(executions)
+    .where(inArray(executions.accountId, ids))
     .orderBy(desc(executions.createdAt))
     .limit(limit);
 }

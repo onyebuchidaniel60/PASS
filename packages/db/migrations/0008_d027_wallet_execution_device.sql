@@ -1,0 +1,11 @@
+-- D-027: wallets are execution-only, not owned.
+--
+-- trading_accounts.user_id is informational only: it records who first
+-- linked the wallet and never gates an action. Approval authority is the
+-- master wallet signature, so no session or ownership check may depend on
+-- this column being NOT NULL.
+--
+-- State: migration 0004 (D-026) already dropped the NOT NULL constraint,
+-- so this statement is an idempotent guard, not a schema change. No data
+-- is deleted, no rows are touched, no default is altered.
+ALTER TABLE trading_accounts ALTER COLUMN user_id DROP NOT NULL;

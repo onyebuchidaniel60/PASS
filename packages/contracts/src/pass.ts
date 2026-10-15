@@ -9,6 +9,19 @@ import {
   PublicId,
   Uuid,
 } from "./common.js";
+import { DEFAULT_SLIPPAGE_TOLERANCE_BPS, MAX_LEVERAGE } from "./limits.js";
+
+/**
+ * Leverage at the API boundary: 1–MAX_LEVERAGE. The venue rejects anything
+ * above the ceiling, so the schema refuses it before any state is written.
+ */
+const LeverageString = DecimalString.refine(
+  (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 1 && n <= MAX_LEVERAGE;
+  },
+  { message: `Leverage must be between 1 and ${MAX_LEVERAGE}.` },
+);
 
 /**
  * The execution-relevant plan snapshot. This is the shape stored in
@@ -35,7 +48,7 @@ export const CreatePassRequest = z
     entryPrice: DecimalString.nullable().optional(),
     stopLoss: DecimalString.nullable().optional(),
     takeProfit: DecimalString.nullable().optional(),
-    leverage: DecimalString.nullable().optional(),
+    leverage: LeverageString.nullable().optional(),
     thesis: z.string().min(1, "Thesis is required").max(4000),
     expiresAt: IsoDateTime.nullable().optional(),
   })
@@ -167,8 +180,8 @@ export const ExecutionPreviewRequest = z
       .regex(/^0x[0-9a-fA-F]{40}$/, "accountAddress must be a 0x EVM address")
       .optional(),
     positionSize: z.union([DecimalString, z.number().positive()]),
-    leverage: z.union([DecimalString, z.number().positive()]).optional(),
-    slippageToleranceBps: z.number().int().min(0).max(10_000).default(50),
+    leverage: z.union([LeverageString, z.number().positive().max(MAX_LEVERAGE)]).optional(),
+    slippageToleranceBps: z.number().int().min(0).max(10_000).default(DEFAULT_SLIPPAGE_TOLERANCE_BPS),
   })
   .strict()
   .refine((v) => (v.accountId ? !v.accountAddress : !!v.accountAddress), {

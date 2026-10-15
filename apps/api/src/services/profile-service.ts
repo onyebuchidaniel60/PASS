@@ -288,18 +288,20 @@ export async function linkTradingAccount(
     .limit(1);
   const clash = existing[0];
   if (clash) {
-    // Any other owner — another user, or an anonymous (D-026) row — is
-    // never reassigned.
-    if (clash.userId !== userId) {
-      throw new AppError("FORBIDDEN", "That trading account is already linked to PASS.");
-    }
-    // Own row, possibly inactive from an earlier unlink: reactivate it and
-    // retire every other active row. Re-linking is idempotent.
+    // D-027: wallets are execution devices, not owned. Any session may
+    // connect any wallet, so an existing row — another user's, or an
+    // anonymous (D-026) row — is never a conflict and its recorded
+    // first-linker user_id is never reassigned. Adopt the row for use and
+    // keep only the caller's own per-user hygiene below.
     await deactivateOtherWallets(ctx, userId, clash.id);
-    await ctx.db
-      .update(tradingAccounts)
-      .set({ isActive: true, updatedAt: new Date() })
-      .where(eq(tradingAccounts.id, clash.id));
+    if (clash.userId === userId) {
+      // Own row, possibly inactive from an earlier unlink: reactivate it.
+      // Re-linking is idempotent.
+      await ctx.db
+        .update(tradingAccounts)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(tradingAccounts.id, clash.id));
+    }
     return { id: clash.id, accountAddress: addr };
   }
 

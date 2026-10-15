@@ -14,6 +14,59 @@ import { type HyperliquidInfoClient } from "./info.js";
  * private key, no API wallet secret, and no signing material of any kind
  * (docs/DECISIONS.md D-018.3, D-018.9).
  */
+/**
+ * Extracts the order id from a Hyperliquid Exchange order response.
+ *
+ * Real responses nest it at `response.data.statuses[0].resting.oid`
+ * (resting order) or `response.data.statuses[0].filled.oid` (immediate
+ * fill) — never at the top-level `response.data.oid` the previous code
+ * read. The legacy shapes survive only as last resorts. Returns null when
+ * no parseable oid exists anywhere, so the caller can throw a distinct
+ * error instead of an empty id.
+ */
+function extractOrderOid(
+  parsed: unknown,
+  response: Record<string, unknown>,
+): string | null {
+  const asOid = (value: unknown): string | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    if (typeof value === "string" && value.length > 0) return value;
+    return null;
+  };
+  const data =
+    response.data && typeof response.data === "object"
+      ? (response.data as Record<string, unknown>)
+      : null;
+  const statuses = data?.statuses;
+  const first =
+    Array.isArray(statuses) && statuses.length > 0 ? statuses[0] : null;
+  if (first && typeof first === "object") {
+    const entry = first as Record<string, unknown>;
+    const resting =
+      entry.resting && typeof entry.resting === "object"
+        ? (entry.resting as Record<string, unknown>)
+        : null;
+    const filled =
+      entry.filled && typeof entry.filled === "object"
+        ? (entry.filled as Record<string, unknown>)
+        : null;
+    return (
+      asOid(resting?.oid) ??
+      asOid(filled?.oid) ??
+      asOid(data?.oid) ??
+      (typeof parsed === "object" && parsed !== null && "oid" in parsed
+        ? asOid((parsed as Record<string, unknown>).oid)
+        : null)
+    );
+  }
+  return (
+    asOid(data?.oid) ??
+    (typeof parsed === "object" && parsed !== null && "oid" in parsed
+      ? asOid((parsed as Record<string, unknown>).oid)
+      : null)
+  );
+}
+
 export class HyperliquidExchangeClient {
   constructor(
     private readonly exchangeUrl: string,
@@ -69,15 +122,45 @@ export class HyperliquidExchangeClient {
     }
 
     const response = (body_?.response ?? {}) as Record<string, unknown>;
-    const data = response.data as Record<string, unknown> | undefined;
-    const providerOrderId =
-      (data?.oid !== undefined ? String(data.oid) : null) ??
-      (typeof parsed === "object" && parsed !== null && "oid" in parsed
-        ? String((parsed as Record<string, unknown>).oid)
-        : null);
+    // Hyperliquid answers 200 with `statuses[0].error` for rejected orders
+    // (e.g. sub-$10: "Order must have minimum value of $10. asset=0").
+    // That is a rejection WITH a reason, not a parse gap: surface the
+    // venue's message verbatim, non-retryable, with the raw response kept
+    // in details. Only a resting/filled shape with no oid may fall through
+    // to the "could not read the order id" parse failure below.
+    const statuses = (response.data as Record<string, unknown> | undefined)?.statuses;
+    const firstStatus =
+      Array.isArray(statuses) && statuses.length > 0 ? statuses[0] : null;
+    if (
+      firstStatus !== null &&
+      typeof firstStatus === "object" &&
+      "error" in firstStatus &&
+      typeof (firstStatus as Record<string, unknown>).error === "string" &&
+      ((firstStatus as Record<string, unknown>).error as string).length > 0
+    ) {
+      throw new ProviderError(
+        (firstStatus as Record<string, unknown>).error as string,
+        "hyperliquid",
+        false,
+        { raw: parsed },
+      );
+    }
+    const providerOrderId = extractOrderOid(parsed, response);
+    if (providerOrderId === null) {
+      // status "ok" (or another non-"err" status) but no parseable oid:
+      // the exchange answered without an id PASS understands. Throw a
+      // distinct error carrying the full raw response for diagnosis — never
+      // an empty id, which relayExecution would mislabel as "relay
+      // disabled" (a mode problem, which this is not).
+      throw new ProviderError(
+        `Hyperliquid accepted the order but PASS could not read the order id: ${JSON.stringify(parsed).slice(0, 1000)}`,
+        "hyperliquid",
+        false,
+      );
+    }
 
     return {
-      providerOrderId: providerOrderId ?? "",
+      providerOrderId,
       status: "open",
       rawStatus: parsed,
       simulated: false,

@@ -124,6 +124,11 @@ describe("Take prompt provider tree", () => {
     ]) {
       expect(src, banned).not.toContain(banned);
     }
-    expect(src).toContain("useConnect");
+    // Root-tree consumption: the wagmi account hook plus ConnectKit's own
+    // modal launcher. (The old custom per-connector tile list consumed the
+    // root tree through `useConnect`; the ConnectKit modal replaced it, so
+    // that hook name is no longer the marker — these two are.)
+    expect(src).toContain("useAccount");
+    expect(src).toContain("ConnectKitButton.Custom");
   });
 });

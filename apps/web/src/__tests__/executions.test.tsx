@@ -203,7 +203,7 @@ describe("Executions (§10.9)", () => {
     expect(await screen.findByText("Nothing in this period")).toBeInTheDocument();
   });
 
-  it("banners the list and labels the row when an execution is simulated", async () => {
+  it("shows no banner and no label even when an execution row is legacy-simulated", async () => {
     const sim: Execution = {
       ...EXEC,
       id: "e-sim",
@@ -212,13 +212,12 @@ describe("Executions (§10.9)", () => {
       createdAt: ago(10),
     };
     render(<ExecutionsClient probe={authed} load={async () => [EXEC, sim]} />);
+    await screen.findAllByTestId("data-table");
+    // Legacy rows stay visible but carry no label.
     expect(
-      await screen.findByText(
-        /Some executions below are simulated for demo purposes/,
-      ),
-    ).toBeInTheDocument();
-    // Inline in the row, not in a tooltip: the status cell carries it.
-    expect((await screen.findAllByText(/SIMULATED/)).length).toBeGreaterThan(0);
+      screen.queryByText(/Some executions below are simulated for demo purposes/),
+    ).toBeNull();
+    expect(screen.queryByText(/SIMULATED/)).toBeNull();
   });
 
   it("shows no banner and no label when every execution is live", async () => {
@@ -264,9 +263,10 @@ describe("Executions redesign (reference 16)", () => {
     expect(await screen.findByText(/Showing 9–12 of 12 executions/)).toBeInTheDocument();
   });
 
-  it("labels simulated rows and never renders a partially-filled status", async () => {
+  it("labels no rows and never renders a partially-filled status", async () => {
     render(<ExecutionsClient probe={authed} load={async () => TWELVE} />);
-    expect((await screen.findAllByText(/SIMULATED/)).length).toBeGreaterThan(0);
+    await screen.findByText(/Showing 1–8 of 12 executions/);
+    expect(screen.queryByText(/SIMULATED/)).toBeNull();
     expect(screen.queryByText(/partially filled/i)).toBeNull();
   });
 });

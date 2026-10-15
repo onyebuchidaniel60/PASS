@@ -131,13 +131,14 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     render: (p) => <span className="pass-num">{p.takerCount ?? 0}</span>,
   },
   {
-    // Simulated builder fees accrued to the author (fee_ledger creator
-    // share). One line per row, in the row's own numeric voice.
+    // Builder fees accrued to the author (fee_ledger creator share, a
+    // real on-chain builder fee). One line per row, in the row's own
+    // numeric voice.
     key: "fees",
     label: "FEES",
     numeric: true,
     render: (p) => (
-      <span className="pass-num">Fees earned (simulated): ${fmtUsd(p.feesEarnedUsd ?? "0")}</span>
+      <span className="pass-num">Fees earned: ${fmtUsd(p.feesEarnedUsd ?? "0")}</span>
     ),
   },
   {

@@ -34,6 +34,8 @@ import { arbitrum } from "viem/chains";
 
 export const HYPERLIQUID_EXCHANGE_URL = "https://api.hyperliquid.xyz/exchange";
 export const HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info";
+/** Testnet Info API: same paths, testnet host (read-only venue agent list lives here). */
+export const HYPERLIQUID_TESTNET_INFO_URL = "https://api.hyperliquid-testnet.xyz/info";
 
 /** Arbitrum mainnet: Hyperliquid L1 signs with chain id 42161 (0xa4b1). */
 export const hyperliquidChain = {
@@ -80,6 +82,44 @@ export function approveAgentDomain(chain: HLChain): {
 
 /** hex form of 42161, as the docs require for signatureChainId. */
 export const HL_SIGNATURE_CHAIN_ID = "0xa4b1";
+
+/** hex form of 421614 (Arbitrum Sepolia), for testnet approveAgent actions. */
+export const HL_TESTNET_SIGNATURE_CHAIN_ID = "0x66eee";
+
+/**
+ * Wire signatureChainId for a venue ("0xa4b1" on mainnet, "0x66eee" on
+ * testnet). This MUST satisfy
+ * `Number.parseInt(signatureChainIdFor(chain), 16) ===
+ * approveAgentDomain(chain).chainId` — both reference SDKs derive the
+ * EIP-712 domain numerically from the action's own signatureChainId, so any
+ * divergence recovers to a garbage address. Pinned by
+ * `approveAgentRabby.test.ts` ("the wire signatureChainId matches the venue
+ * of the domain chainId").
+ */
+export function signatureChainIdFor(chain: HLChain): "0xa4b1" | "0x66eee" {
+  return chain === "Testnet" ? "0x66eee" : "0xa4b1";
+}
+
+/**
+ * Server venue (GET /health `hyperliquidVenue`: "mainnet" | "testnet" |
+ * "mock") to signing chain. Returns null when the venue is unknown —
+ * unreachable /health, or a value with no signing chain — so the caller
+ * refuses to sign rather than silently defaulting to Mainnet. A silent
+ * Mainnet default on testnet produces a Mainnet-labelled approval and a
+ * garbage signer (live MetaMask refusal: 'Provided chainId "42161" must
+ * match the active chainId "421614"').
+ *
+ * "mock" maps to Mainnet explicitly: the mock relay is label-blind
+ * (mock approvals are sent nowhere), so mock flows keep their prior label
+ * instead of being blocked. Pinned by `approveAgentRabby.test.ts`.
+ */
+export function venueToHLChain(
+  venue: string | null | undefined,
+): HLChain | null {
+  if (venue === "testnet") return "Testnet";
+  if (venue === "mainnet" || venue === "mock") return "Mainnet";
+  return null;
+}
 
 export type HLChain = "Mainnet" | "Testnet";
 

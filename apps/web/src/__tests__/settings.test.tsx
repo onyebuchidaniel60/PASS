@@ -573,10 +573,11 @@ describe("Settings redesign (reference 14)", () => {
     expect(pnl.querySelector("svg[aria-label]")).not.toBeNull();
   });
 
-  it("labels every simulated activity row SIMULATED", async () => {
+  it("labels no activity row, even legacy-simulated ones", async () => {
     render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
     await screen.findByTestId("settings-activity");
-    expect((await screen.findAllByText(/SIMULATED/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/SIMULATED/)).toBeNull();
+    expect(screen.queryByText(/simulated/i)).toBeNull();
   });
 
   it("offers section navigation: Identity, Connections, Wallet, Tour", async () => {

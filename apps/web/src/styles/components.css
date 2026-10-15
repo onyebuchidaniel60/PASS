@@ -3465,6 +3465,27 @@ text-underline-offset: 0.2em;
   margin-block: 0;
 }
 
+/* --- Pass detail section rhythm (session 2026-10-15) -----------------------
+ * The plan / trader / thesis / market / metrics / activity blocks each carry
+ * .pass-section margins (64px mobile / 96px desktop) AND sit in a 32px stack,
+ * so adjacent sections sat up to 128px apart — islands, not one flow. Same
+ * discipline as the trader profile above: section margins go to zero and the
+ * 32px stack gap becomes the single section rhythm. Internal component
+ * padding is untouched, and the sticky-CTA clearance (.pass-detail-takable)
+ * is untouched. */
+.pass-detail .pass-section {
+  margin-block: 0;
+}
+
+/* --- Settings section rhythm (session 2026-10-15) -------------------------
+ * Same trailing-gap problem as the Pass detail page: the identity / wallet /
+ * tour sections doubled the stack gap with their own margins. Same fix, same
+ * scope: only the gaps BETWEEN sections change, internal padding is
+ * untouched. */
+.pass-settings .pass-section {
+  margin-block: 0;
+}
+
 /* --- Take flow section rhythm (session 2026-10-13) -------------------------
  * Measured before: the header <section> carries .pass-section margins
  * (64px mobile / 96px desktop) AND sits in a 32px stack, so the form began

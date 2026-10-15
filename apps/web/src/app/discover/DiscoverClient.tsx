@@ -61,6 +61,8 @@ interface DiscoverPass {
   asset: string;
   direction: "long" | "short";
   status: PassLifecycle;
+  /** The Pass's own order type — read, never inferred. Always present. */
+  entryType: "limit" | "market";
   entryPrice: string;
   takeProfit: string;
   stopLoss: string;
@@ -283,11 +285,19 @@ export function DiscoverClient() {
                     value={fmt(p.entryPrice)}
                     unit="per unit"
                     headerAside={
-                      tone === "active" || tone === "open" ? (
-                        <LiveDot label="Live" />
-                      ) : (
-                        <StatusBadge tone={tone} label={STATE_LABEL[p.status] ?? p.status} variant="bare" />
-                      )
+                      // Order-type chip beside the status chip: the existing
+                      // pass-chip style, the existing spacing token, no new
+                      // component. The value is the Pass's own entryType.
+                      <span className="pass-inline" style={{ gap: "var(--space-2)" }}>
+                        <span className="pass-chip">
+                          {p.entryType === "market" ? "Market" : "Limit"}
+                        </span>
+                        {tone === "active" || tone === "open" ? (
+                          <LiveDot label="Live" />
+                        ) : (
+                          <StatusBadge tone={tone} label={STATE_LABEL[p.status] ?? p.status} variant="bare" />
+                        )}
+                      </span>
                     }
                     status={{ tone, label: STATE_LABEL[p.status] ?? p.status }}
                     metrics={[

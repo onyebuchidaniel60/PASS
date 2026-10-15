@@ -178,11 +178,11 @@ describe("My Passes (§10.8)", () => {
     expect(screen.getAllByRole("link", { name: "Create a Pass" }).length).toBeGreaterThan(0);
   });
 
-  it("renders the simulated fees earned line per row", async () => {
+  it("renders the fees earned line per row", async () => {
     renderWith({});
     // Wide table + narrow stacked list both render the line.
-    expect((await screen.findAllByText(/Fees earned \(simulated\): \$0\.15/)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Fees earned \(simulated\): \$0\.00/).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Fees earned: \$0\.15/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Fees earned: \$0\.00/).length).toBeGreaterThan(0);
   });
 });
 

@@ -22,6 +22,7 @@ import {
 import {
   buildExecutionPreview,
   getExecution,
+  listExecutionsByAddress,
   listMyExecutions,
   listPassExecutions,
   passPerformance,
@@ -254,6 +255,36 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
     const userId = await requireUser(req);
     const q = PaginationQuery.parse(req.query ?? {});
     const rows = await listMyExecutions(ctx, userId, q.limit);
+    return {
+      executions: rows.map((e) => ({
+        id: e.id,
+        passId: e.passId,
+        passVersion: e.passVersion,
+        providerOrderId: e.providerOrderId,
+        providerStatus: e.providerStatus,
+        simulated: (e as { simulated?: boolean }).simulated ?? false,
+        status: e.status,
+        positionSize: e.positionSize,
+        realizedPnl: e.realizedPnl,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    };
+  });
+
+  /**
+   * D-027 wallet executions: every execution taken with this wallet. No
+   * session is required and any wallet may be queried — listing is a query
+   * concern, not a permission. Same item shape as GET /me/executions so
+   * clients can render both identically. Unknown addresses list as empty.
+   */
+  app.get("/api/v1/executions", async (req) => {
+    const q = z
+      .object({
+        accountAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+        limit: z.coerce.number().int().positive().max(100).optional(),
+      })
+      .parse(req.query ?? {});
+    const rows = await listExecutionsByAddress(ctx, q.accountAddress, q.limit ?? 20);
     return {
       executions: rows.map((e) => ({
         id: e.id,

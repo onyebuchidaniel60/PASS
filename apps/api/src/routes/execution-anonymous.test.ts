@@ -166,6 +166,25 @@ describe("anonymous Take (D-026)", () => {
     expect(typeof body.accountId).toBe("string");
   });
 
+  it("refuses a sub-$10 preview with BELOW_MIN_ORDER_VALUE before signing", async () => {
+    const { publicId } = await traderWithPass();
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/passes/${publicId}/execution-preview`,
+      headers: { "content-type": "application/json" },
+      payload: {
+        passVersion: 1,
+        accountAddress: anonAddr("c3"),
+        positionSize: "5",
+        leverage: "2",
+      },
+    });
+    expect(res.statusCode).toBe(422);
+    const body = res.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("BELOW_MIN_ORDER_VALUE");
+    expect(body.error.message).toMatch(/\$10/);
+  });
+
   it("executes with no session: 201, mock id, simulated, taker null, user-less row", async () => {
     const { publicId } = await traderWithPass();
     const address = anonAddr("b2");
@@ -339,7 +358,7 @@ describe("anonymous Take (D-026)", () => {
     expect(listed.find((e) => e.providerOrderId === anonOrderId)).toBeUndefined();
   });
 
-  it("still requires a session for accountId, and ownership for owned rows", async () => {
+  it("D-027: accountId needs no session and no ownership — wallets are execution devices", async () => {
     const { publicId } = await traderWithPass();
     const [owner] = await db.insert(users).values({}).returning();
     if (!owner) throw new Error("fixture setup failed");
@@ -354,7 +373,7 @@ describe("anonymous Take (D-026)", () => {
       .returning();
     if (!acct) throw new Error("fixture setup failed");
 
-    // accountId with no session → 401.
+    // accountId with no session → completes (was 401 before D-027).
     const nosess = await app.inject({
       method: "POST",
       url: `/api/v1/passes/${publicId}/executions`,
@@ -366,12 +385,14 @@ describe("anonymous Take (D-026)", () => {
         signedPayload: SIGNED,
       },
     });
-    expect(nosess.statusCode).toBe(401);
+    expect(nosess.statusCode).toBe(201);
 
-    // accountId owned by someone else → 403, never borrowed.
+    // accountId recorded by someone else, caller's own session → completes
+    // (was 403 "never borrowed" before D-027). The row keeps its recorded
+    // user_id: use is not ownership.
     const [other] = await db.insert(users).values({}).returning();
     if (!other) throw new Error("fixture setup failed");
-    const thief = await app.inject({
+    const borrowed = await app.inject({
       method: "POST",
       url: `/api/v1/passes/${publicId}/executions`,
       headers: {
@@ -385,7 +406,13 @@ describe("anonymous Take (D-026)", () => {
         signedPayload: SIGNED,
       },
     });
-    expect(thief.statusCode).toBe(403);
+    expect(borrowed.statusCode).toBe(201);
+    const rows = await db
+      .select()
+      .from(tradingAccounts)
+      .where(eq(tradingAccounts.id, acct.id))
+      .limit(1);
+    expect(rows[0]!.userId).toBe(owner.id);
   });
 });
 

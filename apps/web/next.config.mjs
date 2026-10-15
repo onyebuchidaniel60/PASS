@@ -72,6 +72,16 @@ webpack(config) {
     } else {
       config.resolve.alias["pass-gallery"] = path.join(here, "src/gallery/impl.tsx");
     }
+    // Workspace @pass/* packages ship TypeScript source using NodeNext `.js`
+    // specifiers (./limits.js -> ./limits.ts), which tsc, tsx and vitest all
+    // resolve but webpack does not. transpilePackages (above) only handles
+    // transpilation, not resolution, so explicit `.js` requests are mapped to
+    // their `.ts` sources here. Build config only: no source change, and no
+    // effect on the API (tsx), vitest, or any other @pass/* consumer.
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js", ".jsx"],
+    };
     return config;
   },
 };

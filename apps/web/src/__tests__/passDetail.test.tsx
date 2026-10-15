@@ -170,7 +170,7 @@ describe("Pass detail renders a Pass (§10.3)", () => {
     ).toBeInTheDocument();
   });
 
-  it("discloses the simulated builder fee under the Take CTA", async () => {
+  it("discloses the builder fee under the Take CTA", async () => {
     renderPass();
     await screen.findByRole("heading", { level: 1 });
     expect(
@@ -355,6 +355,15 @@ describe("Pass detail reference language (14)", () => {
     expect(labels).toEqual(["Entry", "Take profit", "Stop loss", "Leverage", "R:R"]);
   });
 
+  it("scopes the single-rhythm section rule to this page", async () => {
+    const { container } = renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    // The .pass-detail scope zeroes .pass-section margins so the 32px stack
+    // gap is the single section rhythm (CSS owns the values; the class owns
+    // the scope).
+    expect(container.querySelector(".pass-detail")).not.toBeNull();
+  });
+
   it("derives R:R from the plan and renders a dash, never a fabricated ratio", async () => {
     const { container } = renderPass({
       entryPrice: "113400",
@@ -391,7 +400,17 @@ describe("Pass detail reference language (14)", () => {
       c.querySelector(".pass-metric-card-label")?.textContent === "Entry",
     );
     const value = entry?.querySelector(".pass-metric-card-value");
-    expect(value?.querySelector(".pass-metric-card-unit")?.textContent).toBe("per ETH");
+    expect(value?.querySelector(".pass-metric-card-unit")?.textContent).toBe("per BTC");
+  });
+
+  it("reads the per-asset unit from the Pass — a SOL Pass never says ETH", async () => {
+    const { container } = renderPass({ asset: "SOL" });
+    await screen.findByRole("heading", { level: 1 });
+    const units = Array.from(
+      container.querySelectorAll(".pass-metric-card-unit"),
+    ).map((u) => u.textContent);
+    expect(units).toContain("per SOL");
+    expect(units.some((u) => u?.includes("ETH"))).toBe(false);
   });
 
   it("renders the market snapshot with a dot eyebrow and a LiveDot", async () => {

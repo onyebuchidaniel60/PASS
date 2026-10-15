@@ -400,14 +400,14 @@ describe("Stage G performance over simulated executions", () => {
     return result;
   }
 
-  it("renders computed figures with the simulated note", async () => {
+  it("renders computed figures with no simulation note", async () => {
     await renderWithPerf(PERF);
     await waitFor(() => expect(screen.getByText("50%")).toBeInTheDocument());
     expect(screen.getByText("0.37R")).toBeInTheDocument();
     expect(screen.getByText("Realized (completed Passes)")).toBeInTheDocument();
     expect(
-      screen.getByText("Performance computed from simulated executions."),
-    ).toBeInTheDocument();
+      screen.queryByText("Performance computed from simulated executions."),
+    ).toBeNull();
     // The legacy omission note stands down once figures exist.
     expect(screen.queryByText(/not reported by the PASS API/i)).toBeNull();
   });
@@ -430,7 +430,7 @@ describe("Stage G performance over simulated executions", () => {
     ).toBeNull();
   });
 
-  it("renders no simulated note when every execution is real", async () => {
+  it("renders no simulation note when every execution is real", async () => {
     await renderWithPerf({ ...PERF, simulated: false });
     await waitFor(() => expect(screen.getByText("50%")).toBeInTheDocument());
     expect(
@@ -519,11 +519,11 @@ describe("Trader profile reference composition (ref 14)", () => {
     expect(table?.textContent).toMatch(/TP hit/i);
   });
 
-  it("labels simulated performance and never shows wallet state", async () => {
+  it("labels no performance as simulated and never shows wallet state", async () => {
     const { container } = await renderRef();
     expect(
-      screen.getByText("Performance computed from simulated executions."),
-    ).toBeInTheDocument();
+      screen.queryByText("Performance computed from simulated executions."),
+    ).toBeNull();
     // D-023: no wallet address, no thumbnails (no photo counterpart).
     expect(container.innerHTML).not.toContain("0x00000000000000000000000000000000000d3a0");
     expect(container.querySelector("img")).toBeNull();
