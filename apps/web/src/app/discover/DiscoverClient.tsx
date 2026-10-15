@@ -276,14 +276,17 @@ export function DiscoverClient() {
                 const href = p.canonicalPath || `/p/${p.publicId}`;
                 const series = p.sparkline;
                 const tone: StatusTone = TONE[p.status] ?? "draft";
+                // Market Passes store no entry price (it is derived at
+                // execution): no row, no label, no value, no unit, no "—".
+                const isMarket = p.entryType === "market";
 
                 return (
                   <DataCard
                     key={p.publicId}
                     id={`${p.asset} ${p.direction === "long" ? "LONG" : "SHORT"}`}
                     sub={relative(p.publishedAt) ? `Published ${relative(p.publishedAt)}` : undefined}
-                    value={fmt(p.entryPrice)}
-                    unit="per unit"
+                    value={isMarket ? null : fmt(p.entryPrice)}
+                    unit={isMarket ? undefined : "per unit"}
                     headerAside={
                       // Order-type chip beside the status chip: the existing
                       // pass-chip style, the existing spacing token, no new

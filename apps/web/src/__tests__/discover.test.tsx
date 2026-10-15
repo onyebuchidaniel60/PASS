@@ -86,6 +86,21 @@ describe("Discover list (§10.2 item 1)", () => {
     expect(screen.getByText("ETH SHORT").closest("article")?.textContent).toMatch(/Market/);
   });
 
+  it("hides the entry row on market cards, keeps it on limit cards", async () => {
+    await renderDiscover();
+    await waitFor(() => expect(screen.getByText("BTC LONG")).toBeInTheDocument());
+    const cards = document.querySelectorAll(".pass-card");
+    expect(cards).toHaveLength(2);
+    // Limit card: the entry figure renders with its unit.
+    expect(cards[0].querySelector(".pass-card-value")?.textContent).toContain("113,400");
+    // Market card: no entry row at all — no value line, no "per unit", no "—".
+    const market = screen.getByText("ETH SHORT").closest("article")!;
+    expect(market.querySelector(".pass-card-value")).toBeNull();
+    expect(market.textContent).not.toContain("per unit");
+    expect(market.textContent).not.toContain("4,120.55");
+    expect(market.textContent).not.toContain("—");
+  });
+
   it("shows entry, TP and SL as labelled metric rows", async () => {
     await renderDiscover();
     // Every card carries the three plan levels, so the labels legitimately appear

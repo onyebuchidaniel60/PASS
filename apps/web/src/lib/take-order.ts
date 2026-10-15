@@ -29,26 +29,61 @@ export function entrySourceLabel(entryType: "limit" | "market"): "Pass limit" | 
 }
 
 /**
+ * Allowed price decimals for an asset, from its own szDecimals at runtime.
+ *
+ * Hyperliquid's tick rule (docs "Tick and lot size", verified): a perp price
+ * carries at most 5 significant figures AND at most (6 - szDecimals)
+ * decimals (8 for spot). Integers are always allowed. No per-asset
+ * constant anywhere: the asset's universe szDecimals is the only input
+ * besides the reference price's magnitude.
+ */
+export function tickDecimalsFor(
+  szDecimals: number | null | undefined,
+  refPrice: number,
+  maxDecimalsBase = 6,
+): number | null {
+  if (
+    szDecimals === null ||
+    szDecimals === undefined ||
+    !Number.isInteger(szDecimals) ||
+    szDecimals < 0
+  )
+    return null;
+  if (!Number.isFinite(refPrice) || refPrice <= 0) return null;
+  const byTick = Math.max(0, maxDecimalsBase - szDecimals);
+  // 5 significant figures: decimals = 4 - floor(log10(v)), floored at 0
+  // (large values become integers, which the venue always allows).
+  const bySigFigs = Math.max(0, 4 - Math.floor(Math.log10(refPrice)));
+  return Math.min(byTick, bySigFigs);
+}
+
+/**
  * Marketable price for a market entry (Hyperliquid has no native market
- * order). The mid ± the preview's slippage tolerance, rounded to the mid's
- * own decimal precision and nudged one last-decimal unit when rounding
- * would land exactly on the mid — the result is always strictly aggressive
- * (above mid for a buy, below for a sell) so an Ioc entry fills instead of
- * resting. Returns null when the mid is unusable. Pure math, no network.
+ * order). The mid ± the preview's slippage tolerance, ROUNDED (not
+ * truncated) to the asset's tick, then nudged one tick away from the mid
+ * when rounding would land on or across it — the result is always strictly
+ * aggressive (above mid for a buy, below for a sell) AND always a multiple
+ * of the tick, so an Ioc entry fills instead of resting or rejecting with
+ * "Price must be divisible by tick size". Trailing zeros are stripped per
+ * the signing doc. Returns null when the mid or szDecimals is unusable.
+ * Pure math, no network.
  */
 export function marketablePrice(params: {
   midPrice: string | null;
   isBuy: boolean;
   slippageToleranceBps?: number;
+  /** Per-asset size decimals from the Info API universe. Drives the tick. */
+  szDecimals: number | null | undefined;
 }): string | null {
   const raw = (params.midPrice ?? "").trim();
   const mid = Number(raw);
   const bps = params.slippageToleranceBps ?? DEFAULT_SLIPPAGE_TOLERANCE_BPS;
   if (!raw || !Number.isFinite(mid) || mid <= 0) return null;
   if (!Number.isFinite(bps) || bps < 0) return null;
-  const decimals = raw.includes(".") ? (raw.split(".")[1]?.length ?? 0) : 0;
   const factor = params.isBuy ? 1 + bps / 10_000 : 1 - bps / 10_000;
   if (!(factor > 0)) return null;
+  const decimals = tickDecimalsFor(params.szDecimals, mid * factor);
+  if (decimals === null) return null;
   const quantum = 10 ** -decimals;
   // ±1e-9 absorbs float dust (113500 * 1.005 === 114067.49999999999, which
   // would round the wrong way) without ever pushing a true value across a
@@ -56,11 +91,21 @@ export function marketablePrice(params: {
   const dust = params.isBuy ? 1e-9 : -1e-9;
   let px = Number((mid * factor + dust).toFixed(decimals));
   // Rounding may land exactly on the mid (or, pathologically, across it):
-  // nudge one quantum so the price stays strictly marketable.
+  // nudge one tick so the price stays strictly marketable. A whole-tick
+  // nudge keeps the value tick-divisible by construction.
   if (params.isBuy && !(px > mid)) px = Number((px + quantum).toFixed(decimals));
   if (!params.isBuy && !(px < mid)) px = Number((px - quantum).toFixed(decimals));
   if (!Number.isFinite(px) || px <= 0) return null;
-  return px.toFixed(decimals);
+  // Fail closed: the final value MUST be an integer multiple of the tick.
+  if (Math.abs(px * 10 ** decimals - Math.round(px * 10 ** decimals)) > 1e-6) {
+    return null;
+  }
+  return stripTrailingZeros(px.toFixed(decimals));
+}
+
+/** "151.00" -> "151": same value, fewer decimals, per the signing doc. */
+function stripTrailingZeros(s: string): string {
+  return s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s;
 }
 
 /**

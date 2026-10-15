@@ -62,6 +62,7 @@ export interface MyPass {
   status: PassLifecycle;
   asset: string;
   direction: string;
+  entryType?: "limit" | "market";
   entryPrice: string | null;
   takeProfit: string | null;
   stopLoss: string | null;
@@ -122,7 +123,11 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     label: "ENTRY",
     numeric: true,
     inStack: false,
-    render: (p) => <span className="pass-num">{fmtPrice(p.entryPrice)}</span>,
+    // Market Passes store no entry: an empty cell, never a "—" placeholder.
+    render: (p) =>
+      p.entryType === "market" ? null : (
+        <span className="pass-num">{fmtPrice(p.entryPrice)}</span>
+      ),
   },
   {
     key: "takers",

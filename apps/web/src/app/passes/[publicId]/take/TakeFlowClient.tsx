@@ -312,6 +312,9 @@ export function TakeFlowClient({
             isBuy: long,
             slippageToleranceBps:
               preview?.slippageToleranceBps ?? DEFAULT_SLIPPAGE_TOLERANCE_BPS,
+            // The asset's own tick comes from its universe szDecimals —
+            // never a per-asset constant (a null here fails closed below).
+            szDecimals: assetMeta.szDecimals,
           })
         : resolveEntryPrice({
             entryType: type,
@@ -781,10 +784,16 @@ export function TakeFlowClient({
                 )}
               </Field>
 
-              {/* §10.6 Step 1 item 2 — restate the plan the size is chosen against. */}
+              {/* §10.6 Step 1 item 2 — restate the plan the size is chosen against.
+                  A market Pass stores no entry price, so its Entry row is
+                  absent entirely (never "—"); the grid reflows naturally.
+                  The signed execution price still shows in step 2 as
+                  "Entry source" (D-025.1) — a different row, kept. */}
               <ChamferPanel label="Pass context">
                 <CoordinateGrid>
-                  <CoordinatePair label="Entry" value={fmt(initialPass.entryPrice)} />
+                  {entryType === "market" ? null : (
+                    <CoordinatePair label="Entry" value={fmt(initialPass.entryPrice)} />
+                  )}
                   <CoordinatePair label="TP" value={fmt(initialPass.takeProfit)} />
                   <CoordinatePair label="SL" value={fmt(initialPass.stopLoss)} />
                   <CoordinatePair label="Leverage" value={`${leverage}x`} />

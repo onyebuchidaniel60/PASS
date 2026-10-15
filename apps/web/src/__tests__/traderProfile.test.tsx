@@ -519,6 +519,43 @@ describe("Trader profile reference composition (ref 14)", () => {
     expect(table?.textContent).toMatch(/TP hit/i);
   });
 
+  it("leaves the entry cell empty for market Passes", async () => {
+    mockGet.mockImplementation((url?: unknown) => {
+      const u = String(url ?? "");
+      if (u.endsWith("/performance")) return Promise.resolve(PERF);
+      if (u.includes("/passes"))
+        return Promise.resolve({
+          passes: [
+            ...ROWS,
+            {
+              publicId: "SoL9xYz12A",
+              asset: "SOL",
+              direction: "long",
+              status: "active",
+              entryType: "market",
+              takeProfit: "160",
+              stopLoss: "140",
+            },
+          ],
+        });
+      return Promise.resolve(PROFILE);
+    });
+    let result!: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(<TraderProfileClient slug="turnttfup99" />);
+    });
+    await screen.findByRole("heading", { level: 1 });
+    const table = result.container.querySelector('[data-testid="data-table"]');
+    expect(table?.textContent).toMatch(/SOL/);
+    // The SOL row carries no entry figure and no "—" placeholder; the
+    // limit rows are untouched.
+    const solLink = table?.querySelector('a[href="/p/SoL9xYz12A"]');
+    expect(solLink).not.toBeNull();
+    const solRow = solLink?.closest("tr") ?? solLink?.closest("li");
+    expect(solRow?.textContent).not.toContain("—");
+    expect(table?.textContent).toMatch(/113,400/);
+  });
+
   it("labels no performance as simulated and never shows wallet state", async () => {
     const { container } = await renderRef();
     expect(

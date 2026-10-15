@@ -36,6 +36,11 @@ export interface DataCardProps {
    * width; that is not a guess, it is exactly what the `/help` topic cards were
    * doing before this prop existed.
    */
+  /**
+   * The big figure. Null/undefined/"" suppresses the whole value line —
+   * that is how market Passes (no stored entry price) render a card with
+   * no entry row at all instead of a "—" placeholder.
+   */
   value: ReactNode;
   /**
    * Declares that `value` is prose rather than a figure, and drops the value
@@ -96,10 +101,12 @@ export function DataCard({
 
       {sub ? <p className="pass-card-sub">{sub}</p> : null}
 
-      <p className="pass-card-value">
-        <span>{value}</span>
-        {unit ? <span className="pass-card-value-unit">{unit}</span> : null}
-      </p>
+      {value === null || value === undefined || value === "" ? null : (
+        <p className="pass-card-value">
+          <span>{value}</span>
+          {unit ? <span className="pass-card-value-unit">{unit}</span> : null}
+        </p>
+      )}
 
       {children}
 

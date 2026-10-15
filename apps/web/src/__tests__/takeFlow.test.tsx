@@ -707,6 +707,24 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
     expect((action.orders[0]?.t as { limit: { tif: string } }).limit.tif).toBe("Ioc");
   });
 
+  it("shows no Entry row on step 1 for a market Pass, keeps it for limit", async () => {
+    const market = { ...PASS, entryType: "market" as const };
+    mockPost.mockResolvedValue({ ...PREVIEW, markPrice: "113500", requestedEntry: null });
+    await renderReady(market);
+    // The stored entry is empty for market Passes: no row, no "—".
+    // TP/SL/leverage context stays.
+    expect(screen.queryByText("Entry")).toBeNull();
+    expect(screen.getByText("TP")).toBeInTheDocument();
+    expect(screen.getByText("SL")).toBeInTheDocument();
+  });
+
+  it("shows the Entry row on step 1 for a limit Pass", async () => {
+    mockPost.mockResolvedValue(PREVIEW);
+    await renderReady();
+    expect(screen.getByText("Entry")).toBeInTheDocument();
+    expect(screen.getByText("113,400")).toBeInTheDocument();
+  });
+
   it("a limit Pass still signs Gtc at the Pass entry price", async () => {
     mockPost
       .mockResolvedValueOnce(PREVIEW)

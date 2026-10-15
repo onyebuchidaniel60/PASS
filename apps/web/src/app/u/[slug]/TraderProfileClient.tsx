@@ -83,6 +83,7 @@ interface PassSummary {
   asset: string;
   direction: "long" | "short";
   status: string;
+  entryType?: "limit" | "market";
   entryPrice?: string;
   takeProfit?: string;
   stopLoss?: string;
@@ -169,7 +170,12 @@ const passTableColumns: DataTableColumn<PassSummary>[] = [
     label: "Entry",
     numeric: true,
     inStack: false,
-    render: (p) => <span className="pass-num">{fmt(p.entryPrice)}</span>,
+    // Market Passes store no entry: an empty cell, never a "—" placeholder.
+    // (A table row cannot drop a cell without breaking the grid.)
+    render: (p) =>
+      p.entryType === "market" ? null : (
+        <span className="pass-num">{fmt(p.entryPrice)}</span>
+      ),
   },
   {
     key: "tp",

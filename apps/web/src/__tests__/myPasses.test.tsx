@@ -178,6 +178,19 @@ describe("My Passes (§10.8)", () => {
     expect(screen.getAllByRole("link", { name: "Create a Pass" }).length).toBeGreaterThan(0);
   });
 
+  it("leaves the entry cell empty for market Passes, keeps it for limit", async () => {
+    const rows: MyPass[] = [
+      { ...PASSES[0]!, entryType: "market", entryPrice: null },
+      { ...PASSES[1]!, entryType: "limit" },
+    ];
+    renderWith({ load: async () => rows });
+    await screen.findByText("My Passes");
+    // Limit row keeps its figure; the market row's entry figure is gone
+    // entirely (no "113,400.00" anywhere, wide table or stacked list).
+    expect(screen.getAllByText("3,400.00").length).toBeGreaterThan(0);
+    expect(screen.queryByText("113,400.00")).toBeNull();
+  });
+
   it("renders the fees earned line per row", async () => {
     renderWith({});
     // Wide table + narrow stacked list both render the line.

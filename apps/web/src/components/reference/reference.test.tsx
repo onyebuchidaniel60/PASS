@@ -203,6 +203,16 @@ describe("14.5 data cards", () => {
     expect(value.querySelector(".pass-card-value-unit")?.textContent).toBe("per ETH");
   });
 
+  it("suppresses the whole value line when the value is null", () => {
+    // Market Passes carry no stored entry: the card renders no entry row
+    // at all instead of a "—" placeholder.
+    const { container } = render(
+      <DataCard id="SOL LONG" sub="Perpetual" value={null} metrics={metrics} />,
+    );
+    expect(container.querySelector(".pass-card-value")).toBeNull();
+    expect(container.textContent).not.toContain("—");
+  });
+
   it("renders metrics as a definition list, label left and value right", () => {
     const { container } = render(<DataCard id="X" value="1" metrics={metrics} />);
     expect(container.querySelector("dl.pass-card-metrics")).toBeTruthy();
