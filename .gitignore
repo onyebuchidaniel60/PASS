@@ -40,3 +40,23 @@ apps/web/playwright-report
 .claude/
 .codex/
 agent/
+
+# Machine-local agent instruction files — restore manually per
+# docs/AI_HANDOFF.md §14. Never committed.
+AGENTS.md
+.clinerules
+SKILL_FRONTEND_DESIGN.md
+skills-lock.json
+
+# Local verification screenshots. Regenerate with the shot specs
+# (apps/web/e2e/demo-pass-shots.spec.ts, stage-k2-shots.spec.ts).
+design/verify/screenshots/
+
+# Local design media — reference images, screenshots, generated shots.
+# Restore by copying the design/ media from the operator's working copy;
+# see docs/DEVELOPMENT.md for instructions.
+design/**/*.png
+design/**/*.jpg
+design/**/*.jpeg
+design/**/*.gif
+design/**/*.webp

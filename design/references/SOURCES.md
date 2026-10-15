@@ -2,6 +2,8 @@
 
 The images in this folder were placed by the repository operator and are the direction `design/DESIGN.md` was authored against. They are **read-only**: do not move, rename, crop, optimise, or re-encode them.
 
+**Local-only:** these images are gitignored (see `docs/DEVELOPMENT.md` — Design assets). On a fresh clone, copy them from the operator's working copy. The table below still names them because the files exist on the operator's disk.
+
 Per `SKILL_FRONTEND_DESIGN.md` §4, reference images are direction, not specification. Do not copy layout, do not reproduce branding, do not lift the reference's type family, and do not reproduce the reference's dummy data or placeholder values.
 
 ---

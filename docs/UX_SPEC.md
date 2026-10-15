@@ -61,6 +61,13 @@ Show the product loop visually:
 
 `X post -> Pass -> trader context -> trade plan -> Hyperliquid`
 
+## 4b. Discover cards
+
+Each card carries a Market / Limit chip reading the Pass's own order
+type, beside the status chip. A market Pass shows no entry-price row —
+no label, value, unit, or placeholder. A limit Pass shows its authored
+entry price as the card figure.
+
 ## 5. Public Pass page
 
 The Pass page is the core conversion surface.
@@ -98,6 +105,10 @@ TP        $116,000
 SL        $111,900
 Leverage  5x
 ```
+
+For a market Pass there is no stored entry price, so the Entry row is
+absent entirely (never a "—" placeholder). The same rule applies to
+Discover cards, the Take page Pass-context block, and all pass lists.
 
 ### E. Thesis
 
@@ -166,7 +177,7 @@ Provide live validation:
 
 - price ordering;
 - supported market;
-- leverage constraints;
+- leverage constraints (10x ceiling);
 - expiry validity;
 - TP/SL direction consistency.
 
@@ -179,6 +190,10 @@ Preview before publishing.
 The Taker enters the amount they personally want to deploy.
 
 Do not make the Trader's position size the default unless it is clearly informational.
+
+The Pass-context block restates the plan the size is chosen against. For
+a market Pass its Entry row is absent (the entry is derived at execution);
+TP, SL, and leverage remain.
 
 ### Step 2 — execution preview
 

@@ -182,9 +182,8 @@ updated_at timestamptz
 `simulated` is true when the execution was produced by the mock relay
 (`HYPERLIQUID_MODE=mock`). The mock relay returns a synthetic
 `providerOrderId` of the form `mock_<uuid>` with status `pending` and makes
-no network call to Hyperliquid. A simulated row is a demo, never a real
-trade: the Take receipt and the Executions page must render a "SIMULATED"
-marker inline with the provider order id. Live relays set `simulated: false`.
+no network call to Hyperliquid. Per D-030 the flag is data only and is
+never rendered as a label. Live relays set `simulated: false`.
 Added by migration `0003_executions_simulated.sql` (Stage F closure).
 
 D-026: `taker_user_id` is nullable. An anonymous (signed-out) Take writes

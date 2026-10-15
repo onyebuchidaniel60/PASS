@@ -211,6 +211,14 @@ rejection that arrives at relay time instead (e.g. price moved between
 preview and submit) is returned as `ORDER_REJECTED` carrying the venue's
 message verbatim.
 
+Market entries sign `tif: "Ioc"` at the marketable price (mid ±
+`slippageToleranceBps`, default 50); limit entries sign `Gtc` at the
+authored price (D-031). The marketable price is rounded to the asset's
+own tick — for perps, at most 5 significant figures and at most
+`(6 − szDecimals)` decimals — computed at runtime from the universe
+`szDecimals` (D-032). A price the venue rejects for tick size surfaces
+verbatim as `ORDER_REJECTED`.
+
 Response must include:
 
 - exact Pass version being executed;
@@ -276,9 +284,9 @@ Response:
 ```
 
 `simulated` is true when the relay was simulated (`HYPERLIQUID_MODE=mock`):
-the `providerOrderId` is a synthetic `mock_<uuid>`, no order left this
-deployment, and the client must render a "SIMULATED" marker inline with the
-order id. Live relays set `simulated: false`.
+the `providerOrderId` is a synthetic `mock_<uuid>` and no order left this
+deployment. Per D-030 the flag is data only and is never rendered as a
+label. Live relays set `simulated: false`.
 
 The server performs these steps, in this order:
 

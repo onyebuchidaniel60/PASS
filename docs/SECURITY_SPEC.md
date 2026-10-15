@@ -35,7 +35,7 @@ MVP design:
 6. Do not send it to browser extension popup or remote logs.
 7. Use secure browser storage where necessary and provide clear recovery/re-authorization behavior.
 
-The implementation must follow current Hyperliquid documentation for API-wallet registration and signing.
+The implementation must follow current Hyperliquid documentation for API-wallet registration and signing. Approval is confirmed against the venue (Info API `extraAgents`) before any approval skip (D-029); the database row is cache, not authority.
 
 ## 4. Key storage
 

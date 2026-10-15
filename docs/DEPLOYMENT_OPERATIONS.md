@@ -1,5 +1,10 @@
 # PASS — Deployment & Operations
 
+> Current deployment: web on Vercel (auto-deploys `main`,
+> alias pass-web-dun.vercel.app), API on Render (deploy from dashboard,
+> branch `main`), database on Supabase Postgres. Legacy Railway config is
+> retained for possible future use; Railway is not current.
+
 ## 1. Deployment principle
 
 The first implementation includes deployment. The product is not considered complete until it is accessible from a real deployed environment and the critical flows have been exercised there.

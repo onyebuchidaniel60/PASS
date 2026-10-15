@@ -610,3 +610,30 @@ Hyperliquid (testnet venue, named persistently at the top of the app),
 and the mock relay remains in code only as an unlabeled fallback for
 venue outages. The server-side `simulated` flag and legacy rows are kept
 for data integrity but are never rendered as labels.
+
+## D-031 — Market entries sign Ioc at the marketable price
+
+**Date:** 2026-10-15
+**Status:** Accepted. In force.
+
+**Decision:** Hyperliquid has no native market order, so a market-Pass
+entry is a limit order with `tif: "Ioc"` priced aggressively at mid ±
+50 bps slippage tolerance (`DEFAULT_SLIPPAGE_TOLERANCE_BPS`, shown in the
+preview and shared by the signing path so preview and submit cannot
+disagree). A Gtc limit at mid would rest on the book when the market
+moves. Limit Passes keep `Gtc` at the authored entry price — resting is
+correct for a limit. Exits are Take Profit Market / Stop Market and are
+unaffected.
+
+## D-032 — Marketable prices obey the per-asset tick
+
+**Date:** 2026-10-15
+**Status:** Accepted. In force.
+
+**Decision:** The marketable price is rounded (not truncated) to the
+asset's own tick — for perps, `min(6 − szDecimals, decimals-from-5-sig-figs)`
+per the venue's tick rule — computed at runtime from the universe
+`szDecimals`, never from per-asset constants. The direction nudge moves
+whole ticks only, and the result is asserted tick-divisible before
+signing. Market Passes store no entry price and render no entry row on
+Discover, the Take page, or pass lists (limit rendering is unchanged).

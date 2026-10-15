@@ -95,8 +95,10 @@ A lightweight worker is sufficient for MVP. Use Postgres-backed jobs, cron, or e
 ### Hosting
 
 - Vercel for web frontend;
-- managed PostgreSQL;
-- managed backend/worker host such as Railway/Render/Fly;
+- managed PostgreSQL (current: Supabase — Transaction pooler, port 6543,
+  postgres-js with `prepare: false`);
+- managed backend/worker host (current: Render; Railway config is retained
+  as legacy only);
 - object storage only if media becomes necessary.
 
 ## 5. Runtime environments

@@ -976,7 +976,8 @@ Per `SKILL_FRONTEND_DESIGN.md` §4, when a screen needs a visual decision this d
 ## 14. Visual language extracted from the reference set
 
 **Added 2026-10-07. Reason.** The operator opened the thirteen Stage K screens
-against `design/references/` and reported them "too generic", "dull", and
+against `design/references/` (local-only images, gitignored — see
+`docs/DEVELOPMENT.md`) and reported them "too generic", "dull", and
 "not alive", with "missed details and cards from the reference". The cause was
 not compliance failure: §§1–13 specify palette, type scale, spacing, motion and
 principles, and the build satisfies all of them. The cause is that **§§1–13 never

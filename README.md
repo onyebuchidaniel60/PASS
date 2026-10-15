@@ -1,106 +1,45 @@
-# PASS — Source of Truth
+# PASS
 
-This repository contains the authoritative product and engineering specifications for PASS.
+Social execution for Hyperliquid: a trader's trade plan becomes a shareable Pass that another trader can take with their own wallet. See a trade. Know the trader. Take the trade.
 
-## Product
+## What it does
 
-**PASS** is a social execution layer for Hyperliquid that turns a trader's trade plan into a shareable, executable Pass that another trader can discover, evaluate, and independently take.
+A trader authors a structured trade plan — entry, take-profit, stop-loss, size, leverage, thesis — and publishes it as a Pass link. Anyone can discover the Pass, evaluate the trader through their X identity and Ethos reputation, then take the trade: choose their own position size, review the order, and authorize execution on Hyperliquid with their own wallet. Nothing is copied automatically and no key ever leaves the taker's browser.
 
-**Core phrase:** See a trade. Know the trader. Take the trade.
+## How it works
 
-## Source-of-truth hierarchy
+1. A trader creates a Pass with entry, take-profit, stop-loss, size, leverage, and thesis, then publishes and shares it.
+2. Anyone can discover the Pass on Discover, on the trader's profile, or from an X link — signed in or not.
+3. The taker evaluates the trader (X identity, Ethos reputation context, PASS history) and the plan.
+4. The taker chooses their own position size and reviews the live order preview.
+5. The taker authorizes with their own wallet; PASS relays the signed order to Hyperliquid. Non-custodial throughout.
 
-When documents disagree, resolve them in this order:
+## Live
 
-1. `docs/DECISIONS.md` — explicit decisions and overrides.
-2. `docs/PRODUCT_PRD.md` — product behavior and MVP scope.
-3. `docs/TECHNICAL_SPEC.md` — architecture and implementation constraints.
-4. `docs/DATA_MODEL.md` — persistence model and invariants.
-5. `docs/API_CONTRACTS.md` — API contracts.
-6. `docs/UX_SPEC.md` — screens and interaction behavior.
-7. `docs/SECURITY_SPEC.md` — security and signing requirements.
-8. `docs/EXTENSION_SPEC.md` — Chrome extension behavior.
-9. `docs/TESTING_QA.md` — verification requirements.
-10. `docs/DEPLOYMENT_OPERATIONS.md` — deployment and operational requirements.
-11. `AGENTS.md` — implementation-agent behavior. (`.clinerules` is retained for compatibility only and is non-authoritative.)
-12. `docs/INTEGRATION_VERIFICATION.md` — external dependency facts verified against current official documentation; implementation must re-check live APIs when building.
-13. `docs/HACKATHON_SUBMISSION.md` — competition-specific constraints and submission framing.
+- Web: https://pass-web-dun.vercel.app
+- API: See docs/DEPLOYMENT_OPERATIONS.md <!-- TODO: confirm the Render API URL and replace this pointer with the direct link -->
+- Runs against Hyperliquid Testnet today.
 
-## Working method
+## Stack
 
-The first implementation is intended to be a **complete one-shot build**. It includes the web app, backend, database, Hyperliquid integration, X integration, Ethos integration, Chrome extension, and deployment.
+Next.js, Fastify, Postgres (Supabase), Drizzle, Hyperliquid, Ethos, X, Chrome MV3 extension.
 
-After the first complete build:
-
-`Build everything -> Deploy -> Use -> Identify gaps -> Fix -> Redeploy -> Repeat`
-
-The initial build is not required to be visually or behaviorally perfect. It is required to be complete enough to expose real product and integration problems.
-
-## Frontend design track
-
-Frontend visual design is executed in a **separate track that begins after the one-shot build**, per `docs/DECISIONS.md` **D-017**. It is part of the iteration loop, not part of the one-shot build. The one-shot build delivers functional surfaces with a usable but provisional UI; visual completeness is a Stage K deliverable, not a Stage A–J gate.
-
-All frontend work is governed by [`SKILL_FRONTEND_DESIGN.md`](./SKILL_FRONTEND_DESIGN.md) at the repository root, referenced from `AGENTS.md`. It is a read-only craft skill — do not edit it.
-
-The track's assets live in [`design/`](./design/):
-
-| Asset | Purpose |
-|---|---|
-| [`design/DESIGN.md`](./design/DESIGN.md) | The visual and interaction blueprint. Wins on every visual conflict |
-| [`design/FRONTEND_IMPLEMENTATION_PLAN.md`](./design/FRONTEND_IMPLEMENTATION_PLAN.md) | Build order, token enforcement, per-screen delivery contract, verification protocol, phase records |
-| [`design/references/`](./design/references/) | Operator-placed visual references. Direction, not specification |
-| [`design/README.md`](./design/README.md) | Orientation for the folder |
-
-See also [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) **Stage K**, and the *UI and Frontend* section of [`AGENTS.md`](./AGENTS.md).
-
-## External verification date
-
-External integrations in these documents were checked against official documentation on **2026-10-03**. Re-check before final release because external APIs and policies can change.
-
-## Core external references
-
-- Hyperliquid Exchange API: https://hyperliquid.gitbook.io/Hyperliquid-docs/for-developers/api/exchange-endpoint
-- Hyperliquid API wallets / nonces: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets
-- Hyperliquid Info API: https://hyperliquid.gitbook.io/Hyperliquid-docs/for-developers/api/info-endpoint
-- Hyperliquid WebSocket subscriptions: https://hyperliquid.gitbook.io/Hyperliquid-docs/for-developers/api/websocket/subscriptions
-- Ethos API: https://help.ethos.network/en/articles/16881347-how-do-i-use-the-ethos-api
-- Ethos X identity: https://help.ethos.network/en/articles/9764447-how-do-i-join-ethos-and-create-a-profile
-- Ethos credibility score: https://help.ethos.network/en/articles/9763182-how-are-credibility-scores-determined
-- X Create Posts: https://docs.x.com/x-api/posts/create-post
-- Chrome Manifest V3: https://developer.chrome.com/docs/extensions/mv3/manifest
-- Chrome service workers: https://developer.chrome.com/docs/extensions/develop/concepts/service-workers
-- Chrome scripting: https://developer.chrome.com/docs/extensions/reference/api/scripting
-- Vercel preview deployments: https://vercel.com/academy/svelte-on-vercel/preview-deployments
-- Colosseum Crypto World's Fair: https://colosseum.com/worldsfair
-
-## Directory
+## Repository layout
 
 ```text
-PASS/
-├── README.md
-├── AGENTS.md
-├── SKILL_FRONTEND_DESIGN.md
-├── .clinerules
-├── design/
-│   ├── README.md
-│   ├── DESIGN.md
-│   ├── FRONTEND_IMPLEMENTATION_PLAN.md
-│   └── references/
-│       ├── SOURCES.md
-│       └── reference 1 … reference 13   (operator-placed images)
-└── docs/
-    ├── PRODUCT_PRD.md
-    ├── TECHNICAL_SPEC.md
-    ├── DATA_MODEL.md
-    ├── API_CONTRACTS.md
-    ├── UX_SPEC.md
-    ├── SECURITY_SPEC.md
-    ├── EXTENSION_SPEC.md
-    ├── TESTING_QA.md
-    ├── DEPLOYMENT_OPERATIONS.md
-    ├── INTEGRATION_VERIFICATION.md
-    ├── IMPLEMENTATION_PLAN.md
-    ├── DECISIONS.md
-    ├── AI_HANDOFF.md
-    └── HACKATHON_SUBMISSION.md
+apps/web        Next.js web app
+apps/api        Fastify API + in-process worker jobs
+apps/extension  Chrome MV3 extension (discovery on X, hands off to web)
+packages/       Shared contracts, domain, db, integrations, ui
+docs/           Product and engineering source of truth
+design/         Visual blueprint (DESIGN.md); reference media is local-only
+scripts/        Verification, smoke, and check scripts
 ```
+
+## Docs
+
+Start with docs/ for the source of truth — docs/AI_HANDOFF.md for current state.
+
+## Development
+
+See docs/DEVELOPMENT.md for setup, environment, tests, and deployment.

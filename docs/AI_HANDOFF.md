@@ -194,6 +194,8 @@ Full text in `docs/DECISIONS.md`. Summaries for orientation:
 | D-028 | 10x leverage ceiling, enforced client + API + server |
 | D-029 | Agent approval skip is venue-checked (`extraAgents` is truth) |
 | D-030 | Live testnet orders carry no simulation labelling |
+| D-031 | Market entries sign Ioc at mid ± 50 bps; limits stay Gtc |
+| D-032 | Marketable prices obey the per-asset tick; market Passes hide entry rows |
 
 ## 7. Binding invariants established during the build
 
@@ -390,8 +392,10 @@ If any step fails, stop. Do not bundle a second fix.
   Take/Create/Discover fixes ($10 minimum, 10x ceiling, SIMULATED removal
   with Hyperliquid Testnet indicator, Market/Limit chips, per-asset units,
   ConnectKit modal, readable expiry, market-order form), market-order Ioc
-  at mid ± 50 bps, venue-checked agent approval (D-029). API host is
-  Render (Railway dead); DB is Supabase. Branch
+  at mid ± 50 bps (D-031), tick-sized marketable prices with hidden
+  market-Pass entry rows (D-032), venue-checked agent approval (D-029).
+  API host is Render (Railway dead; `railway.toml` is retained for
+  possible future use); DB is Supabase. Branch
   `fix/hyperliquid-agent-approval` retained on origin for a week for
   rollback.
 
