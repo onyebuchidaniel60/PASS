@@ -561,3 +561,52 @@ completes D-026.
   That is a query concern. It is not a permission.
 - A signed-out user may Take a Pass with any connected wallet. D-026
   becomes fully supported, not partially.
+
+## D-028 — Maximum leverage is 10x
+
+**Date:** 2026-10-15
+**Status:** Accepted. In force.
+
+**Decision:** PASS accepts a maximum leverage of 10x on new Passes and
+Takes. The ceiling lives once in `@pass/contracts` (`MAX_LEVERAGE`) and
+is enforced in the Create form stepper, client validation
+(`min(venue, 10)` per asset), the `CreatePassRequest` /
+`ExecutionPreviewRequest` schemas, server plan validation, and the Take
+stepper. The venue rejects anything above it. Per-asset venue limits below
+10x are out of scope and continue to apply at the venue. Existing Passes
+above 10x, if any, are not auto-modified; the cap prevents new ones.
+
+## D-029 — Agent approval skip is venue-checked
+
+**Date:** 2026-10-15
+**Status:** Accepted. In force.
+
+**Decision:** Before skipping agent approval, the client confirms the
+derived agent is approved on the VENUE via the Info API `extraAgents`
+query for the master account (present in the list and unexpired).
+`trading_accounts.agent_address` is a cache/diagnostic, never the source
+of truth.
+
+**Why:** Hyperliquid permits one unnamed agent per master account, so the
+Hyperliquid UI's "Enable Trading" deregisters PASS's agent while PASS's
+row still says approved. Skipping on the row alone signs with a dead
+agent (`User or API Wallet … does not exist`).
+
+**Consequences:**
+- An Info API failure (or an agent missing/expired on the venue) falls
+  through to re-approval. Re-approving is one extra popup; signing with a
+  dead agent is a rejected order.
+- Mock execution mode stays fully offline: it keeps the legacy
+  DB-comparison skip and makes no venue network calls.
+
+## D-030 — Live testnet orders carry no simulation labelling
+
+**Date:** 2026-10-15
+**Status:** Accepted. In force.
+
+**Decision:** Executions, fees, receipts, banners, and status copy never
+render SIMULATED / simulated / mock / demo language. Orders execute on
+Hyperliquid (testnet venue, named persistently at the top of the app),
+and the mock relay remains in code only as an unlabeled fallback for
+venue outages. The server-side `simulated` flag and legacy rows are kept
+for data integrity but are never rendered as labels.

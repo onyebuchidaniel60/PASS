@@ -1,20 +1,39 @@
 # Execution readiness
 
-**Status: NOT READY. Do not set `HYPERLIQUID_MODE=live` yet.**
+**Status: LIVE ON HYPERLIQUID TESTNET (2026-10-15, merge `3d257cc`).
+`HYPERLIQUID_MODE=live` with `HYPERLIQUID_READS_MODE=live` on the testnet
+venue. Do not point this at mainnet without a fresh review.**
 
-Execution is deliberately still gated off in the deployed environment. This
-document records what the approveAgent and order-relay flows actually do today,
-what is missing for one real Take to succeed, how to test it on a small size,
+This document records what the approveAgent and order-relay flows actually
+do today, the venue rules every Take obeys, how to test on a small size,
 what can go wrong, and how to roll back.
 
-Prepared 2026-10-07. Deployed state at time of writing:
+Deployed state at time of writing (see also `docs/AI_HANDOFF.md` §5):
 
 ```
 hyperliquidReads     = live     (Info API: mids, books, account state, fills)
-hyperliquidExecution = mock     (Exchange API: order relay, agent approval)
+hyperliquidExecution = live     (Exchange API: order relay, agent approval)
+hyperliquidVenue     = testnet
 ethos                = live
-x                   = mock
+x                    = live
+database             = live
 ```
+
+Venue rules enforced on every Take:
+
+- **$10 minimum order value.** The preview refuses smaller sizes with
+  `BELOW_MIN_ORDER_VALUE` before the user signs; a venue rejection that
+  arrives at relay time surfaces verbatim as `ORDER_REJECTED`.
+- **10x leverage ceiling** (`MAX_LEVERAGE`), enforced in the form, the API
+  schemas, and server validation.
+- **Market vs limit.** A limit Pass signs Gtc at the authored entry price
+  (resting is expected). A market Pass signs tif=Ioc at the marketable
+  price (mid ± 50 bps slippage tolerance, shown in the preview), so it
+  fills instead of resting. Exits are Take Profit Market / Stop Market.
+- **One unnamed agent per master.** The Hyperliquid UI's "Enable Trading"
+  deregisters PASS's agent. The approval skip is venue-checked against the
+  Info API `extraAgents` list (`docs/DECISIONS.md` D-029); the DB row is a
+  cache, never the source of truth.
 
 Read the `modes` block of `GET /health` before trusting any of this.
 
@@ -31,14 +50,16 @@ an account, once the account's master key has approved that agent address.
    EIP-712 payload with `buildApproveAgentAction({ agentAddress, nonce })` and
    signs it with the **master** wallet via ConnectKit.
 2. **Wire.** The client posts **only** `{ agentAddress, nonce, signature }` to
-   `POST /api/v1/me/trading-accounts/:id/approve-agent`. No private key, no seed
+   `POST /api/v1/trading-accounts/{address}/approve-agent` (D-027:
+   address-keyed, no session, no ownership check). No private key, no seed
    phrase, and no key material of any kind crosses the wire — the body schema is
    `z.object({...}).strict()`, so an unexpected field is refused rather than
    ignored.
-3. **Server.** `apps/api/src/routes/integrations.ts` resolves ownership from the
-   session, never from the client (`FORBIDDEN` if the account is not the
-   caller's), lowercases the agent address, and calls
-   `ctx.adapters.hyperliquid.relayApproveAgent(...)`.
+3. **Server.** The route resolves the trading account by wallet address
+   (never reassigned), lowercases the agent address, and calls
+   `ctx.adapters.hyperliquid.relayApproveAgent(...)`. Before skipping an
+   approval the client confirms the agent on the venue's `extraAgents`
+   list (D-029) — the DB row is a cache, not proof.
 4. **Adapter.** The relay goes through the provider adapter precisely so mock
    mode cannot contact the live venue. With `HYPERLIQUID_MODE=mock`,
    `SplitHyperliquid.relayApproveAgent` returns `{ ok: false, raw: { reason:
@@ -108,12 +129,13 @@ wrong by a large move is survivable.
 Only after requirements 1 and 2 above are confirmed.
 
 1. **Confirm the gates.** `GET /health` must show
-   `hyperliquidExecution: "mock"` and `hyperliquidReads: "live"`.
-2. **Fund.** Deposit a small amount of USDC on Hyperliquid mainnet into the
-   master wallet. Keep it small; this is a plumbing test.
-3. **Flip writes.**
-   `railway variables set --service pass-api HYPERLIQUID_MODE=live`
-   then `railway up --service pass-api`.
+   `hyperliquidExecution: "live"`, `hyperliquidReads: "live"`, and
+   `hyperliquidVenue: "testnet"`.
+2. **Fund.** Deposit a small amount of USDC on Hyperliquid **testnet** into
+   the master wallet. Keep it small; this is a plumbing test.
+3. **Flip writes.** In the Render dashboard: set `HYPERLIQUID_MODE=live`
+   (with `HYPERLIQUID_READS_MODE=live`) on the API service and deploy.
+   (Railway is dead; all API deploys go through Render.)
 4. **Verify.** `GET /health` must show `hyperliquidExecution: "live"` **and**
    `hyperliquidReads: "live"`. If reads are not live the service **refuses to
    start** by design — real orders against simulated prices is the one state
@@ -140,7 +162,7 @@ If any step fails, go to §5 first and roll back before diagnosing.
 | Failure | How it surfaces | Current handling |
 |---|---|---|
 | **Nonce collision / replay** | Hyperliquid rejects with a nonce error | `relaySignedAction` throw → `ORDER_REJECTED`, logged as `hyperliquid relay failed`. **No retry is attempted**, so a duplicate order is not possible from a retry. |
-| **Agent not approved** | Hyperliquid rejects the order | Same path: throw → `ORDER_REJECTED`. The user-facing text does **not** currently distinguish "agent not approved" from "order rejected" — see §6. |
+| **Agent not approved** | Hyperliquid rejects the order | Same path: throw → `ORDER_REJECTED`, now carrying the venue's message verbatim. Mitigated upfront: the approval skip is venue-checked, so a deregistered agent re-approves instead of signing dead (D-029). |
 | **Agent approval expiry** | Same rejection as above | Same path. Approval is re-run by the user; there is no auto-reapproval. |
 | **Insufficient margin** | Hyperliquid rejects | Throw → `ORDER_REJECTED`. Note the preview's estimated margin is advisory. |
 | **Slippage / price moved** | Order rejected, or filled worse than previewed | Throw → `ORDER_REJECTED`. The preview shows a `slippageTolerance`; confirm it is set before the test. |
@@ -157,19 +179,19 @@ If any step fails, go to §5 first and roll back before diagnosing.
 If the live test fails, put execution back to mock. It takes effect on the next
 deploy and requires no code change:
 
+In the Render dashboard: set `HYPERLIQUID_MODE=mock` on the API service
+and deploy (takes effect on deploy, no code change). Then:
+
 ```bash
-railway variables set --service pass-api HYPERLIQUID_MODE=mock
-railway up --service pass-api
-curl https://pass-api-production.up.railway.app/health
+curl <render-api-url>/health
 ```
 
 `HYPERLIQUID_READS_MODE` stays `live`, so market data remains real; only writes
 are disabled. Confirm `hyperliquidExecution: "mock"` in the response before
 assuming the rollback took.
 
-To roll back reads as well: `railway variables set --service pass-api
-HYPERLIQUID_READS_MODE=mock`. Note that writes require reads, so this also
-disables writes.
+To roll back reads as well, set `HYPERLIQUID_READS_MODE=mock` in the same
+dashboard. Note that writes require reads, so this also disables writes.
 
 ---
 
@@ -214,9 +236,12 @@ mainnet test; all of them are blockers for real users at real size.
    "valid after this time", so this is a clock-dependency rather than replay
    protection. Two clients signing in the same millisecond get the same value,
    and a skewed client clock produces a stale or prematurely-valid action.
-6. **`reduceOnly` and `tif` are caller-supplied.** Verify what the Take flow
-   actually passes for both before testing; an unintended `reduceOnly` would
-   open a position backwards.
+6. **CLOSED 2026-10-15: `tif` is decided by order type.** Market entries
+   sign `tif: "Ioc"` at the marketable price (mid ± 50 bps); limit entries
+   sign `Gtc` at the authored price; exits are reduce-only trigger-market.
+   Asserted in `takeFlow.test.tsx`. `reduceOnly` remains caller-supplied —
+   verify it before testing; an unintended `reduceOnly` would open a
+   position backwards.
 7. **Live X identity is still mock.** `x = mock`, so identity and profile
    linking have not been exercised against the real provider.
 8. **No end-to-end test against mainnet.** Every test either mocks `fetch` or runs

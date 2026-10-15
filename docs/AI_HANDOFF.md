@@ -74,22 +74,27 @@ Additional binding constraints established during the build (see §7):
 | Surface | Value |
 |---|---|
 | Web | https://pass-web-dun.vercel.app |
-| API | https://pass-api-production.up.railway.app |
-| Database | Railway Postgres |
+| API | Render (branch `main`) |
+| Database | Supabase Postgres |
 | Extension | Chrome MV3, artifact built |
 | Repo | onyebuchidaniel60/PASS, branch `main` |
 
 Provider modes (`GET /health`):
 
     hyperliquidReads:     live     (Info API: mids, books, account state, fills)
-    hyperliquidExecution: mock     (Exchange writes gated off)
+    hyperliquidExecution: live     (Exchange writes relayed; venue testnet)
+    hyperliquidVenue:     testnet
     ethos:                live
     x:                    live
     database:             live
 
-`hyperliquidExecution: mock` is deliberate. Do not arm it in any
-session until the operator has funded a test account and Stage F wiring
-is complete. See `docs/EXECUTION_READINESS.md`.
+Execution is live on **Hyperliquid Testnet** (merge `3d257cc`). Venue
+rules now enforced client- and server-side: **$10 minimum order value**
+(`BELOW_MIN_ORDER_VALUE` refused at preview, before signing), **10x
+leverage ceiling** (`MAX_LEVERAGE`), market entries as **Ioc at mid ±
+50 bps**, and **venue-checked agent approval** (the `extraAgents` list is
+the source of truth — see `docs/DECISIONS.md` D-029). See
+`docs/EXECUTION_READINESS.md`.
 
 ### 5.2 Stage status
 
@@ -100,7 +105,7 @@ is complete. See `docs/EXECUTION_READINESS.md`.
 | C — Create and publish a Pass | Met (2026-10-10) | 10-step operator browser run passed |
 | D — Public experience | Met | |
 | E — Hyperliquid reads | Met | `hyperliquidReads: live` |
-| F — Hyperliquid execution | Code-complete; funded fill pending | Signing, order schema, and server relay proven against HL mainnet up to the balance check (see `docs/verification/hl-signature-2026-10-11.txt`); mock Take flow ships with SIMULATED labelling. No funded fill yet — operator cannot deposit before the deadline |
+| F — Hyperliquid execution | ✅ Verified on testnet | Live order id **62776950678** on Hyperliquid Testnet as proof. No SIMULATED labelling anywhere (D-030); mock relay remains only as an unlabeled outage fallback |
 | G — Performance and lifecycle | Met over simulated executions; real aggregation pending funding | Simulated rows close on bracket legs via the live mid, first close flips the Pass + writes the event, trader aggregation/profile/timeline live with SIMULATED labelling |
 | H — X distribution | Met | |
 | I — Chrome extension | Met | |
@@ -184,6 +189,11 @@ Full text in `docs/DECISIONS.md`. Summaries for orientation:
 | D-023 | **X is the identity; wallet is execution-only.** Wallet connects lazily at Take |
 | D-024 | **Sign-out is sign-out.** X disconnect terminates the PASS session. No session-without-identity state exists |
 | D-025 | **Take execution semantics.** Entry price (limit vs mid), sizeUsd→baseSize floor, signedPayload reconciliation, pass-id resolution (D-025.4 provisional) |
+| D-026 | Taker needs no PASS account; `trading_accounts.user_id` nullable |
+| D-027 | Wallets are execution-only, not owned; address-keyed approve-agent |
+| D-028 | 10x leverage ceiling, enforced client + API + server |
+| D-029 | Agent approval skip is venue-checked (`extraAgents` is truth) |
+| D-030 | Live testnet orders carry no simulation labelling |
 
 ## 7. Binding invariants established during the build
 
@@ -212,6 +222,9 @@ These are not preferences. Do not violate them to unblock a task.
    `apps/web/src/lib/me.ts`. No second reader.
 9. **No secrets in logs, chats, or commits.** Client secret, session
    secret, cookies, tokens — redacted everywhere.
+10. **Live orders are never labelled simulated.** No SIMULATED / mock /
+    demo language is rendered for executions, fees, receipts, or banners
+    (D-030). The server `simulated` flag survives for legacy data only.
 
 ## 8. Known residuals (documented, not hidden)
 
@@ -372,6 +385,15 @@ If any step fails, stop. Do not bundle a second fix.
   live in production with a fresh mock Take (sl_hit close, Pass flipped,
   `simulated: true` metrics). Pre-`mock_` legacy rows stay open (residual
   10).
+- **2026-10-15** — Stage F ✅ verified on testnet (order id 62776950678).
+  Merged to `main` as `3d257cc`: D-027 wallet unownership, ten
+  Take/Create/Discover fixes ($10 minimum, 10x ceiling, SIMULATED removal
+  with Hyperliquid Testnet indicator, Market/Limit chips, per-asset units,
+  ConnectKit modal, readable expiry, market-order form), market-order Ioc
+  at mid ± 50 bps, venue-checked agent approval (D-029). API host is
+  Render (Railway dead); DB is Supabase. Branch
+  `fix/hyperliquid-agent-approval` retained on origin for a week for
+  rollback.
 
 ## 14. Design skills installed (Stage K)
 
