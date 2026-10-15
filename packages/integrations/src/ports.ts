@@ -106,6 +106,8 @@ export class ProviderError extends Error {
     message: string,
     readonly provider: string,
     readonly retryable: boolean = true,
+    /** Raw provider payload for diagnosis. Never secret material. */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = "ProviderError";

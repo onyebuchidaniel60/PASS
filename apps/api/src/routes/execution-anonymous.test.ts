@@ -166,6 +166,25 @@ describe("anonymous Take (D-026)", () => {
     expect(typeof body.accountId).toBe("string");
   });
 
+  it("refuses a sub-$10 preview with BELOW_MIN_ORDER_VALUE before signing", async () => {
+    const { publicId } = await traderWithPass();
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/passes/${publicId}/execution-preview`,
+      headers: { "content-type": "application/json" },
+      payload: {
+        passVersion: 1,
+        accountAddress: anonAddr("c3"),
+        positionSize: "5",
+        leverage: "2",
+      },
+    });
+    expect(res.statusCode).toBe(422);
+    const body = res.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("BELOW_MIN_ORDER_VALUE");
+    expect(body.error.message).toMatch(/\$10/);
+  });
+
   it("executes with no session: 201, mock id, simulated, taker null, user-less row", async () => {
     const { publicId } = await traderWithPass();
     const address = anonAddr("b2");

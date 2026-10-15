@@ -30,7 +30,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, useConnect, useSignMessage, useSignTypedData } from "wagmi";
+import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
+import { ConnectKitButton } from "connectkit";
 
 import {
   ChamferPanel,
@@ -42,7 +43,6 @@ import {
   CoordinatePair,
   SignalLine,
 } from "@/components/wave1/signature";
-import { Tag } from "@/components/wave3/cells";
 import {
   Button,
   Checkbox,
@@ -60,6 +60,7 @@ import {
 } from "@/components/wave3/data";
 
 import { NumberedEyebrow, Surface } from "@/components/reference";
+import { MAX_LEVERAGE, MIN_ORDER_VALUE_USD } from "@pass/contracts";
 import { clientGet, clientPost } from "@/lib/client";
 import { fmtUsd } from "@/lib/format";
 import type { MePayload, MeTradingAccount } from "@/lib/me";
@@ -67,7 +68,6 @@ import { hasAgentKeyInMemory, getMemoryAgentKey } from "@/lib/agent-keystore";
 import { isMemoryKeyApprovedFor, isUserRejection, runApproveAgent } from "@/lib/approve-agent";
 import { buildExchangeRequest, signExchangeRequest } from "@/lib/signer";
 import {
-  connectFailureMessage,
   entrySourceLabel,
   executionBody,
   floorBaseSize,
@@ -204,10 +204,8 @@ export function TakeFlowClient({
   const [agentNote, setAgentNote] = useState<string | null>(null);
 
   const { address, isConnected: browserConnected } = useAccount();
-  const { connect, connectors, isPending: connectPending } = useConnect();
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
-  const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -332,6 +330,15 @@ export function TakeFlowClient({
     const n = Number(size);
     if (!size.trim() || !Number.isFinite(n) || n <= 0) {
       setSizeError("Enter a position size greater than zero.");
+      return;
+    }
+    // Hyperliquid's minimum order value (single source: @pass/contracts).
+    // The server refuses smaller previews with BELOW_MIN_ORDER_VALUE; this
+    // fails fast before any wallet or signing step.
+    if (n < MIN_ORDER_VALUE_USD) {
+      setSizeError(
+        `Orders below $${MIN_ORDER_VALUE_USD} are rejected by Hyperliquid. Enter at least $${MIN_ORDER_VALUE_USD}.`,
+      );
       return;
     }
     setSizeError(null);
@@ -516,9 +523,8 @@ export function TakeFlowClient({
           },
         }),
       );
-      // A simulated relay is a demo, never a real trade. The receipt must
-      // say so inline with the order id — the top-level DemoBanner is not
-      // enough for a user reading only the receipt.
+      // Whether the relay was served by the venue fallback. Kept on the
+      // receipt record; never rendered as a label.
       const simulated =
         r.simulated === true || (r.providerOrderId?.startsWith("mock_") ?? false);
       setReceipt({
@@ -553,7 +559,6 @@ export function TakeFlowClient({
   useEffect(() => {
     if (!browserConnected || !needWallet || !pending || busy) return;
     setNeedWallet(false);
-    setConnectError(null);
     const next = pending;
     setPending(null);
     if (next === "preview") void submitPreview();
@@ -568,11 +573,13 @@ export function TakeFlowClient({
   // Displayed in steps 2–3; authorize() signs exactly this (D-025).
   const nums = preview ? takeNumbers() : null;
 
-  // Lazy-wallet gate (D-023): one tile per configured connector, each
-  // naming its wallet, driven by wagmi directly so a failure surfaces as
-  // a specific message instead of ConnectKit's generic error screen.
-  // No injected provider at all means no tile can succeed, so say so
-  // specifically instead of offering a doomed chooser.
+  // Lazy-wallet gate (D-023): ConnectKit's own modal, opened through its
+  // documented `show()` render prop (the same pattern as WalletControl and
+  // the Settings wallet section). The modal already renders the vertical
+  // wallet list with installed / not-installed states, so the custom
+  // horizontal per-connector tile row is gone. No injected provider at all
+  // means no chooser can succeed, so that case still says so specifically
+  // instead of offering a doomed modal.
   const hasInjectedWallet =
     typeof window !== "undefined" &&
     Boolean((window as unknown as { ethereum?: unknown }).ethereum);
@@ -593,40 +600,20 @@ export function TakeFlowClient({
     <Stack gap="3">
       <p className="pass-thesis">
         Connect your wallet to continue — the flow resumes where it left
-        off. PASS never receives a private key. Pick the wallet you want
-        to sign with; with several extensions installed, choose exactly
-        one here.
+        off. PASS never receives a private key.
       </p>
       <Inline gap="3">
-        {connectors.map((c) => (
-          <Button
-            key={c.id}
-            variant="secondary"
-            size="md"
-            disabledReason={connectPending ? "Connecting…" : undefined}
-            onClick={() => {
-              setConnectError(null);
-              connect(
-                { connector: c },
-                {
-                  onError: (e) =>
-                    setConnectError(connectFailureMessage(e, c.name)),
-                },
-              );
-            }}
-          >
-            {c.name}
-          </Button>
-        ))}
+        <ConnectKitButton.Custom>
+          {({ show }) => (
+            <Button variant="primary" size="lg" onClick={show}>
+              Connect wallet
+            </Button>
+          )}
+        </ConnectKitButton.Custom>
         <Link href={`/p/${publicId}`} className="pass-link-btn">
           Back to Pass
         </Link>
       </Inline>
-      {connectError ? (
-        <p role="alert" className="pass-validation">
-          {connectError}
-        </p>
-      ) : null}
     </Stack>
   );
 
@@ -726,7 +713,7 @@ export function TakeFlowClient({
                     value={leverage}
                     onChange={setLeverage}
                     min={1}
-                    max={20}
+                    max={MAX_LEVERAGE}
                   />
                 )}
               </Field>
@@ -765,11 +752,6 @@ export function TakeFlowClient({
 
           {step === 2 ? (
             <Stack gap="5">
-              {execMode === "mock" ? (
-                <p className="pass-stale">
-                  This order will be simulated. No funds will move.
-                </p>
-              ) : null}
               <ChamferPanel label="Order summary">
                 <Stack gap="4">
                   <CoordinateGrid>
@@ -929,72 +911,36 @@ export function TakeFlowClient({
                 <>
                   <ChamferPanel label="Order receipt">
                     <CoordinateGrid>
-                      {receipt?.simulated ? (
-                        // Simulated ids reuse the pair's own classes in a muted
-                        // tone with a demo tag, so the id reads as reference
-                        // data rather than a venue order. No new visual
-                        // language: same classes, same grid.
-                        <div
-                          className="pass-coordinate-pair pass-stale"
-                          data-size="m"
-                        >
-                          <span className="pass-coordinate-pair-label">
-                            Provider order id
-                          </span>
-                          <span
-                            className="pass-coordinate-pair-value"
-                            title={receipt?.orderId}
-                          >
-                            {receipt?.orderId ?? "—"} <Tag>demo</Tag>
-                          </span>
-                        </div>
-                      ) : (
-                        <CoordinatePair
-                          label="Provider order id"
-                          value={receipt?.orderId ?? "—"}
-                        />
-                      )}
+                      <CoordinatePair
+                        label="Provider order id"
+                        value={receipt?.orderId ?? "—"}
+                      />
                       <CoordinatePair
                         label="Provider status"
                         value={receipt?.status ?? "—"}
                       />
                     </CoordinateGrid>
-                    {receipt?.simulated ? (
+                    {receipt?.fee ? (
                       <Stack gap="2">
-                        <p role="note" className="pass-note pass-note-status">
-                          SIMULATED — no funds moved, no order sent to
-                          Hyperliquid.
-                        </p>
-                        <p className="pass-stale">
-                          This is a demo execution. A funded Hyperliquid
-                          account enables the same flow against mainnet.
-                        </p>
-                        {receipt?.fee ? (
-                          <Stack gap="2">
-                            <span className="pass-block-heading">Simulated fees</span>
-                            <CoordinateGrid>
-                              <CoordinatePair
-                                label="Notional"
-                                value={`$${fmtUsd(receipt.fee.notionalUsd)}`}
-                              />
-                              <CoordinatePair
-                                label={`Builder fee (${receipt.fee.builderFeeBps != null ? receipt.fee.builderFeeBps / 100 : 0.05}%)`}
-                                value={`$${fmtUsd(receipt.fee.feeUsd)}`}
-                              />
-                              <CoordinatePair
-                                label="Creator (50%)"
-                                value={`$${fmtUsd(receipt.fee.creatorShareUsd)}`}
-                              />
-                              <CoordinatePair
-                                label="Protocol (50%)"
-                                value={`$${fmtUsd(receipt.fee.protocolShareUsd)}`}
-                              />
-                            </CoordinateGrid>
-                            <p className="pass-stale">
-                              Simulated — no real fees are charged.
-                            </p>
-                          </Stack>
-                        ) : null}
+                        <span className="pass-block-heading">Fees earned</span>
+                        <CoordinateGrid>
+                          <CoordinatePair
+                            label="Notional"
+                            value={`$${fmtUsd(receipt.fee.notionalUsd)}`}
+                          />
+                          <CoordinatePair
+                            label={`Builder fee (${receipt.fee.builderFeeBps != null ? receipt.fee.builderFeeBps / 100 : 0.05}%)`}
+                            value={`$${fmtUsd(receipt.fee.feeUsd)}`}
+                          />
+                          <CoordinatePair
+                            label="Creator (50%)"
+                            value={`$${fmtUsd(receipt.fee.creatorShareUsd)}`}
+                          />
+                          <CoordinatePair
+                            label="Protocol (50%)"
+                            value={`$${fmtUsd(receipt.fee.protocolShareUsd)}`}
+                          />
+                        </CoordinateGrid>
                       </Stack>
                     ) : null}
                   </ChamferPanel>

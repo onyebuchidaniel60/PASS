@@ -1,3 +1,4 @@
+import { MAX_LEVERAGE } from "@pass/contracts";
 import type {
   PassDirection,
   PassEntryType,
@@ -28,7 +29,8 @@ export interface ValidationFailure {
   message: string;
 }
 
-export const MAX_LEVERAGE = 40;
+/** Re-exported so server code keeps one import; the value lives in @pass/contracts. */
+export { MAX_LEVERAGE };
 
 function num(v: string | null): number | null {
   if (v === null || v === undefined || v === "") return null;

@@ -32,8 +32,6 @@ const {
   mockHasKey,
   mockMemoryKey,
   mockRunApprove,
-  mockConnectFn,
-  mockUseConnect,
 } = vi.hoisted(() => ({
   mockPost: vi.fn(),
   mockGet: vi.fn(),
@@ -43,8 +41,6 @@ const {
   mockHasKey: vi.fn(),
   mockMemoryKey: vi.fn(),
   mockRunApprove: vi.fn(),
-  mockConnectFn: vi.fn(),
-  mockUseConnect: vi.fn(),
 }));
 
 vi.mock("@/lib/client", () => ({
@@ -53,7 +49,6 @@ vi.mock("@/lib/client", () => ({
 }));
 vi.mock("wagmi", () => ({
   useAccount: () => mockWallet(),
-  useConnect: () => mockUseConnect(),
   useSignTypedData: () => ({ signTypedDataAsync: mockSignTypedData }),
   useSignMessage: () => ({ signMessageAsync: mockSignMessage }),
 }));
@@ -127,14 +122,6 @@ let meResponse: unknown = ME_READY;
 
 function defaultMocks() {
   mockWallet.mockImplementation(() => ({ address: ADDR, isConnected: true }));
-  mockUseConnect.mockImplementation(() => ({
-    connectors: [
-      { id: "rabby", name: "Rabby" },
-      { id: "metaMask", name: "MetaMask" },
-    ],
-    connect: mockConnectFn,
-    isPending: false,
-  }));
   // jsdom ships no wallet: every test below assumes an injected provider
   // unless it deletes this stub to exercise the no-extension path.
   (window as unknown as { ethereum?: unknown }).ethereum = {
@@ -171,8 +158,6 @@ beforeEach(() => {
   mockHasKey.mockReset();
   mockMemoryKey.mockReset();
   mockRunApprove.mockReset();
-  mockUseConnect.mockReset();
-  mockConnectFn.mockReset();
   meResponse = ME_READY;
   defaultMocks();
 });
@@ -246,6 +231,17 @@ describe("Take flow step 1 — choose size (§10.6)", () => {
     await user.click(screen.getByRole("button", { name: "Review order" }));
     expect(mockPost).not.toHaveBeenCalled();
   });
+
+  it("refuses a sub-$10 size before signing (BELOW_MIN_ORDER_VALUE)", async () => {
+    await renderReady();
+    const user = await typeSize("5");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    expect(
+      screen.getByText(/Orders below \$10 are rejected by Hyperliquid/),
+    ).toBeInTheDocument();
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(screen.getByText("STEP 1 / 4")).toBeInTheDocument();
+  });
 });
 
 describe("Anonymous Take — no PASS session (D-026)", () => {
@@ -283,7 +279,7 @@ describe("Anonymous Take — no PASS session (D-026)", () => {
     expect(screen.queryByText(/connected X identity/i)).toBeNull();
   });
 
-  it("walks preview to SIMULATED receipt against the wallet address", async () => {
+  it("walks preview to receipt against the wallet address, with no simulation label", async () => {
     signedOutMocks();
     mockPost
       .mockResolvedValueOnce(ANON_PREVIEW)
@@ -319,17 +315,14 @@ describe("Anonymous Take — no PASS session (D-026)", () => {
     expect(execBody).not.toHaveProperty("accountId");
 
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
-    expect(
-      screen.getByText(
-        "SIMULATED — no funds moved, no order sent to Hyperliquid.",
-      ),
-    ).toBeInTheDocument();
+    // The provider order id renders verbatim, with no simulation label.
     expect(
       screen.getByText(/mock_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/SIMULATED|simulated|demo/i)).toBeNull();
   });
 
-  it("renders the simulated fee block and posts size+leverage for fee math", async () => {
+  it("renders the fee block and posts size+leverage for fee math", async () => {
     signedOutMocks();
     mockPost
       .mockResolvedValueOnce(ANON_PREVIEW)
@@ -361,13 +354,11 @@ describe("Anonymous Take — no PASS session (D-026)", () => {
     expect(execBody.leverage).toBe("5");
 
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
-    expect(screen.getByText("Simulated fees")).toBeInTheDocument();
+    expect(screen.getByText("Fees earned")).toBeInTheDocument();
     expect(screen.getByText("$200.00")).toBeInTheDocument();
     expect(screen.getByText("$0.10")).toBeInTheDocument();
     expect(screen.getAllByText("$0.05")).toHaveLength(2);
-    expect(
-      screen.getByText("Simulated — no real fees are charged."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/SIMULATED|simulated|demo/i)).toBeNull();
   });
 });
 
@@ -428,15 +419,16 @@ describe("Take flow step 2 — execution preview (§10.6)", () => {
     );
   });
 
-  it("says the order will be simulated when execution is mock", async () => {
+  it("never says the order will be simulated, even when execution is mock", async () => {
     mockPost.mockResolvedValue(PREVIEW);
     await renderReady();
     const user = await typeSize("1250");
     await user.click(screen.getByRole("button", { name: "Review order" }));
     await waitFor(() => expect(screen.getByText("STEP 2 / 4")).toBeInTheDocument());
     expect(
-      screen.getByText("This order will be simulated. No funds will move."),
-    ).toBeInTheDocument();
+      screen.queryByText("This order will be simulated. No funds will move."),
+    ).toBeNull();
+    expect(screen.queryByText(/SIMULATED|simulated|demo/i)).toBeNull();
   });
 
   it("omits the simulation line when execution is live", async () => {
@@ -582,7 +574,7 @@ describe("Take flow step 4 — confirmation (§10.6)", () => {
     expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument();
   });
 
-  it("marks a simulated relay inline with the order id", async () => {
+  it("shows the relayed order id with no simulation label", async () => {
     mockPost
       .mockResolvedValueOnce(PREVIEW)
       .mockResolvedValueOnce({
@@ -600,20 +592,11 @@ describe("Take flow step 4 — confirmation (§10.6)", () => {
     await user.click(document.getElementById("consent") as HTMLInputElement);
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
-    expect(
-      screen.getByText(
-        "SIMULATED — no funds moved, no order sent to Hyperliquid.",
-      ),
-    ).toBeInTheDocument();
+    // The provider order id renders verbatim; no label is attached to it.
     expect(
       screen.getByText(/mock_11111111-2222-3333-4444-555555555555/),
     ).toBeInTheDocument();
-    expect(screen.getByText("demo")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "This is a demo execution. A funded Hyperliquid account enables the same flow against mainnet.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/SIMULATED|simulated|demo/i)).toBeNull();
   });
 
   it("does not mark a live receipt as simulated", async () => {
@@ -741,10 +724,12 @@ describe("Take prompt with no wallet installed", () => {
     expect(
       await screen.findByText(/No browser wallet was found/),
     ).toBeInTheDocument();
+    // No chooser of any kind — neither custom tiles nor the modal launcher.
     expect(screen.queryByRole("button", { name: "Rabby" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Connect wallet" })).toBeNull();
   });
 
-  it("lists one tile per connector when extensions are present", async () => {
+  it("opens the ConnectKit modal instead of a custom tile list", async () => {
     mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
     mockPost.mockResolvedValue(PREVIEW);
     await renderReady();
@@ -752,10 +737,12 @@ describe("Take prompt with no wallet installed", () => {
     await user.click(screen.getByRole("button", { name: "Review order" }));
 
     expect(mockPost).not.toHaveBeenCalled();
+    // One launcher for ConnectKit's own modal — never a per-wallet row.
     expect(
-      await screen.findByRole("button", { name: "Rabby" }),
+      await screen.findByRole("button", { name: "Connect wallet" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "MetaMask" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rabby" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "MetaMask" })).toBeNull();
   });
 });
 
@@ -770,8 +757,9 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
 
     // No preview yet — the flow waits for the wallet it does not require early.
     expect(mockPost).not.toHaveBeenCalled();
-    await user.click(await screen.findByRole("button", { name: "Rabby" }));
-    expect(mockConnectFn).toHaveBeenCalledTimes(1);
+    // The ConnectKit launcher opens the modal (a noop in this runner);
+    // the flow resumes when the wallet connects.
+    await user.click(await screen.findByRole("button", { name: "Connect wallet" }));
 
     mockWallet.mockImplementation(() => ({ address: ADDR, isConnected: true }));
     out.rerender(<TakeFlowClient publicId="UvvuxpWPZ4" initialPass={PASS} />);
@@ -779,35 +767,6 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     expect(mockPost.mock.calls[0]?.[0]).toBe(
       "/api/v1/passes/UvvuxpWPZ4/execution-preview",
     );
-  });
-
-  it("renders a specific message when connect fails, not a generic screen", async () => {
-    mockWallet.mockImplementation(() => ({ address: undefined, isConnected: false }));
-    mockPost.mockResolvedValue(PREVIEW);
-    await renderReady();
-    const user = await typeSize("1250");
-    await user.click(screen.getByRole("button", { name: "Review order" }));
-    await user.click(await screen.findByRole("button", { name: "Rabby" }));
-
-    const opts = mockConnectFn.mock.calls[0]?.[1] as {
-      onError: (e: unknown) => void;
-    };
-    expect(typeof opts.onError).toBe("function");
-    await act(async () => {
-      opts.onError(
-        Object.assign(new Error("User rejected the request."), {
-          name: "UserRejectedRequestError",
-        }),
-      );
-    });
-
-    // Names the wallet and the cause; the tiles stay so retry is possible.
-    expect(
-      await screen.findByText(/You rejected the connection in Rabby/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Rabby" })).toBeInTheDocument();
-    expect(screen.getByText("STEP 1 / 4")).toBeInTheDocument();
-    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it("runs approveAgent on first execution, then signs", async () => {

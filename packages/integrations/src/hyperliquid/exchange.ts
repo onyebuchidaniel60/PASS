@@ -122,6 +122,29 @@ export class HyperliquidExchangeClient {
     }
 
     const response = (body_?.response ?? {}) as Record<string, unknown>;
+    // Hyperliquid answers 200 with `statuses[0].error` for rejected orders
+    // (e.g. sub-$10: "Order must have minimum value of $10. asset=0").
+    // That is a rejection WITH a reason, not a parse gap: surface the
+    // venue's message verbatim, non-retryable, with the raw response kept
+    // in details. Only a resting/filled shape with no oid may fall through
+    // to the "could not read the order id" parse failure below.
+    const statuses = (response.data as Record<string, unknown> | undefined)?.statuses;
+    const firstStatus =
+      Array.isArray(statuses) && statuses.length > 0 ? statuses[0] : null;
+    if (
+      firstStatus !== null &&
+      typeof firstStatus === "object" &&
+      "error" in firstStatus &&
+      typeof (firstStatus as Record<string, unknown>).error === "string" &&
+      ((firstStatus as Record<string, unknown>).error as string).length > 0
+    ) {
+      throw new ProviderError(
+        (firstStatus as Record<string, unknown>).error as string,
+        "hyperliquid",
+        false,
+        { raw: parsed },
+      );
+    }
     const providerOrderId = extractOrderOid(parsed, response);
     if (providerOrderId === null) {
       // status "ok" (or another non-"err" status) but no parseable oid:

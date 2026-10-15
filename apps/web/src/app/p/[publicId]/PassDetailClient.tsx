@@ -303,7 +303,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
 
   return (
     <PageShell>
-      <ShellContent className={takable ? "pass-detail-takable" : undefined}>
+      <ShellContent className={takable ? "pass-detail pass-detail-takable" : "pass-detail"}>
         <Stack gap="6">
           {/* §14.2 THE FOURTH AND LAST bracket frame. The Landing spends two and
               /how-it-works one, so this is the final one the product may use.
@@ -367,9 +367,11 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
             <Stack gap="4">
               <NumberedEyebrow label="Levels" number={2} />
               <MetricCardRow>
-                <MetricCard label="Entry" value={fmt(data.entryPrice)} unit="per ETH" />
-                <MetricCard label="Take profit" value={fmt(data.takeProfit)} unit="per ETH" />
-                <MetricCard label="Stop loss" value={fmt(data.stopLoss)} unit="per ETH" />
+                {/* The unit reads the Pass's own asset — never a hardcoded
+                    coin. A SOL-perp Pass reads "per SOL". */}
+                <MetricCard label="Entry" value={fmt(data.entryPrice)} unit={`per ${asset}`} />
+                <MetricCard label="Take profit" value={fmt(data.takeProfit)} unit={`per ${asset}`} />
+                <MetricCard label="Stop loss" value={fmt(data.stopLoss)} unit={`per ${asset}`} />
                 <MetricCard label="Leverage" value={`${data.leverage}x`} />
                 <MetricCard
                   label="R:R"

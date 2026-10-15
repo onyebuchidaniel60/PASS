@@ -443,11 +443,6 @@ export function TraderProfileClient({ slug }: { slug: string }) {
             />
             {perf ? (
               <>
-                {perf.simulated === true ? (
-                  <p className="pass-stale">
-                    Performance computed from simulated executions.
-                  </p>
-                ) : null}
                 {perf.simulated === null ? (
                   <p className="pass-stale">No completed Passes yet.</p>
                 ) : null}

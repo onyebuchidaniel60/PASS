@@ -86,6 +86,31 @@ describe("relaySignedAction order-id extraction", () => {
     );
   });
 
+  it("surfaces statuses[0].error verbatim (sub-$10 rejection), never the parse message", async () => {
+    const raw = {
+      status: "ok",
+      response: {
+        type: "order",
+        data: { statuses: [{ error: "Order must have minimum value of $10. asset=0" }] },
+      },
+    };
+    stubOk(raw);
+    const err = await client()
+      .relaySignedAction(SIGNED)
+      .then(
+        () => null,
+        (e: unknown) => e as Error & { retryable?: boolean; details?: unknown },
+      );
+    expect(err).not.toBeNull();
+    // Hyperliquid's own message, verbatim — not the parse-failure wording.
+    expect(String(err?.message)).toBe("Order must have minimum value of $10. asset=0");
+    expect(String(err?.message)).not.toMatch(/could not read the order id/i);
+    // Non-retryable: resubmitting the same size is rejected again.
+    expect((err as { retryable?: boolean })?.retryable).toBe(false);
+    // The raw response travels in details for diagnosis.
+    expect(JSON.stringify((err as { details?: unknown })?.details)).toContain("minimum value");
+  });
+
   it('status "ok" with no oid anywhere throws a distinct error, never an empty id', async () => {
     const raw = { status: "ok", response: { type: "order", data: { statuses: [] } } };
     stubOk(raw);

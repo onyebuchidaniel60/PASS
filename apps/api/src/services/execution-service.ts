@@ -7,11 +7,13 @@ import { BUILDER_FEE_BPS, computeFee, isStaleVersion, splitFee } from "@pass/dom
 import { executions, feeLedger, passEvents, tradingAccounts, type PassRow } from "@pass/db";
 import { getPassById, getPassVersion } from "./pass-service.js";
 import { resolveTradingAccountByAddress, visibleAgentAddress } from "./profile-service.js";
+import { MAX_LEVERAGE, MIN_ORDER_VALUE_USD } from "@pass/contracts";
 import type {
   ExecutionPreviewRequest,
   ExecutionRequest,
   ExecutionPreviewDto,
 } from "@pass/contracts";
+import { ProviderError } from "@pass/integrations";
 
 /**
  * Server-relay execution (docs/DECISIONS.md D-018.3).
@@ -131,6 +133,15 @@ export async function buildExecutionPreview(
   if (Number(positionSize) <= 0) {
     throw new AppError("INVALID_POSITION_SIZE");
   }
+  // Hyperliquid rejects orders below a $10 notional. Refuse before the
+  // user signs — the venue's own rejection would arrive only after.
+  if (Number(positionSize) < MIN_ORDER_VALUE_USD) {
+    throw new AppError(
+      "BELOW_MIN_ORDER_VALUE",
+      `Order size $${positionSize} is below Hyperliquid's $${MIN_ORDER_VALUE_USD} minimum order value.`,
+      { positionSize, minOrderValueUsd: MIN_ORDER_VALUE_USD },
+    );
+  }
 
   let mark: string | null = null;
   let observedAt: string | null = null;
@@ -178,8 +189,8 @@ export async function buildExecutionPreview(
     margin = toDecimalStringSafe(notional / Number(leverage || "1"));
   }
 
-  if (Number(leverage) > 40) {
-    warnings.push({ code: "INVALID_LEVERAGE", message: "Leverage is above the supported maximum." });
+  if (Number(leverage) > MAX_LEVERAGE) {
+    warnings.push({ code: "INVALID_LEVERAGE", message: `Leverage is above the ${MAX_LEVERAGE}x maximum.` });
   }
   if (markNum !== null && Number.isFinite(markNum)) {
     if (snapshot.entryPrice !== null) {
@@ -329,12 +340,16 @@ export async function relayExecution(
       takerId,
       reason,
     });
-    // The relay client throws this distinct error when the exchange
-    // answered without a parseable order id. Preserve it verbatim (with
-    // the raw response it carries) instead of collapsing it into the
-    // generic rejection below.
-    if (/could not read the order id/i.test(reason)) {
-      throw new AppError("ORDER_REJECTED", reason.slice(0, 600));
+    // The relay client throws ProviderError with the venue's own reason —
+    // a per-order rejection (e.g. the $10 minimum) or the distinct
+    // no-parseable-order-id error. Preserve it verbatim (with the raw
+    // response it carries) instead of collapsing it into the generic
+    // rejection below.
+    if (err instanceof ProviderError) {
+      const raw = (err.details as { raw?: unknown } | undefined)?.raw;
+      throw new AppError("ORDER_REJECTED", reason.slice(0, 600), {
+        ...(raw !== undefined ? { rawStatus: raw } : {}),
+      });
     }
     throw new AppError("ORDER_REJECTED", "The order was rejected by the exchange.");
   }

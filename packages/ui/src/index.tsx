@@ -238,12 +238,6 @@ export function ErrorBlock({
   );
 }
 
-/** Shown whenever provider responses are simulated fixtures. */
-export function DemoBanner() {
-  return (
-    <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-900">
-      Demo data — provider integrations are running in mock mode. Figures are
-      simulated and are not real market or trading data.
-    </div>
-  );
-}
+/** Removed: the app renders its own venue/mode banner from
+ * `apps/web/src/components/DemoBanner.tsx`. The old mock-mode copy here
+ * ("Demo data … mock mode … simulated") is dead and must not render. */

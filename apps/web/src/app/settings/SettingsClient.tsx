@@ -522,12 +522,7 @@ const ACTIVITY_COLUMNS: DataTableColumn<SettingsExecution>[] = [
   {
     key: "status",
     label: "STATUS",
-    render: (e) => (
-      <DataCell>
-        {statusLabel(e.status)}
-        {e.simulated || e.providerOrderId?.startsWith("mock_") ? " — SIMULATED" : ""}
-      </DataCell>
-    ),
+    render: (e) => <DataCell>{statusLabel(e.status)}</DataCell>,
   },
   {
     key: "pnl",
@@ -548,13 +543,12 @@ function PnlPanel({ executions }: { executions: SettingsExecution[] }) {
   const rows = executions.filter((e) => inWindow(e.createdAt, window));
   const total = sumRealized(rows);
   const pts = cumulativePnl(rows);
-  const anySimulated = rows.some((e) => e.simulated || e.providerOrderId?.startsWith("mock_"));
   const tone = pts.length >= 2 && pts[pts.length - 1] >= pts[0] ? "positive" : "negative";
 
   return (
     <DataCard
       id="Realized PnL"
-      sub={anySimulated ? "Closed executions · includes SIMULATED" : "Closed executions"}
+      sub="Closed executions"
       value={total === null ? "—" : <Pnl value={total} />}
     >
       <Stack gap="4">
@@ -803,18 +797,18 @@ function SettingsReady({
             />
           </div>
 
-          {/* Two metric sub-cards: server-computed, SIMULATED-aware. */}
+          {/* Two metric sub-cards: server-computed. */}
           {perf ? (
             <MetricCardRow>
               <MetricCard
                 label="Success"
                 value={perf.passSuccessMetric === null ? "—" : `${perf.passSuccessMetric}%`}
-                sub={`TP / completed · ${perf.successMetricWindow}${perf.simulated ? " · SIMULATED" : ""}`}
+                sub={`TP / completed · ${perf.successMetricWindow}`}
               />
               <MetricCard
                 label="Average R"
                 value={perf.averageRMultiple === null ? "—" : `${perf.averageRMultiple}R`}
-                sub={`Closed executions${perf.simulated ? " · SIMULATED" : ""}`}
+                sub="Closed executions"
               />
             </MetricCardRow>
           ) : null}

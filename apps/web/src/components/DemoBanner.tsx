@@ -3,24 +3,26 @@
 import { useEffect, useState } from "react";
 
 /**
- * Demo-mode banner — accurate about WHICH surfaces are simulated.
+ * Venue + provider-mode banner — accurate about WHICH surfaces are live.
  *
  * The banner this replaces was unconditional and read "provider integrations
  * are running in mock mode". Once Ethos and Hyperliquid reads went live that
  * sentence became false, which is worse than no banner: it tells a reader to
  * distrust prices that are real while telling them nothing about the one thing
- * that is still simulated — order execution.
+ * that matters — order execution.
  *
  * Rules encoded here:
- *  - ALL live            -> render nothing.
- *  - ANY mock            -> name the surfaces that are simulated.
- *  - Execution is always named explicitly. Never imply a live execution path
- *    while `hyperliquidExecution` is mock (docs/EXECUTION_READINESS.md).
- *  - Unknown (health unreachable) -> say so. Claiming "live" on a failed fetch
- *    and claiming "demo" are both lies; only the first is dangerous.
+ *  - the venue is ALWAYS named when known ("Hyperliquid Testnet" /
+ *    "Hyperliquid Mainnet"): the persistent indicator at the top of the app;
+ *  - ALL live            -> venue line only, no mode notes;
+ *  - ANY not-live        -> name the surfaces that are not live;
+ *  - execution is always named explicitly when it is not live;
+ *  - unknown (health unreachable) -> say so;
+ *  - no simulation language anywhere: orders execute on Hyperliquid and no
+ *    surface is labelled as a demo.
  */
 
-/** The `modes` block of GET /health. */
+/** The `modes` block of GET /health, plus the venue. */
 interface HealthModes {
   hyperliquid?: "live" | "mock";
   /** D-021: reads and execution are gated independently. */
@@ -33,6 +35,8 @@ interface HealthModes {
 
 interface Health {
   modes: HealthModes;
+  /** Current venue per the server's own config (testnet/mainnet). */
+  hyperliquidVenue?: string | null;
 }
 
 interface Surface {
@@ -60,9 +64,15 @@ function surfacesFrom(modes: HealthModes): Surface[] {
   ];
 }
 
+function venueLabel(venue: string | null | undefined): string | null {
+  if (venue === "testnet") return "Hyperliquid Testnet";
+  if (venue === "mainnet") return "Hyperliquid Mainnet";
+  return null;
+}
+
 export function DemoBanner() {
   // `null` means "not known yet". Rendering a banner before /health answers
-  // would assert demo mode on every screen load, including a fully live one.
+  // would assert a mode on every screen load, including a fully live one.
   const [health, setHealth] = useState<Health | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -99,35 +109,45 @@ export function DemoBanner() {
   }
 
   const surfaces = surfacesFrom(health?.modes ?? {});
-  const demoed = surfaces.filter((s) => s.mode !== "live");
+  const notLive = surfaces.filter((s) => s.mode !== "live");
+  const venue = venueLabel(health?.hyperliquidVenue);
 
-  // Everything live: no banner at all. Anything else gets one.
-  if (demoed.length === 0) return null;
+  // Everything live: the venue line is the whole banner — the persistent
+  // indicator that orders go to Hyperliquid Testnet (or Mainnet).
+  if (notLive.length === 0) {
+    if (!venue) return null;
+    return (
+      <div className="pass-demo-banner" role="status">
+        <span className="pass-demo-banner-lead">{venue}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="pass-demo-banner" role="status">
+      {venue ? (
+        <>
+          <span className="pass-demo-banner-lead">{venue}</span>{" "}
+        </>
+      ) : null}
       <span className="pass-demo-banner-lead">
-        {demoed.length === surfaces.length
-          ? "Demo mode."
+        {notLive.length === surfaces.length
+          ? "Offline mode."
           : "Partly live."}
       </span>{" "}
       <span className="pass-demo-banner-note">
-        Simulated — not real data:{" "}
-        {demoed.map((s) => s.label.toLowerCase()).join(", ")}.
+        Not live:{" "}
+        {notLive.map((s) => s.label.toLowerCase()).join(", ")}.
       </span>{" "}
       {/* Execution gets its own sentence regardless, because it is the surface
-          that would move money if it were live. Mock execution simulates
-          success with a clearly labelled SIMULATED receipt — no order leaves
-          this deployment. Funded execution is one environment flag away
-          (D-021: HYPERLIQUID_MODE=live with live reads). */}
+          that moves money. While it is not live, orders are not placed. */}
       {surfaces.some((s) => s.key === "execution" && s.mode !== "live") ? (
         <span className="pass-demo-banner-note">
-          Hyperliquid execution is simulated in this deployment.
+          Hyperliquid execution is paused in this deployment.
           {surfaces.some((s) => s.key === "reads" && s.mode === "live") ? (
             <> Market data is live.</>
           ) : null}{" "}
-          Orders are not placed. Funded execution is one environment flag
-          away.
+          Orders are not placed.
         </span>
       ) : null}
     </div>

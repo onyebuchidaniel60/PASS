@@ -24,8 +24,8 @@
  *  - the period control is a `SegmentedControl` whose window comes from
  *    `periodWindow` — one helper, half-open `[start, end)`, offset from now, so
  *    the default window never goes stale (§10.9.3, skill §9 rule 2);
- *  - every simulated row carries the SIMULATED label in the same view
- *    (invariant 10);
+  *  - rows carry no simulation label: orders execute on Hyperliquid, and
+  *    legacy pre-live rows stay visible without a label;
  *  - the row Detail control is a button, never a link: rows carry no links,
  *    so anchors never nest.
  *
@@ -107,12 +107,7 @@ const COLUMNS: DataTableColumn<Execution>[] = [
   {
     key: "status",
     label: "STATUS",
-    render: (e) => (
-      <DataCell>
-        {statusLabel(e.status)}
-        {e.simulated || e.providerOrderId?.startsWith("mock_") ? " — SIMULATED" : ""}
-      </DataCell>
-    ),
+    render: (e) => <DataCell>{statusLabel(e.status)}</DataCell>,
   },
   {
     key: "pnl",
@@ -227,17 +222,6 @@ export function ExecutionsClient({
 
           return (
             <Stack gap="6">
-              {rows.some(
-                (e) => e.simulated || e.providerOrderId?.startsWith("mock_"),
-              ) ? (
-                <Panel>
-                  <p className="pass-stale">
-                    Some executions below are simulated for demo purposes.
-                    They are labelled.
-                  </p>
-                </Panel>
-              ) : null}
-
               {rows.length === 0 ? (
                 <EmptyBlock title="Nothing in this period">
                   Widen the period to see earlier executions.
@@ -281,9 +265,6 @@ export function ExecutionsClient({
                         <DataCell tone="muted">Provider order</DataCell>
                         <Tag title={e.providerOrderId ?? undefined}>
                           {e.providerOrderId ?? "not assigned"}
-                          {e.simulated || e.providerOrderId?.startsWith("mock_")
-                            ? " — SIMULATED"
-                            : ""}
                         </Tag>
                         <DataCell tone="muted">Pass version</DataCell>
                         <Tag>v{e.passVersion}</Tag>

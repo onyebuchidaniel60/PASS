@@ -120,24 +120,5 @@ export function executionBody(params: {
   };
 }
 
-/**
- * A connect failure rendered specifically, never ConnectKit's generic
- * screen. Names the wallet and the cause: a rejection is the user's own
- * action, a chain problem is correctable in the wallet, a missing
- * provider means conflicting extensions, and anything else is quoted
- * verbatim rather than swallowed.
- */
-export function connectFailureMessage(err: unknown, walletName: string): string {
-  const name = (err as { name?: string } | null)?.name ?? "";
-  const raw = err instanceof Error ? err.message : String(err);
-  if (/UserRejected/i.test(name) || /rejected|denied|cancell?ed/i.test(raw)) {
-    return `You rejected the connection in ${walletName}. Nothing was connected — try again when ready.`;
-  }
-  if (/ChainMismatch|ChainNotConfigured|ChainId|4902/.test(`${name} ${raw}`)) {
-    return `${walletName} is on the wrong network. PASS signs on Arbitrum (chain 42161) — switch networks in ${walletName} and try again.`;
-  }
-  if (/ProviderNotFound/i.test(name)) {
-    return `No ${walletName} provider was found, even though an extension seemed present. Disable conflicting wallet extensions so only one manages the browser provider, reload, and try again.`;
-  }
-  return `${walletName} could not connect: ${raw}`;
-}
+/** Removed with the custom wallet tile list (Item 10): the Take flow opens
+ * ConnectKit's own modal now, which owns connect-error rendering. */

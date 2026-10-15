@@ -116,6 +116,11 @@ Request:
 
 Returns the draft Pass plus its first version.
 
+`leverage` is capped at 10 (shared constant `MAX_LEVERAGE` in
+`@pass/contracts`): the Create/Update schemas, server plan validation, the
+execution preview, and both web steppers refuse anything above it, because
+the venue rejects it. A market Pass must not carry `entryPrice`.
+
 ### PATCH `/passes/{id}`
 
 Updates a mutable Pass. The endpoint must create a new version/event when an update affects execution-relevant fields.
@@ -198,6 +203,13 @@ Request (exactly one of `accountId`, `accountAddress`):
   "slippageToleranceBps": 50
 }
 ```
+
+The preview refuses a `positionSize` below Hyperliquid's minimum order
+value ($10, shared constant `MIN_ORDER_VALUE_USD` in `@pass/contracts`)
+with `BELOW_MIN_ORDER_VALUE` before the user signs. A per-order venue
+rejection that arrives at relay time instead (e.g. price moved between
+preview and submit) is returned as `ORDER_REJECTED` carrying the venue's
+message verbatim.
 
 Response must include:
 
@@ -372,6 +384,7 @@ INVALID_ASSET
 INVALID_DIRECTION
 INVALID_PRICE
 INVALID_POSITION_SIZE
+BELOW_MIN_ORDER_VALUE
 INVALID_LEVERAGE
 INSUFFICIENT_MARGIN
 SLIPPAGE_EXCEEDED

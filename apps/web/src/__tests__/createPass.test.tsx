@@ -94,8 +94,17 @@ describe("live validation (UX_SPEC §7)", () => {
   });
 
   it("enforces the market's leverage bound (§7 leverage constraints)", () => {
+    // The fixture venue allows 25x ETH, but the 10x product ceiling wins.
     const e = validate({ ...BASE, asset: "ETH", leverage: 40 });
-    expect(e.leverage).toBe("Maximum leverage for ETH is 25x.");
+    expect(e.leverage).toBe("Maximum leverage for ETH is 10x.");
+  });
+
+  it("caps new Passes at the 10x product ceiling even when the venue allows more", () => {
+    // The fixture venue allows 40x BTC / 25x ETH; the product ceiling wins.
+    expect(validate({ ...BASE, leverage: 11 }).leverage).toBe(
+      "Maximum leverage for BTC is 10x.",
+    );
+    expect(validate({ ...BASE, leverage: 10 }).leverage).toBeUndefined();
   });
 
   it("rejects a missing or past expiry (§7 expiry validity)", () => {
@@ -247,6 +256,16 @@ describe("Create Pass preview and publish (§10.5)", () => {
     expect(screen.getByText(/need attention before this Pass can be published/)).toBeInTheDocument();
   });
 
+  it("reads the expiry back human-readably without changing the sent value", async () => {
+    await renderForm();
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
+    // Human-readable, locale-formatted — never the raw "2099-01-01T00:00".
+    expect(await screen.findByText(/Expires Jan 1, 2099/)).toBeInTheDocument();
+  });
+
   it("has no Taker-size field — a Trader publishes a plan, not a size (D-015)", async () => {
     await renderForm();
     await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
@@ -311,6 +330,25 @@ describe("Create Pass publish path (create then publish)", () => {
     expect(screen.queryByText("Published")).toBeNull();
     expect(screen.queryByDisplayValue("/p/UvvuxpWPZ4")).toBeNull();
     expect(screen.getByText("Create a Pass")).toBeInTheDocument();
+  });
+
+  it("renders no entry-price input for a market entry, and keeps it for limit", async () => {
+    await renderForm();
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    // Default is limit: the input renders.
+    expect(screen.getByLabelText(/Entry price/)).toBeInTheDocument();
+    // Market: the input is gone — entry comes from the live market at
+    // execution time (D-025.1), never from the author.
+    await user.click(screen.getByRole("button", { name: "Market" }));
+    expect(screen.queryByLabelText(/Entry price/)).toBeNull();
+    expect(
+      screen.getByText(/Market entry uses the current market price/),
+    ).toBeInTheDocument();
+    // Back to limit: the input returns.
+    await user.click(screen.getByRole("button", { name: "Limit" }));
+    expect(screen.getByLabelText(/Entry price/)).toBeInTheDocument();
   });
 
   it("sends null, not an empty string, for a market entry price", async () => {
