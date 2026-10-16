@@ -17,7 +17,7 @@ A trader authors a structured trade plan — entry, take-profit, stop-loss, size
 ## Live
 
 - Web: https://pass-web-dun.vercel.app
-- API: See docs/DEPLOYMENT_OPERATIONS.md <!-- TODO: confirm the Render API URL and replace this pointer with the direct link -->
+- API: https://pass-pz7f.onrender.com
 - Runs against Hyperliquid Testnet today.
 
 ## Stack
@@ -36,6 +36,46 @@ design/         Visual blueprint (DESIGN.md); reference media is local-only
 scripts/        Verification, smoke, and check scripts
 ```
 
+## Chrome extension (optional)
+
+The PASS extension runs on X and surfaces PASS context next to
+accounts and posts. It is optional. The web app works without it.
+
+Source: `apps/extension/`
+
+To build and load it:
+
+1. Install dependencies and build:
+
+   ```bash
+   pnpm install
+   pnpm --filter @pass/extension build
+   ```
+
+2. Open Chrome and go to `chrome://extensions`
+
+3. Enable Developer mode (top right toggle).
+
+4. Click "Load unpacked" and select the folder:
+
+   ```text
+   apps/extension/dist
+   ```
+
+5. Open x.com in a new tab. The extension overlay will appear on
+   supported profile and post pages.
+
+To rebuild after any source change:
+
+```bash
+pnpm --filter @pass/extension build
+```
+
+Then press Reload on the extension card in `chrome://extensions`.
+
+The extension targets the deployed PASS API at
+https://pass-pz7f.onrender.com
+
 ## Docs
 
 Start with docs/ for the source of truth — docs/AI_HANDOFF.md for current state.
@@ -43,3 +83,4 @@ Start with docs/ for the source of truth — docs/AI_HANDOFF.md for current stat
 ## Development
 
 See docs/DEVELOPMENT.md for setup, environment, tests, and deployment.
+The Chrome extension is optional — see "Chrome extension (optional)" above.
