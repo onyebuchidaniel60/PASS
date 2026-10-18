@@ -34,7 +34,7 @@ const DEV_FALLBACKS = import.meta.env.DEV
   ? { api: "http://127.0.0.1:4000", web: "http://localhost:3000" }
   : { api: "", web: "" };
 
-/** Base URL of the PASS API, e.g. https://pass-api-production.up.railway.app */
+/** Base URL of the PASS API, e.g. https://pass-pz7f.onrender.com */
 export const PASS_API_URL: string = readEnv(
   import.meta.env.VITE_PASS_API_URL as string | undefined,
   DEV_FALLBACKS.api,
