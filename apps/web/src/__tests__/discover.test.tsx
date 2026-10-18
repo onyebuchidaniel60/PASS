@@ -264,6 +264,26 @@ describe("Discover reference language (§14)", () => {
     expect(rr?.querySelector("dd")?.textContent).toBe("—");
   });
 
+  it("omits R:R on market cards and keeps it on limit cards (D-032)", async () => {
+    const { container } = await renderDiscover();
+    await waitFor(() => expect(container.querySelectorAll(".pass-card")).toHaveLength(2));
+    const labelsFor = (root: HTMLElement, title: string) => {
+      const card = Array.from(root.querySelectorAll(".pass-card")).find((c) =>
+        c.textContent?.includes(title),
+      )!;
+      return Array.from(card.querySelectorAll(".pass-card-metric dt")).map((d) => d.textContent);
+    };
+    // Limit Pass: entry is known, so the ratio is a property of the plan.
+    expect(labelsFor(container, "BTC LONG")).toContain("R:R");
+    // Market Pass: no entry price exists to derive a ratio from, so the metric
+    // is absent entirely rather than rendering a dash (D-032).
+    const marketLabels = labelsFor(container, "ETH SHORT");
+    expect(marketLabels).not.toContain("R:R");
+    // The plan levels that do not depend on entry still render.
+    expect(marketLabels).toContain("Take profit");
+    expect(marketLabels).toContain("Stop loss");
+  });
+
   it("uses only the documented class vocabulary", async () => {
     const { container } = await renderDiscover();
     await waitFor(() => expect(container.querySelectorAll(".pass-card").length).toBeGreaterThan(0));

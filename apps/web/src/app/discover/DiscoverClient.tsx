@@ -306,7 +306,10 @@ export function DiscoverClient() {
                     metrics={[
                       { label: "Take profit", value: fmt(p.takeProfit) },
                       { label: "Stop loss", value: fmt(p.stopLoss) },
-                      { label: "R:R", value: riskReward(p) },
+                      // D-032: R:R is derived from the entry price, so on a
+                      // market Pass there is nothing to derive it from. Omit
+                      // the metric entirely rather than render a dash.
+                      ...(isMarket ? [] : [{ label: "R:R", value: riskReward(p) }]),
                     ]}
                     action={{ label: "Open Pass", href }}
                     interactive

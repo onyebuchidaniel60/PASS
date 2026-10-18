@@ -129,6 +129,27 @@ describe("Pass detail renders a Pass (§10.3)", () => {
     expect(screen.getByText("1,392")).toBeInTheDocument();
   });
 
+  it("omits Entry and R:R on a market Pass, keeps TP, SL and leverage (D-032)", async () => {
+    await renderPass({ entryType: "market", entryPrice: null });
+    await screen.findByRole("heading", { level: 1 });
+    // A market Pass has no entry price until execution, so neither the figure
+    // nor the ratio derived from it is rendered. No dash, no empty card.
+    expect(screen.queryByText("Entry")).toBeNull();
+    expect(screen.queryByText("R:R")).toBeNull();
+    // Plan-level figures are unaffected.
+    expect(screen.getByText("Take profit")).toBeInTheDocument();
+    expect(screen.getByText("Stop loss")).toBeInTheDocument();
+    expect(screen.getByText("Leverage")).toBeInTheDocument();
+  });
+
+  it("shows Entry and R:R on a limit Pass", async () => {
+    await renderPass();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByText("Entry")).toBeInTheDocument();
+    expect(screen.getByText("R:R")).toBeInTheDocument();
+    expect(screen.getByText("1.73:1")).toBeInTheDocument();
+  });
+
   it("separates reputation from PASS performance with a rule", async () => {
     // D-007 / PRD §12 make merging them a P0 anti-pattern.
     renderPass();

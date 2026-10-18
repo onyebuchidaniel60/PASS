@@ -297,6 +297,9 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
   const tone = expired ? ("expired" as StatusTone) : TONE[data.status];
   const label = expired ? "Expired" : STATE_LABEL[data.status] ?? data.status;
   const asset = data.asset.toUpperCase();
+  // D-032: a market Pass derives its entry at execution, so there is no entry
+  // price to show and no R:R to derive from one.
+  const isMarketEntry = data.entryType === "market";
   const direction = data.direction === "long" ? "LONG" : "SHORT";
   const market = data.market;
   const series = market?.series;
@@ -361,22 +364,31 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
           </Surface>
 
           {/* §10.3 item 3 — the plan block. The thing the reader came for, so it
-              is the second thing the eye finds. Five §11.3 figures and nothing
-              else: adding a sixth would be inventing a metric. */}
+              is the second thing the eye finds. Up to five §11.3 figures and
+              nothing else: adding a sixth would be inventing a metric. A
+              market Pass shows three, because Entry and R:R have no basis. */}
           <Section label="The plan">
             <Stack gap="4">
               <NumberedEyebrow label="Levels" number={2} />
               <MetricCardRow>
-                {/* The unit reads the Pass's own asset — never a hardcoded
-                    coin. A SOL-perp Pass reads "per SOL". */}
-                <MetricCard label="Entry" value={fmt(data.entryPrice)} unit={`per ${asset}`} />
+                {/* D-032: a market Pass stores no entry price (it is derived at
+                    execution), so Entry and every figure derived from it are
+                    omitted rather than rendered as a dash. Take profit, stop
+                    loss and leverage are plan-level and always render. */}
+                {isMarketEntry ? null : (
+                  // The unit reads the Pass's own asset — never a hardcoded
+                  // coin. A SOL-perp Pass reads "per SOL".
+                  <MetricCard label="Entry" value={fmt(data.entryPrice)} unit={`per ${asset}`} />
+                )}
                 <MetricCard label="Take profit" value={fmt(data.takeProfit)} unit={`per ${asset}`} />
                 <MetricCard label="Stop loss" value={fmt(data.stopLoss)} unit={`per ${asset}`} />
                 <MetricCard label="Leverage" value={`${data.leverage}x`} />
-                <MetricCard
-                  label="R:R"
-                  value={riskReward(data.entryPrice, data.takeProfit, data.stopLoss)}
-                />
+                {isMarketEntry ? null : (
+                  <MetricCard
+                    label="R:R"
+                    value={riskReward(data.entryPrice, data.takeProfit, data.stopLoss)}
+                  />
+                )}
               </MetricCardRow>
             </Stack>
           </Section>
