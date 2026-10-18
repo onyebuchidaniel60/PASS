@@ -7,7 +7,7 @@ import {
   listPublicPasses,
 } from "../services/pass-service.js";
 import { passPerformance, listPassExecutions } from "../services/execution-service.js";
-import { buildPublicProfile, getProfileBySlug } from "../services/profile-service.js";
+import { buildPublicProfile, getProfileBySlug, getProfileBySlugOrXHandle } from "../services/profile-service.js";
 import { AppError } from "../errors.js";
 import { ETHOS_DISCLAIMER } from "../services/profile-service.js";
 
@@ -211,17 +211,16 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
   });
 
   app.get<{ Querystring: { handle?: string } }>("/api/v1/extension/context", async (req) => {
-    const handle = req.query.handle?.replace(/^@/, "");
+    const handle = req.query.handle;
     if (!handle) return { found: false, reason: "no_handle" };
-    const { profiles } = await import("@pass/db");
-    const { eq } = await import("drizzle-orm");
-    const rows = await ctx.db
-      .select()
-      .from(profiles)
-      .where(eq(profiles.slug, handle.toLowerCase()))
-      .limit(1);
-    const profile = rows[0];
-    if (!profile) return { found: false, reason: "not_on_pass" };
+    // Resolves by PASS slug first, then falls back to the X handle, because the
+    // extension only ever has the handle it read off the x.com URL.
+    let profile;
+    try {
+      profile = await getProfileBySlugOrXHandle(ctx, handle);
+    } catch {
+      return { found: false, reason: "not_on_pass" };
+    }
 
     const p = await buildPublicProfile(ctx, profile.slug);
     const active = await listPublicPasses(ctx, { limit: 5, traderId: profile.userId });

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import {
@@ -97,6 +97,42 @@ export async function getProfileBySlug(ctx: AppContext, slug: string) {
   const row = rows[0];
   if (!row) throw new AppError("PROFILE_NOT_FOUND");
   return row;
+}
+
+/**
+ * Resolve a public profile from either a PASS slug or an X handle.
+ *
+ * The extension reads an X handle off the x.com URL, but a trader's PASS slug
+ * is chosen independently of their X handle and can legitimately differ. An
+ * exact slug match always wins, so a slug can never be shadowed by another
+ * trader's handle; the X username is only a fallback.
+ *
+ * Matching is case-insensitive because X handles are, and display-only X
+ * identities count: the overlay is meant to surface traders who have not
+ * linked X at all (docs/EXTENSION_SPEC.md §2).
+ */
+export async function getProfileBySlugOrXHandle(ctx: AppContext, input: string) {
+  const key = input.replace(/^@/, "").trim();
+
+  const bySlug = await ctx.db.select().from(profiles).where(eq(profiles.slug, key)).limit(1);
+  if (bySlug[0]) return bySlug[0];
+
+  const byHandle = await ctx.db
+    .select({ profile: profiles })
+    .from(identities)
+    .innerJoin(profiles, eq(profiles.userId, identities.userId))
+    .where(
+      and(
+        eq(identities.provider, "x"),
+        sql`lower(${identities.username}) = ${key.toLowerCase()}`,
+      ),
+    )
+    // Deterministic when two identities somehow share a username: oldest wins.
+    .orderBy(identities.createdAt)
+    .limit(1);
+  if (byHandle[0]) return byHandle[0].profile;
+
+  throw new AppError("PROFILE_NOT_FOUND");
 }
 
 export async function getProfileByUserId(ctx: AppContext, userId: string) {
@@ -561,8 +597,8 @@ export async function refreshEthosReputation(
   };
 }
 
-export async function buildPublicProfile(ctx: AppContext, slug: string) {
-  const profile = await getProfileBySlug(ctx, slug);
+export async function buildPublicProfile(ctx: AppContext, slugOrHandle: string) {
+  const profile = await getProfileBySlugOrXHandle(ctx, slugOrHandle);
   const [xIdentity, xConn, ethos, accounts] = await Promise.all([
     getXIdentity(ctx, profile.userId),
     getXConnection(ctx, profile.userId),
