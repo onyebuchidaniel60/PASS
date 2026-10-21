@@ -81,46 +81,73 @@ async function fetchExecutions(): Promise<Execution[]> {
   return body.executions ?? [];
 }
 
-const COLUMNS: DataTableColumn<Execution>[] = [
-  {
-    key: "pass",
-    label: "PASS",
-    render: (e) => (
-      <DataCell>
-        {e.asset ? `${e.asset} ${e.direction ?? ""}`.trim() : e.passId.slice(0, 8)}
-      </DataCell>
-    ),
-  },
-  {
-    key: "size",
-    label: "SIZE",
-    numeric: true,
-    render: (e) => <PriceCell value={fmtSize(e.positionSize)} />,
-  },
-  {
-    key: "fill",
-    label: "ENTRY FILL",
-    numeric: true,
-    inStack: false,
-    render: (e) => <PriceCell value={fmtPrice(e.entryFill)} />,
-  },
-  {
-    key: "status",
-    label: "STATUS",
-    render: (e) => <DataCell>{statusLabel(e.status)}</DataCell>,
-  },
-  {
-    key: "pnl",
-    label: "REALIZED PNL",
-    numeric: true,
-    render: (e) => <PnlCell value={e.realizedPnl} />,
-  },
-  {
-    key: "when",
-    label: "WHEN",
-    render: (e) => <Timestamp value={e.createdAt} relative={formatRelative(e.createdAt)} />,
-  },
-];
+/**
+ * Columns are built per render because the Detail expander reads the row's
+ * expanded state. The expander lives in an ACTIONS column — the same shape as
+ * My Passes (§10.8) — instead of a raw `renderRow` cell fragment: the stacked
+ * narrow layout reuses column renders as a definition list, and `<td>`s are
+ * invalid markup outside a table context.
+ */
+function executionColumns(
+  expanded: string | null,
+  onToggle: (id: string) => void,
+): DataTableColumn<Execution>[] {
+  return [
+    {
+      key: "pass",
+      label: "PASS",
+      render: (e) => (
+        <DataCell>
+          {e.asset ? `${e.asset} ${e.direction ?? ""}`.trim() : e.passId.slice(0, 8)}
+        </DataCell>
+      ),
+    },
+    {
+      key: "size",
+      label: "SIZE",
+      numeric: true,
+      render: (e) => <PriceCell value={fmtSize(e.positionSize)} />,
+    },
+    {
+      key: "fill",
+      label: "ENTRY FILL",
+      numeric: true,
+      inStack: false,
+      render: (e) => <PriceCell value={fmtPrice(e.entryFill)} />,
+    },
+    {
+      key: "status",
+      label: "STATUS",
+      render: (e) => <DataCell>{statusLabel(e.status)}</DataCell>,
+    },
+    {
+      key: "pnl",
+      label: "REALIZED PNL",
+      numeric: true,
+      render: (e) => <PnlCell value={e.realizedPnl} />,
+    },
+    {
+      key: "when",
+      label: "WHEN",
+      render: (e) => <Timestamp value={e.createdAt} relative={formatRelative(e.createdAt)} />,
+    },
+    {
+      key: "actions",
+      label: "ACTIONS",
+      render: (e) => (
+        <button
+          type="button"
+          className="pass-btn"
+          data-variant="ghost"
+          aria-expanded={expanded === e.id}
+          onClick={() => onToggle(e.id)}
+        >
+          {expanded === e.id ? "Hide detail" : "Detail"}
+        </button>
+      ),
+    },
+  ];
+}
 
 export function ExecutionsClient({
   probe,
@@ -230,34 +257,12 @@ export function ExecutionsClient({
                 <Panel>
                   <DataTable
                     caption="Your executions"
-                    columns={COLUMNS}
+                    columns={executionColumns(expanded, (id) =>
+                      setExpanded(expanded === id ? null : id),
+                    )}
                     rows={pageWindow.pageRows}
                     rowKey={(e) => e.id}
                     isExpanded={(e) => expanded === e.id}
-                    renderRow={(e) => (
-                      <>
-                        <td className="pass-table-cell">
-                          <button
-                            type="button"
-                            className="pass-btn"
-                            data-variant="ghost"
-                            aria-expanded={expanded === e.id}
-                            onClick={() => setExpanded(expanded === e.id ? null : e.id)}
-                          >
-                            {expanded === e.id ? "Hide detail" : "Detail"}
-                          </button>
-                        </td>
-                        {COLUMNS.map((c) => (
-                          <td
-                            key={c.key}
-                            className={c.numeric ? "pass-num pass-table-cell" : "pass-table-cell"}
-                            data-align={c.numeric ? "right" : "left"}
-                          >
-                            {c.render(e)}
-                          </td>
-                        ))}
-                      </>
-                    )}
                     /* §10.9.2 reconstructability: provider order id AND the Pass
                      * version that was live when this executed. */
                     renderDetail={(e) => (
