@@ -178,6 +178,12 @@
   --card-pad: 20px;
   --card-pad-compact: 16px;
   --card-radius: 12px;
+  /* §14.5.4 the figure must never be clipped. Auto-fit tracks in
+     .pass-metric-cards therefore need a minimum that fits the widest
+     unbreakable figure (8ch ≈ 190px at --type-data-xl-size) plus
+     --card-pad-compact air on each side. Measured, not guessed:
+     at a 9rem minimum a 7ch figure bled 50px across the card edge at 412px. */
+  --metric-track-min: 14rem;
   --card-action-radius: 6px;
 
   /* §14.2 Corner brackets. The stroke is --color-line-strong at 60% so it reads

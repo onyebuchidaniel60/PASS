@@ -15,7 +15,8 @@ import { expect, test, type Page } from "@playwright/test";
  *   3. clipped-text  leaf elements whose content is wider than the box,
  *                    excluding designed truncation (overflow hidden +
  *                    text-overflow ellipsis, which is a deliberate affordance)
- *
+ *   4. topbar-overflow any topbar element past the viewport
+ *   5. metric-bleed   a metric figure/unit escaping its value box (§14.5.4) *
  * One test PER ROUTE per width: a route that crashes the browser is retried in
  * isolation instead of stopping the other seven (`--retries=1`).
  * Screenshots land in design/verify/screenshots/mobile-audit/{width}/.
@@ -171,6 +172,31 @@ async function measure(page: Page, mode: "primary" | "diagnostics" = "primary") 
         })
         .slice(0, 5)
         .map((el) => `${describe(el)} | ${chain(el, 2)}`),
+      // §14.5.4: a metric figure must never escape its value box (it paints
+      // into the neighbouring card even where an outer overflow:hidden hides
+      // it from the page-scroll checks). Figures are flex items with
+      // min-width:auto, so their BOX grows past the parent when the track
+      // minimum is too small — detectable, unlike inline spans.
+      metricBleed: Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".pass-metric-card-figure, .pass-metric-card-unit",
+        ),
+      )
+        .filter(visible)
+        .filter((el) => {
+          const p = el.parentElement;
+          if (!p) return false;
+          const er = el.getBoundingClientRect();
+          const pr = p.getBoundingClientRect();
+          return er.right > pr.right + 1 || er.left < pr.left - 1;
+        })
+        .slice(0, 5)
+        .map((el) => {
+          const p = el.parentElement as HTMLElement;
+          return `${describe(el)} right=${Math.round(el.getBoundingClientRect().right)} parentRight=${Math.round(
+            p.getBoundingClientRect().right,
+          )}`;
+        }),
     };
   }, mode);
 }
@@ -245,6 +271,12 @@ for (const width of WIDTHS) {
           report.push(`  topbar-overflow: ${m.topbarOverflow.join(" | ")}`);
           for (const t of m.topbarOverflow) {
             findings.push({ kind: "topbar-overflow", detail: t });
+          }
+        }
+        if (m.metricBleed.length > 0) {
+          report.push(`  metric-bleed: ${m.metricBleed.join(" | ")}`);
+          for (const b of m.metricBleed) {
+            findings.push({ kind: "metric-bleed", detail: b });
           }
         }
 

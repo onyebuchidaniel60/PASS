@@ -2308,10 +2308,13 @@ li[data-ghost="true"] {
 }
 
 /* Metric cards: one label, one value. Five across at 1440, three at 1280, two
- * at 768, one at 375 (Â§14.5). */
+ * at 768, one at 375 (14.5). --metric-track-min exists so the AUTO-FIT
+ * minimum always leaves room for the widest unbreakable figure: at 9rem a
+ * 7ch figure overflowed its value box by 50px and painted into the
+ * neighbouring card at 412px (14.5.4: the figure is never clipped). */
 .pass-metric-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--metric-track-min)), 1fr));
   gap: var(--space-3);
   min-width: 0;
 }
