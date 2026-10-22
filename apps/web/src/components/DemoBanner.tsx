@@ -70,6 +70,24 @@ function venueLabel(venue: string | null | undefined): string | null {
   return null;
 }
 
+/**
+ * The persistent venue indicator: a status dot before the venue name
+ * ("staging" amber on testnet, --color-data-positive on mainnet), per the
+ * operator's staging-status specification. The dot is aria-hidden: the venue
+ * name already carries the information in words, so screen readers lose
+ * nothing and the banner text matches the demoBanner tests.
+ */
+function VenueIndicator({ venue, label }: { venue: string; label: string }) {
+  return (
+    <span className="pass-demo-banner-lead">
+      <span className="pass-venue-indicator" data-venue={venue}>
+        <span className="pass-venue-dot" aria-hidden="true" />
+        {label}
+      </span>
+    </span>
+  );
+}
+
 export function DemoBanner() {
   // `null` means "not known yet". Rendering a banner before /health answers
   // would assert a mode on every screen load, including a fully live one.
@@ -118,7 +136,7 @@ export function DemoBanner() {
     if (!venue) return null;
     return (
       <div className="pass-demo-banner" role="status">
-        <span className="pass-demo-banner-lead">{venue}</span>
+        <VenueIndicator venue={health?.hyperliquidVenue ?? "testnet"} label={venue} />
       </div>
     );
   }
@@ -127,7 +145,7 @@ export function DemoBanner() {
     <div className="pass-demo-banner" role="status">
       {venue ? (
         <>
-          <span className="pass-demo-banner-lead">{venue}</span>{" "}
+          <VenueIndicator venue={health?.hyperliquidVenue ?? "testnet"} label={venue} />{" "}
         </>
       ) : null}
       <span className="pass-demo-banner-lead">

@@ -3189,6 +3189,75 @@ li[data-ghost="true"] {
   color: var(--color-text-secondary);
 }
 
+/* The venue status dot in the banner lead: a small amber core (amber marks
+ * staging, --color-data-positive is reserved for mainnet), with a
+ * semi-transparent halo behind it that scales up and fades out — the
+ * dashboard "staging/live" convention the operator specified. The dot is
+ * inline-block with a middle vertical align so it centres against the
+ * uppercase lead text while the banner's own baseline flow is untouched. */
+.pass-venue-dot {
+  display: inline-block;
+  inline-size: var(--venue-dot-size);
+  block-size: var(--venue-dot-size);
+  margin-inline-end: var(--space-2);
+  position: relative;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
+.pass-venue-dot::before,
+.pass-venue-dot::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  background: var(--color-data-warning);
+}
+
+.pass-venue-indicator[data-venue="mainnet"] .pass-venue-dot::before,
+.pass-venue-indicator[data-venue="mainnet"] .pass-venue-dot::after {
+  background: var(--color-data-positive);
+}
+
+/* The halo (painted first, under the solid core): scales up and fades out. */
+.pass-venue-dot::before {
+  opacity: 0;
+  animation: pass-venue-dot-pulse var(--live-pulse-duration) var(--ease-standard) infinite;
+}
+
+.pass-venue-dot::after {
+  /* The core: identical geometry, no halo geometry shift, always visible. */
+  opacity: 1;
+}
+
+@keyframes pass-venue-dot-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  70% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pass-venue-dot::before {
+    animation: none;
+    opacity: 0;
+  }
+  .pass-venue-dot::after {
+    opacity: 1;
+  }
+}
+
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Â§14.4 Trader profile, and the Pass-detail text link that had no rule.
  *

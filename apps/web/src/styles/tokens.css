@@ -252,10 +252,18 @@
   --step-body-size: 0.8125rem;
 
   /* §2.6 Price-data pair. Strictly subordinate to the accent, never
-     decorative, never a control fill. */
+      decorative, never a control fill. */
   --color-data-positive: #46c08c;
   --color-data-negative: #e2554f;
   --color-data-neutral: var(--color-text-secondary);
+  /* §2.6 Venue status: amber-500 marks staging environments (testnet), the
+     only sanctioned amber in the token layer, because the previous Tailwind
+     amber kept escaping the system (see the demo banner note). Production
+     settings stay on --color-data-positive and never read amber. */
+  --color-data-warning: #f59e0b;
+  /* Venue dot for the banner lead: 8px core per the staging-status
+     specification (the §14.7 eyebrow dot is 6px and stays eyebrow-small). */
+  --venue-dot-size: 8px;
 
   /* -----------------------------------------------------------------------
    * §3.1 Families. Data is never set in a body face; headlines are never set
