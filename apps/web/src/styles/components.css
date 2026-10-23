@@ -3163,6 +3163,9 @@ li[data-ghost="true"] {
   font-family: var(--type-body-s-font);
   font-size: var(--type-body-s-size);
   line-height: var(--type-body-s-line);
+  /* The venue dot's halo is painted outside the 8px core. Keep it explicitly
+     unclipped so no future banner padding change turns the pulse into a crop. */
+  overflow: visible;
 }
 
 @media (min-width: 768px) {
@@ -3222,7 +3225,12 @@ li[data-ghost="true"] {
   background: var(--color-data-positive);
 }
 
-/* The halo (painted first, under the solid core): scales up and fades out. */
+/* The halo (painted first, under the solid core): starts exactly at the core's
+ * edge and expands continuously. The old keyframes started at scale 0.6 (fully
+ * hidden behind the opaque core) and then held opacity 0 from 70% to 100%, so
+ * the dot was pixel-identical to a static dot for ~40% of every cycle and only
+ * a 1–3px faint ring in between. A ripple has to be visible for the whole
+ * cycle to read as a pulse. */
 .pass-venue-dot::before {
   opacity: 0;
   animation: pass-venue-dot-pulse var(--live-pulse-duration) var(--ease-standard) infinite;
@@ -3235,15 +3243,11 @@ li[data-ghost="true"] {
 
 @keyframes pass-venue-dot-pulse {
   0% {
-    transform: scale(0.6);
-    opacity: 0.5;
-  }
-  70% {
-    transform: scale(1.9);
-    opacity: 0;
+    transform: scale(1);
+    opacity: 0.45;
   }
   100% {
-    transform: scale(1.9);
+    transform: scale(2.2);
     opacity: 0;
   }
 }
