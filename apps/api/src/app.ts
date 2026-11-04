@@ -12,7 +12,7 @@ import { registerPassRoutes } from "./routes/pass.js";
 import { registerExecutionRoutes } from "./routes/pass.js";
 import { registerIntegrationRoutes } from "./routes/integrations.js";
 import { registerShareRoutes } from "./routes/share.js";
-import { currentVenue } from "./services/profile-service.js";
+import { marketServiceConfig } from "./services/market-service.js";
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   const app = Fastify({
@@ -103,18 +103,24 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     reply.status(status).send({ ...body, requestId });
   });
 
-  app.get("/health", async () => ({
-    status: "ok",
-    env: ctx.env.NODE_ENV,
-    modes: ctx.adapters.modes,
-    // Current signing venue per the server's own config. The web client
-    // builds approveAgent typed data and L1 signatures from this — never
-    // from a stored default — so Mainnet-shaped payloads cannot leak onto
-    // testnet (or vice versa).
-    hyperliquidVenue: currentVenue(ctx),
-    demoMode: ctx.demoMode,
-    time: new Date().toISOString(),
-  }));
+  app.get("/health", async () => {
+    // One market configuration feeds both /health and /api/v1/markets so the
+    // selector and the server can never disagree about enabled classes.
+    const markets = marketServiceConfig(ctx);
+    return {
+      status: "ok",
+      env: ctx.env.NODE_ENV,
+      modes: ctx.adapters.modes,
+      // Current signing venue per the server's own config. The web client
+      // builds approveAgent typed data and L1 signatures from this — never
+      // from a stored default — so Mainnet-shaped payloads cannot leak onto
+      // testnet (or vice versa).
+      hyperliquidVenue: markets.venue,
+      enabledMarketClasses: markets.enabledMarketClasses,
+      demoMode: ctx.demoMode,
+      time: new Date().toISOString(),
+    };
+  });
 
   await registerPublicRoutes(app, ctx);
   await registerAuthRoutes(app, ctx);

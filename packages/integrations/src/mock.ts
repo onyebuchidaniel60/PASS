@@ -8,6 +8,7 @@ import type {
   HLOrderBook,
   HLOrderStatus,
   HLRelayResult,
+  HLSpotBalance,
   MarketSnapshotDto,
   SignedPayload,
   XPostResult,
@@ -42,14 +43,60 @@ const MOCK_MIDS: Record<string, number> = {
   SOL: 178.94,
   ARB: 0.8123,
   OP: 1.6742,
+  // HIP-4 outcome 20: N = 10 * 20 + side, so #200 = YES, #201 = NO.
+  "#200": 0.62,
+  "#201": 0.38,
 };
 
 const MOCK_ASSETS: HLAssetMeta[] = [
-  { asset: "BTC", dex: "perp", assetId: 0, szDecimals: 5, maxLeverage: 40 },
-  { asset: "ETH", dex: "perp", assetId: 1, szDecimals: 4, maxLeverage: 40 },
-  { asset: "SOL", dex: "perp", assetId: 2, szDecimals: 2, maxLeverage: 20 },
-  { asset: "ARB", dex: "perp", assetId: 3, szDecimals: 3, maxLeverage: 25 },
-  { asset: "OP", dex: "perp", assetId: 4, szDecimals: 2, maxLeverage: 25 },
+  { asset: "BTC", dex: "perp", marketClass: "perp", assetId: 0, szDecimals: 5, maxLeverage: 40 },
+  { asset: "ETH", dex: "perp", marketClass: "perp", assetId: 1, szDecimals: 4, maxLeverage: 40 },
+  { asset: "SOL", dex: "perp", marketClass: "perp", assetId: 2, szDecimals: 2, maxLeverage: 20 },
+  { asset: "ARB", dex: "perp", marketClass: "perp", assetId: 3, szDecimals: 3, maxLeverage: 25 },
+  { asset: "OP", dex: "perp", marketClass: "perp", assetId: 4, szDecimals: 2, maxLeverage: 25 },
+];
+
+const MOCK_OUTCOME_NAME = "Will BTC close above $120,000 on 2026-12-31?";
+
+const MOCK_HIP4_ASSETS: HLAssetMeta[] = [
+  {
+    asset: "#200",
+    dex: "hip4",
+    marketClass: "hip4",
+    assetId: 100_000_200,
+    szDecimals: 2,
+    maxLeverage: null,
+    collateral: "USDH",
+    balanceCoin: "+200",
+    outcome: {
+      outcomeId: 20,
+      side: "yes",
+      name: MOCK_OUTCOME_NAME,
+      description: "Resolves YES if the BTC mark is above $120,000 at expiry.",
+      orderCoin: "#200",
+      balanceCoin: "+200",
+      assetId: 100_000_200,
+    },
+  },
+  {
+    asset: "#201",
+    dex: "hip4",
+    marketClass: "hip4",
+    assetId: 100_000_201,
+    szDecimals: 2,
+    maxLeverage: null,
+    collateral: "USDH",
+    balanceCoin: "+201",
+    outcome: {
+      outcomeId: 20,
+      side: "no",
+      name: MOCK_OUTCOME_NAME,
+      description: "Resolves NO if the BTC mark is not above $120,000 at expiry.",
+      orderCoin: "#201",
+      balanceCoin: "+201",
+      assetId: 100_000_201,
+    },
+  },
 ];
 
 export class MockMarketData implements MarketDataPort {
@@ -57,6 +104,13 @@ export class MockMarketData implements MarketDataPort {
 
   async listAssets(): Promise<HLAssetMeta[]> {
     return MOCK_ASSETS;
+  }
+
+  async listOutcomeAssets(mids?: Record<string, string>): Promise<HLAssetMeta[]> {
+    if (!mids) return MOCK_HIP4_ASSETS;
+    const quoted = new Set(Object.keys(mids).filter((k) => k.startsWith("#")));
+    if (quoted.size === 0) return MOCK_HIP4_ASSETS;
+    return MOCK_HIP4_ASSETS.filter((a) => quoted.has(a.asset));
   }
 
   async getMids(): Promise<Record<string, string>> {
@@ -113,6 +167,13 @@ export class MockAccountData implements AccountDataPort {
       marginUsed: toDecimalString(value * 0.18),
       observedAt: nowIso(),
     };
+  }
+
+  async getSpotBalances(_accountAddress: string): Promise<HLSpotBalance[]> {
+    return [
+      { token: "USDH", total: "1250.00", hold: "0", available: "1250.00" },
+      { token: "USDC", total: "5000.00", hold: "0", available: "5000.00" },
+    ];
   }
 
   async getOpenOrders(accountAddress: string): Promise<HLOpenOrder> {
@@ -211,10 +272,13 @@ export class MockHyperliquid
   private readonly exchange = new MockExchange();
 
   listAssets = () => this.market.listAssets();
+  listOutcomeAssets = (mids?: Record<string, string>) =>
+    this.market.listOutcomeAssets(mids);
   getMids = () => this.market.getMids();
   getOrderBook = (a: string) => this.market.getOrderBook(a);
   getSnapshot = (a: string) => this.market.getSnapshot(a);
   getAccountState = (a: string) => this.account.getAccountState(a);
+  getSpotBalances = (a: string) => this.account.getSpotBalances(a);
   getOpenOrders = (a: string) => this.account.getOpenOrders(a);
   getFills = (a: string) => this.account.getFills(a);
   relaySignedAction = (s: SignedPayload) => this.exchange.relaySignedAction(s);

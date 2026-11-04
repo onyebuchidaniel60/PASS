@@ -13,6 +13,10 @@ import { isValidProfileSlug } from "@pass/domain";
 import { decryptSecret, encryptSecret } from "../crypto.js";
 import type { CreateProfileRequest, UpdateProfileRequest } from "@pass/contracts";
 import { passPerformance } from "./execution-service.js";
+import { currentVenue, type Venue } from "./venue.js";
+
+export { currentVenue };
+export type { Venue };
 
 /**
  * docs/PRODUCT_PRD.md §11 minimum public profile. Reputation and trading
@@ -395,17 +399,10 @@ async function deactivateOtherWallets(
   }
 }
 
-export type Venue = "mainnet" | "testnet" | "mock";
-
 /**
- * The venue approvals are recorded against right now. Mock writes are
- * never a real venue: an approval the mock relay "accepted" was sent
- * nowhere, so it must never present as valid on a live venue later.
+ * The venue approvals are recorded against as of `currentVenue` in
+ * `./venue.ts` — re-exported above so existing consumers keep one import.
  */
-export function currentVenue(ctx: AppContext): Venue {
-  if (ctx.adapters.modes.hyperliquidExecution !== "live") return "mock";
-  return /testnet/i.test(ctx.env.HYPERLIQUID_EXCHANGE_URL ?? "") ? "testnet" : "mainnet";
-}
 
 /**
  * Per-venue approval gate. A stored agentAddress presents only when its

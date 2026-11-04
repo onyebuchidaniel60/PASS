@@ -65,12 +65,27 @@ import { isXConnected, type MePayload } from "@/lib/me";
 interface Market {
   asset: string;
   dex: string;
-  maxLeverage: number;
+  maxLeverage?: number | null;
+  marketClass?: "perp" | "spot" | "hip4";
+  label?: string;
+  outcome?: {
+    outcomeId: number;
+    side: "yes" | "no";
+    name: string | null;
+    orderCoin: string;
+    balanceCoin: string;
+    assetId: number;
+  } | null;
 }
 
 const DIRECTIONS: readonly SegmentedOption<"long" | "short">[] = [
   { value: "long", label: "Long" },
   { value: "short", label: "Short" },
+];
+
+const OUTCOME_DIRECTIONS: readonly SegmentedOption<"long" | "short">[] = [
+  { value: "long", label: "Yes" },
+  { value: "short", label: "No" },
 ];
 
 const ENTRY_TYPES: readonly SegmentedOption<"limit" | "market">[] = [
@@ -120,43 +135,51 @@ export function validate(p: {
   const entry = num(p.entry);
   const sl = num(p.sl);
   const tp = num(p.tp);
+  const market = p.markets.find((m) => m.asset === p.asset);
+  const isHip4 = market?.marketClass === "hip4";
 
-  if (!p.markets.some((m) => m.asset === p.asset)) {
+  if (!market) {
     e.entry = "That market is not supported.";
+  } else if (isHip4) {
+    // HIP-4 is market-entry only: no authored price, TP, SL or leverage.
+    if (p.entryType !== "market") {
+      e.entry = "Outcome Passes must use a market entry.";
+    }
   } else if (p.entryType === "limit" && entry === null) {
     e.entry = "Enter an entry price.";
   }
 
-  if (sl === null) {
-    e.sl = "Enter a stop loss.";
-  } else if (entry !== null) {
-    // TP/SL must be on the correct side of entry for the direction. §7
-    // "TP/SL direction consistency".
-    if (p.direction === "long" && sl >= entry) {
-      e.sl = "For a long Pass the stop must be below the entry.";
+  if (!isHip4) {
+    if (sl === null) {
+      e.sl = "Enter a stop loss.";
+    } else if (entry !== null) {
+      // TP/SL must be on the correct side of entry for the direction. §7
+      // "TP/SL direction consistency".
+      if (p.direction === "long" && sl >= entry) {
+        e.sl = "For a long Pass the stop must be below the entry.";
+      }
+      if (p.direction === "short" && sl <= entry) {
+        e.sl = "For a short Pass the stop must be above the entry.";
+      }
     }
-    if (p.direction === "short" && sl <= entry) {
-      e.sl = "For a short Pass the stop must be above the entry.";
-    }
-  }
 
-  if (tp === null) {
-    e.tp = "Enter a take profit.";
-  } else if (entry !== null) {
-    if (p.direction === "long" && tp <= entry) {
-      e.tp = "For a long Pass the target must be above the entry.";
+    if (tp === null) {
+      e.tp = "Enter a take profit.";
+    } else if (entry !== null) {
+      if (p.direction === "long" && tp <= entry) {
+        e.tp = "For a long Pass the target must be above the entry.";
+      }
+      if (p.direction === "short" && tp >= entry) {
+        e.tp = "For a short Pass the target must be below the entry.";
+      }
     }
-    if (p.direction === "short" && tp >= entry) {
-      e.tp = "For a short Pass the target must be below the entry.";
-    }
-  }
 
-  // Effective ceiling: the venue's per-asset limit, never above the
-  // product-wide MAX_LEVERAGE (single source: @pass/contracts).
-  const market = p.markets.find((m) => m.asset === p.asset);
-  const cap = Math.min(market?.maxLeverage ?? MAX_LEVERAGE, MAX_LEVERAGE);
-  if (p.leverage > cap) {
-    e.leverage = `Maximum leverage for ${p.asset} is ${cap}x.`;
+    // Effective ceiling: the venue's per-asset limit, never above the
+    // product-wide MAX_LEVERAGE (single source: @pass/contracts).
+    const cap = Math.min(market?.maxLeverage ?? MAX_LEVERAGE, MAX_LEVERAGE);
+    if (p.leverage > cap) {
+      e.leverage = `Maximum leverage for ${p.asset} is ${cap}x.`;
+    }
   }
 
   if (!p.expiry) {
@@ -199,6 +222,7 @@ interface PassDetailForEdit {
   version: number;
   status: string;
   asset: string;
+  marketClass?: "perp" | "spot" | "hip4" | null;
   direction: "long" | "short";
   entryType: "limit" | "market";
   entryPrice: string | null;
@@ -238,6 +262,7 @@ export function CreatePassClient() {
   // Edit-mode state.
   const [editVersion, setEditVersion] = useState<number | null>(null);
   const [editPublicId, setEditPublicId] = useState<string | null>(null);
+  const [editMarketClass, setEditMarketClass] = useState<"perp" | "spot" | "hip4" | null>(null);
   const [editBlocked, setEditBlocked] = useState<string | null>(null);
   const [savedVersion, setSavedVersion] = useState<number | null>(null);
 
@@ -274,6 +299,7 @@ export function CreatePassClient() {
           setEditBlocked(`This Pass is ${d.status} and cannot be edited.`);
         } else {
           setAsset(d.asset);
+          setEditMarketClass(d.marketClass ?? "perp");
           setDirection(d.direction);
           setEntryType(d.entryType);
           setEntry(d.entryPrice ?? "");
@@ -296,6 +322,24 @@ export function CreatePassClient() {
     void boot();
   }, [boot]);
 
+  const selectedMarket = markets.find((m) => m.asset === asset) ?? null;
+  const isHip4 =
+    selectedMarket?.marketClass === "hip4" || editMarketClass === "hip4";
+  const outcomeName =
+    selectedMarket?.outcome?.name?.trim() || selectedMarket?.asset || asset;
+
+  function chooseAsset(next: string) {
+    setAsset(next);
+    const chosen = markets.find((m) => m.asset === next);
+    if (chosen?.marketClass === "hip4") {
+      // Outcome markets are market-entry only and carry no venue exits.
+      setEntryType("market");
+      setEntry("");
+      setSl("");
+      setTp("");
+    }
+  }
+
   const errors = useMemo(
     () =>
       validate({ asset, direction, entryType, entry, sl, tp, leverage, expiry, markets }),
@@ -308,6 +352,9 @@ export function CreatePassClient() {
   function planBody() {
     return {
       asset,
+      // Explicit class: a `#N` coin is never allowed to be inferred as a perp.
+      marketClass: selectedMarket?.marketClass ?? editMarketClass ?? "perp",
+      outcomeName: isHip4 ? (selectedMarket?.outcome?.name ?? null) : null,
       direction,
       entryType,
       // A market Pass must not carry an entry price, and "" is not a decimal
@@ -315,10 +362,10 @@ export function CreatePassClient() {
       // entry is derived from the live market at execution time (D-025.1),
       // never typed by the author, so a stale typed value must not leak
       // through when the author switches limit -> market.
-      entryPrice: entryType === "market" ? null : emptyToNull(entry),
-      stopLoss: emptyToNull(sl),
-      takeProfit: emptyToNull(tp),
-      leverage: String(leverage),
+      entryPrice: isHip4 || entryType === "market" ? null : emptyToNull(entry),
+      stopLoss: isHip4 ? null : emptyToNull(sl),
+      takeProfit: isHip4 ? null : emptyToNull(tp),
+      leverage: isHip4 ? null : String(leverage),
       thesis,
       expiresAt: new Date(expiry).toISOString(),
     };
@@ -555,12 +602,27 @@ export function CreatePassClient() {
           {/* §10.5 — the live preview, the same primitives as the Pass page. */}
           <ChamferPanel label="Pass preview">
             <CoordinateGrid>
-              <CoordinatePair label="Asset" value={asset || "—"} />
-              <CoordinatePair label="Direction" value={direction === "long" ? "Long" : "Short"} />
-              <CoordinatePair label="Entry" value={entry || "—"} />
-              <CoordinatePair label="TP" value={tp || "—"} />
-              <CoordinatePair label="SL" value={sl || "—"} />
-              <CoordinatePair label="Leverage" value={`${leverage}x`} />
+              <CoordinatePair
+                label={isHip4 ? "Market" : "Asset"}
+                value={isHip4 ? `HIP-4 · ${asset}` : asset || "—"}
+              />
+              {isHip4 ? (
+                <>
+                  <CoordinatePair label="Outcome" value={outcomeName} />
+                  <CoordinatePair
+                    label="Side"
+                    value={direction === "long" ? "Yes" : "No"}
+                  />
+                </>
+              ) : (
+                <>
+                  <CoordinatePair label="Direction" value={direction === "long" ? "Long" : "Short"} />
+                  <CoordinatePair label="Entry" value={entry || "—"} />
+                  <CoordinatePair label="TP" value={tp || "—"} />
+                  <CoordinatePair label="SL" value={sl || "—"} />
+                  <CoordinatePair label="Leverage" value={`${leverage}x`} />
+                </>
+              )}
             </CoordinateGrid>
           </ChamferPanel>
 
@@ -570,100 +632,117 @@ export function CreatePassClient() {
                 <Select
                   id={controlId}
                   value={asset}
-                  onChange={setAsset}
+                  onChange={chooseAsset}
                   options={markets.map((m) => ({
                     value: m.asset,
-                    label: `${m.asset}-${m.dex.toUpperCase()}`,
+                    label:
+                      m.label ??
+                      (m.marketClass === "hip4"
+                        ? `${m.asset} · ${m.outcome?.side === "no" ? "No" : "Yes"}`
+                        : `${m.asset}-${m.dex.toUpperCase()}`),
                   }))}
                 />
               )}
             </Field>
 
-            <Field label="Direction" required>
+            <Field
+              label={isHip4 ? "Side" : "Direction"}
+              required
+              helper={isHip4 ? "Yes is long the outcome; No is short it." : undefined}
+            >
               {({ controlId: _c }) => (
                 <SegmentedControl
-                  options={DIRECTIONS}
+                  options={isHip4 ? OUTCOME_DIRECTIONS : DIRECTIONS}
                   value={direction}
                   onChange={setDirection}
-                  label="Direction"
+                  label={isHip4 ? "Side" : "Direction"}
                 />
               )}
             </Field>
 
-            <Field label="Entry type" required>
-              {({ controlId: _c }) => (
-                <SegmentedControl
-                  options={ENTRY_TYPES}
-                  value={entryType}
-                  onChange={setEntryType}
-                  label="Entry type"
-                />
-              )}
-            </Field>
-
-            {/* Market entries use the live market at execution time
-                (D-025.1) — the author never types a price, so no input
-                renders. Limit entries keep the input as-is. */}
-            {entryType === "limit" ? (
-              <Field label="Entry price" required error={errors.entry}>
-                {({ controlId, describedBy }) => (
-                  <NumericInput
-                    id={controlId}
-                    value={entry}
-                    onChange={setEntry}
-                    describedBy={describedBy}
-                    invalid={Boolean(errors.entry)}
-                    placeholder="0.00"
-                    suffix="USDC"
-                  />
-                )}
-              </Field>
-            ) : (
+            {isHip4 ? (
               <p className="pass-stale" role="note">
-                Market entry uses the current market price at execution time.
+                Outcome Passes use a market entry at the live probability. They
+                have no limit price, take profit, stop loss or leverage.
               </p>
+            ) : (
+              <>
+                <Field label="Entry type" required>
+                  {({ controlId: _c }) => (
+                    <SegmentedControl
+                      options={ENTRY_TYPES}
+                      value={entryType}
+                      onChange={setEntryType}
+                      label="Entry type"
+                    />
+                  )}
+                </Field>
+
+                {/* Market entries use the live market at execution time
+                    (D-025.1) — the author never types a price, so no input
+                    renders. Limit entries keep the input as-is. */}
+                {entryType === "limit" ? (
+                  <Field label="Entry price" required error={errors.entry}>
+                    {({ controlId, describedBy }) => (
+                      <NumericInput
+                        id={controlId}
+                        value={entry}
+                        onChange={setEntry}
+                        describedBy={describedBy}
+                        invalid={Boolean(errors.entry)}
+                        placeholder="0.00"
+                        suffix="USDC"
+                      />
+                    )}
+                  </Field>
+                ) : (
+                  <p className="pass-stale" role="note">
+                    Market entry uses the current market price at execution time.
+                  </p>
+                )}
+
+                <Field label="Stop loss" required error={errors.sl}>
+                  {({ controlId, describedBy }) => (
+                    <NumericInput
+                      id={controlId}
+                      value={sl}
+                      onChange={setSl}
+                      describedBy={describedBy}
+                      invalid={Boolean(errors.sl)}
+                      placeholder="0.00"
+                      suffix="USDC"
+                    />
+                  )}
+                </Field>
+
+                <Field label="Take profit" required error={errors.tp}>
+                  {({ controlId, describedBy }) => (
+                    <NumericInput
+                      id={controlId}
+                      value={tp}
+                      onChange={setTp}
+                      describedBy={describedBy}
+                      invalid={Boolean(errors.tp)}
+                      placeholder="0.00"
+                      suffix="USDC"
+                    />
+                  )}
+                </Field>
+
+                <Field label="Leverage" required error={errors.leverage} helper="Permitted range shown.">
+                  {({ controlId, describedBy }) => (
+                    <LeverageStepper
+                      id={controlId}
+                      value={leverage}
+                      onChange={setLeverage}
+                      min={1}
+                      max={MAX_LEVERAGE}
+                      describedBy={describedBy}
+                    />
+                  )}
+                </Field>
+              </>
             )}
-
-            <Field label="Stop loss" required error={errors.sl}>
-              {({ controlId, describedBy }) => (
-                <NumericInput
-                  id={controlId}
-                  value={sl}
-                  onChange={setSl}
-                  describedBy={describedBy}
-                  invalid={Boolean(errors.sl)}
-                  placeholder="0.00"
-                  suffix="USDC"
-                />
-              )}
-            </Field>
-
-            <Field label="Take profit" required error={errors.tp}>
-              {({ controlId, describedBy }) => (
-                <NumericInput
-                  id={controlId}
-                  value={tp}
-                  onChange={setTp}
-                  describedBy={describedBy}
-                  invalid={Boolean(errors.tp)}
-                  placeholder="0.00"
-                  suffix="USDC"
-                />
-              )}
-            </Field>
-
-            <Field label="Leverage" required error={errors.leverage} helper="Permitted range shown.">
-              {({ controlId, describedBy }) => (
-                <LeverageStepper
-                  id={controlId}
-                  value={leverage}
-                  onChange={setLeverage}
-                  min={1}
-                  max={MAX_LEVERAGE}
-                  describedBy={describedBy}
-                />
-              )}
-            </Field>
 
             <Field label="Thesis" required helper="Say why. The Taker reads this first.">
               {({ controlId, describedBy }) => (

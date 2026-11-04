@@ -5,19 +5,23 @@ import {
   getPassById,
   listPassEvents,
   listPublicPasses,
+  passOutcome,
 } from "../services/pass-service.js";
 import { passPerformance, listPassExecutions } from "../services/execution-service.js";
 import { buildPublicProfile, getProfileBySlug, getProfileBySlugOrXHandle } from "../services/profile-service.js";
 import { AppError } from "../errors.js";
 import { ETHOS_DISCLAIMER } from "../services/profile-service.js";
+import type { PassRow } from "@pass/db";
 
 /** docs/UX_SPEC.md §5 information order, as data. */
-function passToSummary(row: Record<string, unknown>) {
+function passToSummary(row: PassRow) {
   return {
     publicId: row.publicId,
     slug: row.slug,
     version: row.version,
     asset: row.asset,
+    marketClass: row.marketClass ?? "perp",
+    outcome: passOutcome(row),
     direction: row.direction,
     status: row.status,
     entryType: row.entryType,
@@ -26,11 +30,11 @@ function passToSummary(row: Record<string, unknown>) {
     takeProfit: row.takeProfit,
     leverage: row.leverage,
     thesis: row.thesis,
-    publishedAt: row.publishedAt ? new Date(row.publishedAt as string).toISOString() : null,
-    expiresAt: row.expiresAt ? new Date(row.expiresAt as string).toISOString() : null,
-    createdAt: new Date(row.createdAt as string).toISOString(),
-    updatedAt: new Date(row.updatedAt as string).toISOString(),
-    canonicalPath: `/p/${String(row.publicId)}`,
+    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
+    expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    canonicalPath: `/p/${row.publicId}`,
   };
 }
 
@@ -51,7 +55,7 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
     const performance = await passPerformance(ctx, row.id);
 
     return {
-      ...passToSummary(row as unknown as Record<string, unknown>),
+      ...passToSummary(row),
       trader: {
         userId: profile.profile.userId,
         slug: profile.profile.slug,
@@ -101,7 +105,7 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
       });
       return {
         demoMode: ctx.demoMode,
-        passes: rows.map((r) => passToSummary(r as unknown as Record<string, unknown>)),
+        passes: rows.map((r) => passToSummary(r)),
       };
     },
   );
@@ -149,7 +153,7 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
   app.get<{ Params: { slug: string } }>("/api/v1/profiles/:slug/passes", async (req) => {
     const p = await buildPublicProfile(ctx, req.params.slug);
     const rows = await listPublicPasses(ctx, { limit: 100, traderId: p.profile.userId });
-    return { passes: rows.map((r) => passToSummary(r as unknown as Record<string, unknown>)) };
+    return { passes: rows.map((r) => passToSummary(r)) };
   });
 
   /**

@@ -4,6 +4,9 @@ import { AppError } from "../errors.js";
 import {
   buildPassSlug,
   canTransition,
+  decodeOutcomeCoin,
+  inferMarketClass,
+  isOutcomeCoin,
   newPublicId,
   snapshotFromPlan,
   validatePlan,
@@ -16,7 +19,12 @@ import {
   profiles,
   type PassRow,
 } from "@pass/db";
-import type { CreatePassRequest, UpdatePassRequest } from "@pass/contracts";
+import type {
+  CreatePassRequest,
+  MarketClass,
+  OutcomeRef,
+  UpdatePassRequest,
+} from "@pass/contracts";
 
 /**
  * Fields whose change alters what a Taker would execute. Changing any of
@@ -25,6 +33,7 @@ import type { CreatePassRequest, UpdatePassRequest } from "@pass/contracts";
  */
 export const EXECUTION_RELEVANT_FIELDS = [
   "asset",
+  "marketClass",
   "direction",
   "entryType",
   "entryPrice",
@@ -62,7 +71,31 @@ async function getTraderSlug(ctx: AppContext, traderId: string): Promise<string>
   return row.slug;
 }
 
-async function assertSupportedAsset(ctx: AppContext, asset: string): Promise<void> {
+async function assertSupportedAsset(
+  ctx: AppContext,
+  asset: string,
+  marketClass: MarketClass,
+): Promise<void> {
+  if (marketClass === "hip4") {
+    // Encoding is checked locally first, so a malformed `#N` is refused even
+    // when the venue cannot answer `outcomeMeta`.
+    if (!isOutcomeCoin(asset)) {
+      throw new AppError("INVALID_ASSET", `"${asset}" is not a valid outcome market.`);
+    }
+    try {
+      const mids = await ctx.adapters.hyperliquid.getMids();
+      const outcomes = await ctx.adapters.hyperliquid.listOutcomeAssets(mids);
+      const supported = outcomes.map((a) => a.asset.toUpperCase());
+      if (!supported.includes(asset.toUpperCase())) {
+        throw new AppError("INVALID_ASSET", `"${asset}" is not an active outcome market.`);
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      // Provider unavailable: do not block authoring on a market-list read.
+    }
+    return;
+  }
+
   let assets: Array<{ asset: string }>;
   try {
     assets = await ctx.adapters.hyperliquid.listAssets();
@@ -76,9 +109,32 @@ async function assertSupportedAsset(ctx: AppContext, asset: string): Promise<voi
   }
 }
 
+/**
+ * The public outcome reference for a Pass row. Legacy rows have no
+ * `marketClass`; they are perps and return null rather than guessing.
+ */
+export function passOutcome(
+  row: Pick<PassRow, "asset" | "marketClass" | "outcomeName">,
+): OutcomeRef | null {
+  if ((row.marketClass ?? "perp") !== "hip4") return null;
+  const decoded = decodeOutcomeCoin(row.asset);
+  if (!decoded) return null;
+  return {
+    outcomeId: decoded.outcomeId,
+    side: decoded.sideName,
+    name: row.outcomeName ?? null,
+    description: null,
+    orderCoin: decoded.orderCoin,
+    balanceCoin: decoded.balanceCoin,
+    assetId: decoded.assetId,
+  };
+}
+
 function planFromRow(row: PassRow) {
   return {
     asset: row.asset,
+    marketClass: (row.marketClass ?? "perp") as MarketClass,
+    outcomeName: row.outcomeName ?? null,
     direction: row.direction,
     entryType: row.entryType,
     entryPrice: row.entryPrice,
@@ -95,10 +151,13 @@ export async function createPass(
   input: CreatePassRequest,
 ): Promise<PassRow> {
   const traderSlug = await getTraderSlug(ctx, traderId);
-  await assertSupportedAsset(ctx, input.asset);
+  const marketClass = input.marketClass ?? inferMarketClass(input.asset);
+  await assertSupportedAsset(ctx, input.asset, marketClass);
 
   const plan = {
     asset: input.asset,
+    marketClass,
+    outcomeName: input.outcomeName ?? null,
     direction: input.direction,
     entryType: input.entryType,
     entryPrice: input.entryPrice ?? null,
@@ -136,6 +195,8 @@ export async function createPass(
       version: 1,
       asset: input.asset.toUpperCase(),
       dex: null,
+      marketClass,
+      outcomeName: plan.outcomeName,
       direction: input.direction,
       entryType: input.entryType,
       entryPrice: plan.entryPrice,
@@ -219,6 +280,9 @@ export async function updatePass(
 
   const nextPlan = {
     asset: (patch.asset ?? current.asset).toUpperCase(),
+    marketClass: (patch.marketClass ?? current.marketClass ?? "perp") as MarketClass,
+    outcomeName:
+      patch.outcomeName !== undefined ? patch.outcomeName : (current.outcomeName ?? null),
     direction: patch.direction ?? current.direction,
     entryType: patch.entryType ?? current.entryType,
     entryPrice: patch.entryPrice !== undefined ? patch.entryPrice : current.entryPrice,
@@ -237,7 +301,7 @@ export async function updatePass(
   if (failures.length > 0) {
     throw new AppError("INVALID_PRICE", failures[0]!.message, { failures });
   }
-  if (patch.asset) await assertSupportedAsset(ctx, patch.asset);
+  if (patch.asset) await assertSupportedAsset(ctx, patch.asset, nextPlan.marketClass);
 
   const needsNewVersion = isExecutionRelevantChange(current, patch);
   const nextVersion = needsNewVersion ? current.version + 1 : current.version;
@@ -246,6 +310,8 @@ export async function updatePass(
     .update(passes)
     .set({
       asset: nextPlan.asset,
+      marketClass: nextPlan.marketClass,
+      outcomeName: nextPlan.outcomeName,
       direction: nextPlan.direction,
       entryType: nextPlan.entryType,
       entryPrice: nextPlan.entryPrice,

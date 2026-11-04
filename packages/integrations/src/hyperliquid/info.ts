@@ -3,12 +3,15 @@ import type {
   HLAssetMeta,
   HLFill,
   HLOrder,
-  HLOpenOrder,
   HLOrderBook,
   HLOrderStatus,
+  HLOpenOrder,
+  HLOutcomeMeta,
+  HLSpotBalance,
 } from "@pass/contracts";
 import { toDecimalString } from "@pass/domain";
 import { ProviderError, ProviderUnavailableError } from "../ports.js";
+import { outcomeAssets, parseOutcomeMeta } from "./outcomes.js";
 
 /**
  * Hyperliquid Info API client.
@@ -113,6 +116,56 @@ export class HyperliquidInfoClient {
           ? {}
           : { maxLeverage: Number(maxLeverage) }),
       } satisfies HLAssetMeta;
+    });
+  }
+
+  /**
+   * HIP-4 outcome metadata. Not in the public Info API docs (verified
+   * 2026-10-30), but accepted by the live demo/testnet endpoints.
+   * Callers must treat a failure as "outcome markets unavailable on this
+   * venue", never as an empty market list that looks like no markets exist.
+   */
+  async outcomeMeta(): Promise<HLOutcomeMeta[]> {
+    const raw = await this.post<unknown>({ type: "outcomeMeta" });
+    return parseOutcomeMeta(raw);
+  }
+
+  /** Active outcome assets (`#N`), filtered by the venue's quoted mids. */
+  async listOutcomeAssets(mids?: Record<string, string>): Promise<HLAssetMeta[]> {
+    const outcomes = await this.outcomeMeta();
+    const quoted = mids ?? (await this.allMids());
+    return outcomeAssets(outcomes, quoted);
+  }
+
+  /**
+   * Spot token balances. HIP-4 collateral is a spot token (USDH), so the
+   * preview reads this rather than the perp clearinghouse account value.
+   */
+  async spotClearinghouseState(user: string): Promise<HLSpotBalance[]> {
+    const raw = await this.post<Record<string, unknown>>({
+      type: "spotClearinghouseState",
+      user,
+    });
+    const balances = Array.isArray(raw?.balances) ? raw.balances : [];
+    return balances.map((b: unknown) => {
+      const row = (b ?? {}) as Record<string, unknown>;
+      const token =
+        typeof row.coin === "string"
+          ? row.coin
+          : typeof row.token === "string"
+            ? row.token
+            : String(row.token ?? "");
+      const total = Number(row.total ?? 0);
+      const hold = Number(row.hold ?? 0);
+      const available = Number.isFinite(total)
+        ? Math.max(0, total - (Number.isFinite(hold) ? hold : 0))
+        : 0;
+      return {
+        token,
+        total: toDecimalString(total),
+        hold: toDecimalString(hold),
+        available: toDecimalString(available),
+      };
     });
   }
 

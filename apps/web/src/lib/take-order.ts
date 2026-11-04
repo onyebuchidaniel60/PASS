@@ -1,8 +1,13 @@
 "use client";
 
 import { DEFAULT_SLIPPAGE_TOLERANCE_BPS } from "@pass/contracts";
-
-import { buildOrderAction } from "./hyperliquid";
+import type { MarketClass } from "@pass/contracts";
+import {
+  HIP4_DEFAULT_SZ_DECIMALS,
+  buildTakeOrderAction,
+  marketableOutcomePrice,
+  resolveMarket,
+} from "@pass/domain/markets";
 
 /**
  * Take-order numbers (docs/DECISIONS.md D-025).
@@ -148,9 +153,12 @@ export function newClientRequestId(): string {
 }
 
 /**
- * The bracket the venue receives: entry plus the Pass's own exits in one
- * `grouping: "normalTpsl"` action. Exits are reduce-only and trigger-market
- * (see `buildOrderAction`); the entry never is.
+ * The bracket the venue receives, built by the market-class adapter.
+ *
+ * Perp/spot produce the historical entry + reduce-only TP/SL bracket with
+ * `grouping: "normalTpsl"`. HIP-4 produces a single entry leg with no
+ * reduceOnly and grouping `"na"` — the venue has no trigger exits for outcome
+ * markets (packages/domain/src/markets.ts).
  */
 export function buildTakeAction(params: {
   assetIndex: number;
@@ -161,18 +169,47 @@ export function buildTakeAction(params: {
   stopLoss: string | null;
   /** Entry time-in-force. Defaults to Gtc (limit semantics); market entries pass Ioc. */
   tif?: "Alo" | "Ioc" | "Gtc";
+  /** Coin string. Legacy callers omit it; perp order shape does not use it. */
+  asset?: string;
+  marketClass?: MarketClass;
+  /** Asset size decimals (HIP-4 default 2 when the venue omits them). */
+  szDecimals?: number | null;
 }) {
-  return buildOrderAction({
-    assetIndex: params.assetIndex,
+  const market = resolveMarket(
+    {
+      asset: params.asset ?? String(params.assetIndex),
+      marketClass: params.marketClass ?? "perp",
+      assetIndex: params.assetIndex,
+      szDecimals: params.szDecimals ?? null,
+    },
+    { outcomeSzDecimals: params.szDecimals ?? HIP4_DEFAULT_SZ_DECIMALS },
+  );
+  if (!market) {
+    throw new Error("The market could not be resolved for this order.");
+  }
+  return buildTakeOrderAction(market, {
     isBuy: params.isBuy,
     price: params.entryPrice,
     size: params.baseSize,
     reduceOnly: false,
     tif: params.tif ?? "Gtc",
-    grouping: "normalTpsl",
     takeProfit: params.takeProfit,
     stopLoss: params.stopLoss,
   });
+}
+
+/** True when the Pass's market needs the outcome price builder. */
+export function isHip4Market(marketClass: MarketClass | null | undefined): boolean {
+  return marketClass === "hip4";
+}
+
+/** Marketable probability price for HIP-4; wraps the domain helper. */
+export function marketableOutcome(params: {
+  midPrice: string | null;
+  isBuy: boolean;
+  slippageToleranceBps?: number;
+}): string | null {
+  return marketableOutcomePrice(params);
 }
 
 /** Exact POST body for /passes/{id}/executions. No `signedAction`. */

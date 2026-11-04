@@ -7,6 +7,7 @@ import type {
   HLOrderBook,
   HLOrderStatus,
   HLRelayResult,
+  HLSpotBalance,
   MarketSnapshotDto,
   RunMode,
   SignedPayload,
@@ -23,6 +24,12 @@ import type {
 export interface MarketDataPort {
   readonly mode: RunMode;
   listAssets(): Promise<HLAssetMeta[]>;
+  /**
+   * HIP-4 outcome assets (`#N`). May throw when the configured venue does
+   * not expose `outcomeMeta`; callers must report availability rather than
+   * silently returning an empty list.
+   */
+  listOutcomeAssets(mids?: Record<string, string>): Promise<HLAssetMeta[]>;
   getMids(): Promise<Record<string, string>>;
   getOrderBook(asset: string): Promise<HLOrderBook | null>;
   getSnapshot(asset: string): Promise<MarketSnapshotDto | null>;
@@ -34,6 +41,8 @@ export interface AccountDataPort {
    * agent_address (D-018.3, docs/TECHNICAL_SPEC.md §8).
    */
   getAccountState(accountAddress: string): Promise<HLAccountState | null>;
+  /** Spot balances (USDH for HIP-4 collateral, USDC for perps). */
+  getSpotBalances(accountAddress: string): Promise<HLSpotBalance[]>;
   getOpenOrders(accountAddress: string): Promise<HLOpenOrder>;
   getFills(accountAddress: string): Promise<HLFill[]>;
 }

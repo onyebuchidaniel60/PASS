@@ -52,6 +52,38 @@ export const PassEntryType = z.enum(["market", "limit"]);
 export type PassEntryType = z.infer<typeof PassEntryType>;
 
 /**
+ * Market classes PASS can author and execute. Perp is the historical default;
+ * HIP-4 outcome markets are additive and use their own order/encoding rules
+ * (see packages/domain/src/markets.ts). Spot is supported by the adapter
+ * boundary but not enabled in the MVP.
+ */
+export const MarketClass = z.enum(["perp", "spot", "hip4"]);
+export type MarketClass = z.infer<typeof MarketClass>;
+
+/** HIP-4 side. YES maps to a long Pass, NO to a short Pass. */
+export const OutcomeSide = z.enum(["yes", "no"]);
+export type OutcomeSide = z.infer<typeof OutcomeSide>;
+
+/**
+ * Normalized reference to one HIP-4 outcome side. The Pass itself stores the
+ * `#N` order coin; this carries the human-readable context the UI renders.
+ */
+export const OutcomeRef = z.object({
+  outcomeId: z.number().int().nonnegative(),
+  side: OutcomeSide,
+  /** Venue-provided question/short name, when available. */
+  name: z.string().nullable(),
+  description: z.string().nullable(),
+  /** `#N`: the coin used by orders and books. */
+  orderCoin: z.string(),
+  /** `+N`: the token name used by balances. */
+  balanceCoin: z.string(),
+  /** 100_000_000 + N. */
+  assetId: z.number().int(),
+});
+export type OutcomeRef = z.infer<typeof OutcomeRef>;
+
+/**
  * docs/PRODUCT_PRD.md §10. The displayed state must remain unambiguous;
  * ACTIVE and ENTRY_PENDING may be represented separately or combined, but
  * PASS keeps them distinct.

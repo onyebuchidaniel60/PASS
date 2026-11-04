@@ -48,7 +48,7 @@ const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000").rep
 const nextConfig = {
   reactStrictMode: true,
   // Workspace packages ship TypeScript source directly.
-  transpilePackages: ["@pass/contracts", "@pass/ui"],
+  transpilePackages: ["@pass/contracts", "@pass/domain", "@pass/ui"],
   eslint: { ignoreDuringBuilds: true },
 
   async rewrites() {

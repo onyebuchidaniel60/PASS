@@ -101,6 +101,9 @@ importers:
       '@pass/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pass/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@pass/ui':
         specifier: workspace:*
         version: link:../../packages/ui

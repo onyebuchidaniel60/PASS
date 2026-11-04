@@ -168,3 +168,74 @@ Public Trader profile URLs are `/u/{slug}`, decided in `docs/DECISIONS.md` D-019
 ### 17.4 Local database is embedded PostgreSQL
 
 No Docker and no local `psql` were available in the build environment. The database layer runs against real PostgreSQL via `DATABASE_URL` when present, and otherwise against PGlite (PostgreSQL compiled to WebAssembly) for local development and tests. The schema, migrations, and query layer are identical in both cases, so nothing about persistence is simulated. Production uses `DATABASE_URL` exclusively.
+
+## 18. Hyperliquid — HIP-4 outcome markets (verified 2026-11-03)
+
+HIP-4 binary outcome markets are an additive market class (`hip4`) alongside
+perps and spot. The boundary is `packages/domain/src/markets.ts`: one
+`MarketClassAdapter` interface with perp/spot/hip4 implementations, and callers
+ask the resolved market for its own entry/exits instead of branching on class.
+
+### 18.1 Information endpoint — not in the public docs
+
+`POST /info { "type": "outcomeMeta" }` answers on the live demo, testnet and
+mainnet endpoints, but it is not listed in the public Info API documentation at
+the time of writing. The integration treats a failure as "outcome markets are
+unavailable on this venue", never as an empty market list: `/api/v1/markets`
+reports the two cases separately.
+
+Observed response shape on the live testnet endpoint:
+
+```json
+{ "outcomes": [ { "outcome": 2, "name": "...", "quoteToken": "USDC", ... } ] }
+```
+
+The parser accepts both that object wrapper and a bare array, because the
+documented shape does not exist and a future change must not crash the app.
+
+### 18.2 Encoding and order shape
+
+- `N = 10 * outcome_id + side` (side 0 = YES, side 1 = NO).
+- Order/book coin is `#N`; the balance coin is `+N`.
+- Asset id is `100_000_000 + N`.
+- Orders use `grouping: "na"`, carry **no** `reduceOnly` field and **no** TP/SL
+  trigger legs. The venue has no leverage or liquidation for these markets.
+- Price is a probability in `0.001–0.999` with 3 decimals.
+
+The test suite pins both `encodeOutcome(2, 0) -> #20` and
+`encodeOutcome(20, 0) -> #200`. The formula is documented as
+`10 * outcome_id + side`; the requirement's example (`#20` for outcome 2) and
+its stated formula (`#200` for outcome 20) agree, so the implementation follows
+the formula.
+
+### 18.3 Collateral divergence — USDH required, venue reports USDC
+
+HIP-4 positions are collateralised in **USDH**. The live testnet `outcomeMeta`
+currently reports `"quoteToken": "USDC"` for outcomes. PASS uses USDH for the
+order/preview collateral label and USDH spot balances, because that is the
+product requirement and the testnet swap path (`@1338`, USDH/USDC). The
+venue-reported `quoteToken` is surfaced as a diagnostic; if it disagrees, the
+UI/preview keeps USDH and the discrepancy is recorded here rather than silently
+changing the collateral token.
+
+Manual operator verification still required on testnet:
+
+1. swap USDC → USDH on spot pair `@1338`;
+2. create a HIP-4 Pass (market entry, YES or NO);
+3. Take it with a client-held agent key;
+4. confirm the order reaches Hyperliquid testnet and a position is recorded.
+
+### 18.4 Size decimals are not published
+
+`outcomeMeta` does not publish `szDecimals`, and outcome tokens do not appear
+in `spotMeta`. `HIP4_DEFAULT_SZ_DECIMALS = 2` is used as a documented default;
+this is an open verification item. If the venue rejects a size, the default is
+the first thing to check.
+
+### 18.5 Mainnet remains disabled for HIP-4
+
+`enabledMarketClasses` is `["perp", "hip4"]` on testnet/mock and `["perp"]` on
+mainnet. `/health` and `GET /api/v1/markets` read the same config, so the
+selector and the server cannot disagree. HIP-4 was **not** exercised on mainnet
+and no mainnet deployment was enabled by this change.
+

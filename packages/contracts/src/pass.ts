@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   DecimalString,
   IsoDateTime,
+  MarketClass,
+  OutcomeRef,
   PassDirection,
   PassEntryType,
   PassEventType,
@@ -30,6 +32,13 @@ const LeverageString = DecimalString.refine(
 export const TradePlanSnapshot = z.object({
   asset: z.string().min(1),
   dex: z.string().nullable(),
+  /**
+   * Defaults to perp so every pre-HIP-4 snapshot still parses to the market
+   * class it actually was. New writes always carry the explicit value.
+   */
+  marketClass: MarketClass.default("perp"),
+  /** Human-readable outcome question for HIP-4, null for perp/spot. */
+  outcomeName: z.string().nullable().default(null),
   direction: PassDirection,
   entryType: PassEntryType,
   entryPrice: DecimalString.nullable(),
@@ -43,6 +52,13 @@ export type TradePlanSnapshot = z.infer<typeof TradePlanSnapshot>;
 export const CreatePassRequest = z
   .object({
     asset: z.string().min(1, "Asset is required"),
+    /**
+     * Optional because older clients send only `asset`. When present it is
+     * authoritative; when absent the server infers the class from the coin.
+     */
+    marketClass: MarketClass.optional(),
+    /** Display name captured from outcomeMeta at authoring time. */
+    outcomeName: z.string().max(200).nullable().optional(),
     direction: PassDirection,
     entryType: PassEntryType,
     entryPrice: DecimalString.nullable().optional(),
@@ -135,6 +151,9 @@ export const PassSummaryDto = z.object({
   version: z.number().int().positive(),
   traderId: Uuid,
   asset: z.string(),
+  marketClass: MarketClass,
+  /** Set only for HIP-4 Passes; null for perp/spot. */
+  outcome: OutcomeRef.nullable().default(null),
   direction: PassDirection,
   status: PassStatus,
   entryType: PassEntryType,
@@ -199,6 +218,10 @@ export const ExecutionPreviewDto = z.object({
   passVersion: z.number().int().positive(),
   passPublicId: PublicId,
   asset: z.string(),
+  marketClass: MarketClass,
+  outcome: OutcomeRef.nullable().default(null),
+  /** Collateral token the Taker must hold (USDC or USDH). */
+  collateral: z.string(),
   direction: PassDirection,
   entryType: PassEntryType,
   /** The resolved trading-account row (D-026: created user-less for anonymous Takes). */
@@ -310,6 +333,7 @@ export const ExecutionRecordDto = z.object({
   passPublicId: PublicId,
   passVersion: z.number().int().positive(),
   asset: z.string(),
+  marketClass: MarketClass.default("perp"),
   direction: PassDirection,
   positionSize: DecimalString,
   leverage: DecimalString.nullable(),

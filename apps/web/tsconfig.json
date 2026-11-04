@@ -18,6 +18,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@pass/contracts": ["../../packages/contracts/src/index.ts"],
+      "@pass/domain/markets": ["../../packages/domain/src/markets.ts"],
+      "@pass/domain": ["../../packages/domain/src/index.ts"],
       "@pass/ui": ["../../packages/ui/src/index.tsx"]
     }
   },

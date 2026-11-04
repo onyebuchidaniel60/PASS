@@ -81,16 +81,28 @@ import {
   entrySourceLabel,
   executionBody,
   floorBaseSize,
+  marketableOutcome,
   marketablePrice,
   newClientRequestId,
   resolveEntryPrice,
 } from "@/lib/take-order";
+import { HIP4_DEFAULT_SZ_DECIMALS } from "@pass/domain/markets";
 
 type Step = 1 | 2 | 3 | 4;
 
 interface PassView {
   publicId: string;
   asset: string;
+  marketClass?: "perp" | "spot" | "hip4" | null;
+  outcome?: {
+    outcomeId: number;
+    side: "yes" | "no";
+    name: string | null;
+    description: string | null;
+    orderCoin: string;
+    balanceCoin: string;
+    assetId: number;
+  } | null;
   direction: "long" | "short";
   entryType: "limit" | "market";
   version: number;
@@ -106,6 +118,7 @@ interface PassView {
 interface Preview {
   passVersion: number;
   passPublicId?: string;
+  marketClass?: "perp" | "spot" | "hip4";
   /** The resolved trading-account row (D-026: created user-less for anonymous Takes). */
   accountId?: string;
   /** Venue-approved agent on the resolved row, if any (approval skip). */
@@ -118,6 +131,7 @@ interface Preview {
   leverage?: string | null;
   stopLoss?: string | null;
   takeProfit?: string | null;
+  collateral?: string;
   slippageToleranceBps?: number;
   estimatedMargin?: string | null;
   availableMargin?: string | null;
@@ -129,7 +143,8 @@ interface MarketMeta {
   asset: string;
   assetId: number;
   szDecimals: number;
-  maxLeverage: number;
+  maxLeverage?: number | null;
+  marketClass?: "perp" | "spot" | "hip4";
 }
 
 interface Health {
@@ -169,8 +184,12 @@ export function TakeFlowClient({
   publicId: string;
   initialPass: PassView;
 }) {
+  const isHip4 = (initialPass.marketClass ?? "perp") === "hip4";
+  const collateral = isHip4 ? "USDH" : "USDC";
   const [step, setStep] = useState<Step>(1);
-  const [leverage, setLeverage] = useState(Number(initialPass.leverage) || 5);
+  const [leverage, setLeverage] = useState(
+    isHip4 ? 1 : Number(initialPass.leverage) || 5,
+  );
   // EMPTY by default. Never seeded from the Trader's size (D-015).
   const [size, setSize] = useState("");
   const [sizeError, setSizeError] = useState<string | null>(null);
@@ -236,7 +255,9 @@ export function TakeFlowClient({
         // is cached.
         const meta =
           (markets.assets ?? []).find(
-            (a) => a.asset.toUpperCase() === initialPass.asset.toUpperCase(),
+            (a) =>
+              a.asset.toUpperCase() === initialPass.asset.toUpperCase() ||
+              a.assetId === initialPass.outcome?.assetId,
           ) ?? null;
         setAssetMeta(meta);
         // Anything but an explicit live flag signs the mock envelope. Both
@@ -305,8 +326,17 @@ export function TakeFlowClient({
     // slippage tolerance), not at the raw mid: Hyperliquid has no native
     // market order, and a Gtc limit at mid would rest when the book moves.
     // Display and signing share this one computation (D-025).
-    const entryPrice =
-      type === "market"
+    //
+    // HIP-4 quotes a probability, so the outcome builder applies the venue's
+    // 3-decimal tick instead of the perp tick rule.
+    const entryPrice = isHip4
+      ? marketableOutcome({
+          midPrice: mid,
+          isBuy: long,
+          slippageToleranceBps:
+            preview?.slippageToleranceBps ?? DEFAULT_SLIPPAGE_TOLERANCE_BPS,
+        })
+      : type === "market"
         ? marketablePrice({
             midPrice: mid,
             isBuy: long,
@@ -323,14 +353,18 @@ export function TakeFlowClient({
           });
     if (!entryPrice) {
       return {
-        error:
-          type === "limit"
+        error: isHip4
+          ? "No outcome probability is available to price this order right now."
+          : type === "limit"
             ? "This Pass has no entry price to sign."
             : "No market price is available for a market entry right now.",
       };
     }
     const n = Number(size);
-    const baseSize = floorBaseSize(n, entryPrice, assetMeta.szDecimals);
+    const szDecimals = isHip4
+      ? (assetMeta.szDecimals ?? HIP4_DEFAULT_SZ_DECIMALS)
+      : assetMeta.szDecimals;
+    const baseSize = floorBaseSize(n, entryPrice, szDecimals);
     if (!baseSize) {
       return { error: "That size is too small to place on this market." };
     }
@@ -394,7 +428,9 @@ export function TakeFlowClient({
           passVersion: initialPass.version,
           ...(row.id ? { accountId: row.id } : { accountAddress: row.accountAddress }),
           positionSize: size.trim(),
-          leverage: String(leverage),
+          // HIP-4 has no leverage: sending a number would imply a margin
+          // model the venue does not offer.
+          ...(isHip4 ? {} : { leverage: String(leverage) }),
           slippageToleranceBps: DEFAULT_SLIPPAGE_TOLERANCE_BPS,
         },
       );
@@ -547,6 +583,9 @@ export function TakeFlowClient({
       }
       const request = buildExchangeRequest({
         assetIndex: nums.assetIndex,
+        asset: assetMeta?.asset ?? initialPass.asset,
+        marketClass: isHip4 ? "hip4" : (initialPass.marketClass ?? "perp"),
+        szDecimals: assetMeta?.szDecimals ?? null,
         isBuy: long,
         size: nums.baseSize,
         limitPx: nums.entryPrice,
@@ -554,8 +593,9 @@ export function TakeFlowClient({
         // limit at the marketable price, so it fills instead of resting. A
         // limit entry stays Gtc at the Pass's price — resting is expected.
         tif: entryType === "market" ? "Ioc" : "Gtc",
-        takeProfit: initialPass.takeProfit ?? null,
-        stopLoss: initialPass.stopLoss ?? null,
+        // HIP-4 has no venue exits; the adapter drops these by construction.
+        takeProfit: isHip4 ? null : (initialPass.takeProfit ?? null),
+        stopLoss: isHip4 ? null : (initialPass.stopLoss ?? null),
       });
       // Live mode without a key throws here; nothing is sent (fail closed).
       // isTestnet follows the health venue: L1 signatures are venue-scoped.
@@ -581,8 +621,9 @@ export function TakeFlowClient({
           clientRequestId: newClientRequestId(),
           // Fee computation only: the Taker's own size and leverage, as
           // shown. Execution still comes from the signed payload above.
+          // HIP-4 fees use the implicit 1x (no leverage exists).
           positionSize: size.trim(),
-          leverage: String(leverage),
+          ...(isHip4 ? {} : { leverage: String(leverage) }),
           signedPayload: {
             exchangeRequest: signed.exchangeRequest,
             signature: signed.signature,
@@ -636,6 +677,9 @@ export function TakeFlowClient({
   const asset = initialPass.asset;
   const long = initialPass.direction === "long";
   const entryType = initialPass.entryType ?? "limit";
+  const outcome = initialPass.outcome ?? null;
+  const outcomeName = outcome?.name?.trim() || asset;
+  const outcomeSide = outcome ? outcome.side.toUpperCase() : long ? "LONG" : "SHORT";
   // Displayed in steps 2–3; authorize() signs exactly this (D-025).
   const nums = preview ? takeNumbers() : null;
 
@@ -737,9 +781,9 @@ export function TakeFlowClient({
               {STEP_TITLE[step]}
             </h1>
             <Inline gap="3" style={{ marginBlockStart: "var(--space-3)" }}>
-              <span className="pass-value">{asset}</span>
+              <span className="pass-value">{isHip4 ? outcomeName : asset}</span>
               <span className="pass-chip" data-state="active">
-                {long ? "Long" : "Short"}
+                {isHip4 ? outcomeSide : long ? "Long" : "Short"}
               </span>
               <StatusChip state={initialPass.status as never} />
             </Inline>
@@ -754,7 +798,7 @@ export function TakeFlowClient({
             <Stack gap="5">
               {/* §10.6 Step 1 — the size field is the first and largest element. */}
               <Field
-                label="Position size (USDC)"
+                label={`Position size (${collateral})`}
                 required
                 error={sizeError ?? undefined}
                 helper="Your size. PASS never chooses one for you."
@@ -767,22 +811,24 @@ export function TakeFlowClient({
                     describedBy={describedBy}
                     invalid={Boolean(sizeError)}
                     placeholder="0.00"
-                    suffix="USDC"
+                    suffix={collateral}
                   />
                 )}
               </Field>
 
-              <Field label="Leverage" helper="Permitted range shown.">
-                {({ controlId }) => (
-                  <LeverageStepper
-                    id={controlId}
-                    value={leverage}
-                    onChange={setLeverage}
-                    min={1}
-                    max={MAX_LEVERAGE}
-                  />
-                )}
-              </Field>
+              {isHip4 ? null : (
+                <Field label="Leverage" helper="Permitted range shown.">
+                  {({ controlId }) => (
+                    <LeverageStepper
+                      id={controlId}
+                      value={leverage}
+                      onChange={setLeverage}
+                      min={1}
+                      max={MAX_LEVERAGE}
+                    />
+                  )}
+                </Field>
+              )}
 
               {/* §10.6 Step 1 item 2 — restate the plan the size is chosen against.
                   A market Pass stores no entry price, so its Entry row is
@@ -791,12 +837,21 @@ export function TakeFlowClient({
                   "Entry source" (D-025.1) — a different row, kept. */}
               <ChamferPanel label="Pass context">
                 <CoordinateGrid>
-                  {entryType === "market" ? null : (
-                    <CoordinatePair label="Entry" value={fmt(initialPass.entryPrice)} />
+                  {isHip4 ? (
+                    <>
+                      <CoordinatePair label="Outcome" value={outcomeName} />
+                      <CoordinatePair label="Side" value={outcomeSide} />
+                    </>
+                  ) : (
+                    <>
+                      {entryType === "market" ? null : (
+                        <CoordinatePair label="Entry" value={fmt(initialPass.entryPrice)} />
+                      )}
+                      <CoordinatePair label="TP" value={fmt(initialPass.takeProfit)} />
+                      <CoordinatePair label="SL" value={fmt(initialPass.stopLoss)} />
+                      <CoordinatePair label="Leverage" value={`${leverage}x`} />
+                    </>
                   )}
-                  <CoordinatePair label="TP" value={fmt(initialPass.takeProfit)} />
-                  <CoordinatePair label="SL" value={fmt(initialPass.stopLoss)} />
-                  <CoordinatePair label="Leverage" value={`${leverage}x`} />
                 </CoordinateGrid>
               </ChamferPanel>
 
@@ -831,19 +886,24 @@ export function TakeFlowClient({
                       label="Pass version"
                       value={String(preview?.passVersion ?? 1)}
                     />
-                    <CoordinatePair label="Asset" value={asset} />
-                    <CoordinatePair label="Direction" value={long ? "Long" : "Short"} />
+                    <CoordinatePair label="Asset" value={isHip4 ? outcomeName : asset} />
+                    <CoordinatePair
+                      label="Direction"
+                      value={isHip4 ? outcomeSide : long ? "Long" : "Short"}
+                    />
                     {/* Restated EXACTLY as entered. The Taker authorised the
                         number they typed, so re-formatting it here would be
                         authoring a different number. */}
-                    <CoordinatePair label="Size" value={`${size} USDC`} />
-                    <CoordinatePair label="Leverage" value={`${leverage}x`} />
+                    <CoordinatePair label="Size" value={`${size} ${collateral}`} />
+                    {isHip4 ? null : (
+                      <CoordinatePair label="Leverage" value={`${leverage}x`} />
+                    )}
                     {/* D-025: the signed numbers, shown before they are signed. */}
                     <CoordinatePair
-                      label="Entry source"
+                      label={isHip4 ? "Outcome price" : "Entry source"}
                       value={
                         nums && !("error" in nums)
-                          ? `${entrySourceLabel(entryType)} ${fmt(nums.entryPrice)}`
+                          ? `${isHip4 ? "" : `${entrySourceLabel(entryType)} `}${fmt(nums.entryPrice)}`
                           : "—"
                       }
                     />
@@ -851,12 +911,16 @@ export function TakeFlowClient({
                       label="Base size"
                       value={
                         nums && !("error" in nums)
-                          ? `${nums.baseSize} ${asset}`
+                          ? `${nums.baseSize} ${isHip4 ? "contracts" : asset}`
                           : "—"
                       }
                     />
-                    <CoordinatePair label="TP" value={fmt(initialPass.takeProfit)} />
-                    <CoordinatePair label="SL" value={fmt(initialPass.stopLoss)} />
+                    {isHip4 ? null : (
+                      <>
+                        <CoordinatePair label="TP" value={fmt(initialPass.takeProfit)} />
+                        <CoordinatePair label="SL" value={fmt(initialPass.stopLoss)} />
+                      </>
+                    )}
                     <CoordinatePair
                       label="Slippage"
                       value={
@@ -870,9 +934,19 @@ export function TakeFlowClient({
                       value={
                         preview?.estimatedMargin == null
                           ? "—"
-                          : `${fmt(preview.estimatedMargin)} USDC`
+                          : `${fmt(preview.estimatedMargin)} ${collateral}`
                       }
                     />
+                    {isHip4 ? (
+                      <CoordinatePair
+                        label={`Available ${collateral}`}
+                        value={
+                          preview?.availableMargin == null
+                            ? "—"
+                            : fmt(preview.availableMargin)
+                        }
+                      />
+                    ) : null}
                   </CoordinateGrid>
 
                   {nums && "error" in nums ? (
@@ -917,16 +991,31 @@ export function TakeFlowClient({
             <Stack gap="5">
               {/* §10.6 Step 3 item 1 — plain language ABOVE any control. */}
               <p className="pass-thesis">
-                You are authorizing your own order. You will sign an order for{" "}
-                {size} USDC of {asset} at {leverage}x leverage on your own
-                Hyperliquid account, with take profit at {fmt(initialPass.takeProfit)}{" "}
-                and stop loss at {fmt(initialPass.stopLoss)}. PASS holds no funds
-                and cannot move your position. Your wallet signs; PASS relays.
+                {isHip4 ? (
+                  <>
+                    You are authorizing your own order. You will sign an order
+                    for {size} {collateral} of {outcomeName} ({outcomeSide}) on
+                    your own Hyperliquid account. Outcome markets have no
+                    leverage, take profit or stop loss. PASS holds no funds and
+                    cannot move your position. Your wallet signs; PASS relays.
+                  </>
+                ) : (
+                  <>
+                    You are authorizing your own order. You will sign an order for{" "}
+                    {size} USDC of {asset} at {leverage}x leverage on your own
+                    Hyperliquid account, with take profit at{" "}
+                    {fmt(initialPass.takeProfit)} and stop loss at{" "}
+                    {fmt(initialPass.stopLoss)}. PASS holds no funds and cannot
+                    move your position. Your wallet signs; PASS relays.
+                  </>
+                )}
                 {nums && !("error" in nums) ? (
                   <>
-                    {" "}Entry {entrySourceLabel(entryType).toLowerCase()}{" "}
-                    {fmt(nums.entryPrice)}; order size {nums.baseSize} {asset} —
-                    the same numbers shown in the preview.
+                    {" "}
+                    {isHip4 ? "Outcome price" : entrySourceLabel(entryType)}{" "}
+                    {fmt(nums.entryPrice)}; order size {nums.baseSize}{" "}
+                    {isHip4 ? "contracts" : asset} — the same numbers shown in
+                    the preview.
                   </>
                 ) : null}
               </p>

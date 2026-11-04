@@ -6,6 +6,7 @@ import type {
   HLOrderBook,
   HLOrderStatus,
   HLRelayResult,
+  HLSpotBalance,
   MarketSnapshotDto,
   SignedPayload,
 } from "@pass/contracts";
@@ -93,6 +94,10 @@ export class SplitHyperliquid implements HyperliquidPort {
     return this.requireInfo().listAssets();
   }
 
+  listOutcomeAssets(mids?: Record<string, string>): Promise<HLAssetMeta[]> {
+    return this.requireInfo().listOutcomeAssets(mids);
+  }
+
   getMids(): Promise<Record<string, string>> {
     return this.requireInfo().allMids();
   }
@@ -116,6 +121,10 @@ export class SplitHyperliquid implements HyperliquidPort {
 
   getAccountState(accountAddress: string): Promise<HLAccountState | null> {
     return this.requireInfo().clearinghouseState(accountAddress);
+  }
+
+  getSpotBalances(accountAddress: string): Promise<HLSpotBalance[]> {
+    return this.requireInfo().spotClearinghouseState(accountAddress);
   }
 
   getOpenOrders(accountAddress: string): Promise<HLOpenOrder> {

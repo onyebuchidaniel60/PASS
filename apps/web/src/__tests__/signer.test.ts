@@ -31,6 +31,37 @@ describe("signExchangeRequest", () => {
     expect(signed.signature).toMatchObject({ v: 27, mock: true });
   });
 
+  it("builds the HIP-4 outcome shape through the market adapter", () => {
+    // Outcome 2, side NO = 10 * 2 + 1 -> `#21`; the asset id is offset by
+    // 100_000_000. Authored TP/SL must be dropped, not forwarded.
+    const request = buildExchangeRequest({
+      assetIndex: 100000021,
+      asset: "#21",
+      marketClass: "hip4",
+      szDecimals: 2,
+      isBuy: false,
+      size: "50",
+      limitPx: "0.57",
+      tif: "Ioc",
+      takeProfit: "0.7",
+      stopLoss: "0.4",
+    });
+    const action = request.action as {
+      grouping: string;
+      orders: Array<Record<string, unknown>>;
+    };
+    expect(action.grouping).toBe("na");
+    expect(action.orders).toHaveLength(1);
+    expect(action.orders[0]).toEqual({
+      a: 100000021,
+      b: false,
+      p: "0.57",
+      s: "50",
+      t: { limit: { tif: "Ioc" } },
+    });
+    expect(action.orders[0]).not.toHaveProperty("r");
+  });
+
   it("live mode without an agent key throws; no request exists to send", async () => {
     // Fresh module state holds no key (nothing persisted it in this file).
     await forgetAgentKey();

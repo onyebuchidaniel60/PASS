@@ -3,15 +3,22 @@ import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import { checkTakeRateLimit } from "../take-limiter.js";
 import { aggregatePassPerformance, sideFor, toDecimalStringSafe } from "./helpers.js";
-import { BUILDER_FEE_BPS, computeFee, isStaleVersion, splitFee } from "@pass/domain";
+import {
+  BUILDER_FEE_BPS,
+  HIP4_COLLATERAL,
+  computeFee,
+  isStaleVersion,
+  splitFee,
+} from "@pass/domain";
 import { executions, feeLedger, passEvents, tradingAccounts, type PassRow } from "@pass/db";
-import { getPassById, getPassVersion } from "./pass-service.js";
+import { getPassById, getPassVersion, passOutcome } from "./pass-service.js";
 import { resolveTradingAccountByAddress, visibleAgentAddress } from "./profile-service.js";
 import { MAX_LEVERAGE, MIN_ORDER_VALUE_USD } from "@pass/contracts";
 import type {
   ExecutionPreviewRequest,
   ExecutionRequest,
   ExecutionPreviewDto,
+  MarketClass,
 } from "@pass/contracts";
 import { ProviderError } from "@pass/integrations";
 
@@ -172,6 +179,7 @@ export async function buildExecutionPreview(
   const version = await getPassVersion(ctx, pass.id, input.passVersion);
 
   const snapshot = version.snapshot as {
+    marketClass?: MarketClass;
     entryPrice: string | null;
     stopLoss: string | null;
     takeProfit: string | null;
@@ -179,20 +187,32 @@ export async function buildExecutionPreview(
     direction: "long" | "short";
   };
 
-  const leverage = toDecimalStringSafe(input.leverage ?? snapshot.leverage ?? "1");
+  const marketClass = (snapshot.marketClass ?? pass.marketClass) as MarketClass;
+  const isHip4 = marketClass === "hip4";
+  const leverage = isHip4
+    ? null
+    : toDecimalStringSafe(input.leverage ?? snapshot.leverage ?? "1");
   const markNum = mark === null ? null : Number(mark);
   const entryNum = snapshot.entryPrice === null ? markNum : Number(snapshot.entryPrice);
 
   let margin: string | null = null;
-  if (entryNum !== null && Number.isFinite(entryNum) && entryNum > 0) {
+  if (isHip4) {
+    /**
+     * Outcome collateral is posted in full: there is no leverage and no
+     * liquidation, so the position's cost is its size in USDH. The Taker
+     * doesn't borrow against the position, so `estimatedMargin` is the size
+     * itself rather than a notional divided by leverage.
+     */
+    margin = positionSize;
+  } else if (entryNum !== null && Number.isFinite(entryNum) && entryNum > 0) {
     const notional = Number(positionSize) * entryNum;
     margin = toDecimalStringSafe(notional / Number(leverage || "1"));
   }
 
-  if (Number(leverage) > MAX_LEVERAGE) {
+  if (leverage !== null && Number(leverage) > MAX_LEVERAGE) {
     warnings.push({ code: "INVALID_LEVERAGE", message: `Leverage is above the ${MAX_LEVERAGE}x maximum.` });
   }
-  if (markNum !== null && Number.isFinite(markNum)) {
+  if (!isHip4 && markNum !== null && Number.isFinite(markNum)) {
     if (snapshot.entryPrice !== null) {
       const entry = Number(snapshot.entryPrice);
       if (snapshot.direction === "long" && markNum > entry * 1.05) {
@@ -210,10 +230,34 @@ export async function buildExecutionPreview(
     }
   }
 
+  let availableMargin: string | null = null;
+  if (isHip4) {
+    // HIP-4 collateral is a spot token, not perp account value.
+    try {
+      const balances = await ctx.adapters.hyperliquid.getSpotBalances(account.accountAddress);
+      const usdh = balances.find((b) => b.token.toUpperCase() === HIP4_COLLATERAL);
+      availableMargin = usdh?.available ?? null;
+      if (availableMargin === null) {
+        warnings.push({
+          code: "COLLATERAL_UNAVAILABLE",
+          message: `No ${HIP4_COLLATERAL} balance was reported for this account.`,
+        });
+      }
+    } catch {
+      warnings.push({
+        code: "COLLATERAL_UNAVAILABLE",
+        message: `${HIP4_COLLATERAL} balance is unavailable.`,
+      });
+    }
+  }
+
   return {
     passVersion: input.passVersion,
     passPublicId: pass.publicId,
     asset: pass.asset,
+    marketClass,
+    outcome: passOutcome(pass),
+    collateral: isHip4 ? HIP4_COLLATERAL : "USDC",
     direction: pass.direction,
     entryType: pass.entryType,
     accountId: account.id,
@@ -228,7 +272,7 @@ export async function buildExecutionPreview(
     takeProfit: snapshot.takeProfit,
     slippageToleranceBps: input.slippageToleranceBps,
     estimatedMargin: margin,
-    availableMargin: null,
+    availableMargin,
     warnings,
     requiresConfirmation: true,
     observedAt: new Date().toISOString(),
@@ -322,12 +366,17 @@ export async function relayExecution(
 
   const version = await getPassVersion(ctx, pass.id, input.passVersion);
   const snapshot = version.snapshot as {
+    marketClass?: MarketClass;
     stopLoss: string | null;
     takeProfit: string | null;
     leverage: string | null;
     direction: "long" | "short";
     entryPrice: string | null;
   };
+
+  const snapshotMarketClass = (snapshot.marketClass ??
+    (pass.marketClass ?? "perp")) as MarketClass;
+  const isHip4 = snapshotMarketClass === "hip4";
 
   // 6. relay the signed payload. The payload is forwarded unmodified.
   let relayed;
@@ -451,7 +500,8 @@ export async function relayExecution(
   let fee: RelayedExecutionFee | null = null;
   if (simulated) {
     const sizeUsd = Number(input.positionSize ?? NaN);
-    const lev = Number(input.leverage ?? snapshot.leverage ?? NaN);
+    // HIP-4 has no leverage: its notional is the position size in USDH.
+    const lev = Number(input.leverage ?? snapshot.leverage ?? (isHip4 ? 1 : NaN));
     const notional =
       Number.isFinite(sizeUsd) && sizeUsd > 0 && Number.isFinite(lev) && lev > 0
         ? sizeUsd * lev

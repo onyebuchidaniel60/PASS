@@ -16,6 +16,7 @@ import {
   getPassById,
   listOwnedPasses,
   listPassEvents,
+  passOutcome,
   publishPass,
   updatePass,
 } from "../services/pass-service.js";
@@ -92,6 +93,8 @@ export async function registerPassRoutes(app: FastifyInstance, ctx: AppContext) 
       version: row.version,
       status: row.status,
       asset: row.asset,
+      marketClass: row.marketClass ?? "perp",
+      outcome: passOutcome(row),
       direction: row.direction,
       entryType: row.entryType,
       entryPrice: row.entryPrice,
@@ -134,6 +137,8 @@ export async function registerPassRoutes(app: FastifyInstance, ctx: AppContext) 
         version: r.version,
         status: r.status,
         asset: r.asset,
+        marketClass: r.marketClass ?? "perp",
+        outcome: passOutcome(r),
         direction: r.direction,
         entryType: r.entryType,
         entryPrice: r.entryPrice,
@@ -170,6 +175,7 @@ export async function registerPassRoutes(app: FastifyInstance, ctx: AppContext) 
         id: r.id,
         publicId: r.publicId,
         asset: r.asset,
+        marketClass: r.marketClass ?? "perp",
         direction: r.direction,
         status: r.status,
       })),
@@ -323,6 +329,8 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
     const body = z
       .object({
         asset: z.string().optional(),
+        marketClass: z.enum(["perp", "spot", "hip4"]).optional(),
+        outcomeName: z.string().max(200).nullable().optional(),
         direction: z.enum(["long", "short"]).optional(),
         entryType: z.enum(["market", "limit"]).optional(),
         entryPrice: z.string().nullable().optional(),
@@ -336,6 +344,8 @@ export async function registerExecutionRoutes(app: FastifyInstance, ctx: AppCont
     const { validatePlan } = await import("@pass/domain");
     const failures = validatePlan({
       asset: body.asset ?? "",
+      marketClass: body.marketClass ?? null,
+      outcomeName: body.outcomeName ?? null,
       direction: body.direction ?? "long",
       entryType: body.entryType ?? "limit",
       entryPrice: body.entryPrice ?? null,

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { DecimalString, IsoDateTime, RunMode } from "./common.js";
+import {
+  DecimalString,
+  IsoDateTime,
+  MarketClass,
+  OutcomeRef,
+  RunMode,
+} from "./common.js";
 
 /**
  * Normalized provider DTOs. Provider payloads are normalized at the
@@ -12,14 +18,52 @@ import { DecimalString, IsoDateTime, RunMode } from "./common.js";
 
 export const HLAssetMeta = z.object({
   asset: z.string(),
-  /** Perp dex name. Hyperliquid perp DEXs are typically "perp". */
+  /** Perp dex name, "spot", or "hip4" for an outcome market. */
   dex: z.string(),
+  /** Market class. Absent on legacy perp payloads: treat as perp. */
+  marketClass: MarketClass.optional(),
   assetId: z.number().int(),
   /** Provider-reported decimals for prices. */
   szDecimals: z.number().int().optional(),
-  maxLeverage: z.number().int().optional(),
+  /** Null/absent for HIP-4: outcome markets have no leverage. */
+  maxLeverage: z.number().int().nullable().optional(),
+  /** Collateral token the market settles in. USDH for HIP-4. */
+  collateral: z.string().optional(),
+  /** `+N` balance token for HIP-4; the order coin otherwise. */
+  balanceCoin: z.string().optional(),
+  /** Venue-reported quote/collateral token, when it differs from PASS's. */
+  venueQuoteToken: z.string().nullable().optional(),
+  /** HIP-4 side context. Null/absent for perp/spot. */
+  outcome: OutcomeRef.nullable().optional(),
 });
 export type HLAssetMeta = z.infer<typeof HLAssetMeta>;
+
+/**
+ * One outcome as returned by `POST /info {type:"outcomeMeta"}`.
+ * The live API (verified 2026-10-30) also reports `quoteToken` and `venue`;
+ * these are diagnostics, not the collateral PASS assumes for HIP-4.
+ */
+export const HLOutcomeMeta = z.object({
+  outcomeId: z.number().int().nonnegative(),
+  name: z.string(),
+  description: z.string().nullable(),
+  /** Venue-reported quote token. PASS expects USDH for HIP-4 (HIP-4 spec). */
+  quoteToken: z.string().nullable(),
+  venue: z.string().nullable(),
+  /** Side labels as the venue publishes them, e.g. ["Yes", "No"]. */
+  sideNames: z.tuple([z.string(), z.string()]).nullable(),
+});
+export type HLOutcomeMeta = z.infer<typeof HLOutcomeMeta>;
+
+/** One token balance from `spotClearinghouseState`. */
+export const HLSpotBalance = z.object({
+  token: z.string(),
+  total: DecimalString,
+  hold: DecimalString,
+  /** total - hold, non-negative. */
+  available: DecimalString,
+});
+export type HLSpotBalance = z.infer<typeof HLSpotBalance>;
 
 export const HLOrderBookLevel = z.object({
   price: DecimalString,

@@ -1,6 +1,9 @@
 "use client";
 
-import { buildOrderAction, HL_DOMAIN, type HLChain } from "./hyperliquid";
+import { buildTakeOrderAction, resolveMarket } from "@pass/domain/markets";
+import type { MarketClass } from "@pass/contracts";
+
+import { HL_DOMAIN, type HLChain } from "./hyperliquid";
 
 /**
  * Order-intent construction and submission envelope.
@@ -31,6 +34,11 @@ export interface OrderIntent {
   reduceOnly?: boolean;
   tif?: "Alo" | "Ioc" | "Gtc";
   chain?: HLChain;
+  /** Coin string (`BTC`, `#200`). Legacy callers omit it. */
+  asset?: string;
+  marketClass?: MarketClass;
+  /** Asset size decimals; HIP-4 defaults to 2 when the venue omits them. */
+  szDecimals?: number | null;
   /**
    * The Pass's own take profit and stop loss, as authored by the Trader.
    *
@@ -65,20 +73,29 @@ export function buildExchangeRequest(intent: OrderIntent): {
   message: Record<string, unknown>;
 } {
   const nonce = Date.now();
-  const action = buildOrderAction({
+  const market = resolveMarket({
+    asset: intent.asset ?? String(intent.assetIndex),
+    marketClass: intent.marketClass ?? "perp",
     assetIndex: intent.assetIndex,
+    szDecimals: intent.szDecimals ?? null,
+  });
+  if (!market) {
+    throw new Error("The market could not be resolved for this order.");
+  }
+  const action = buildTakeOrderAction(market, {
     isBuy: intent.isBuy,
     price: intent.limitPx,
     size: intent.size,
-    reduceOnly: intent.reduceOnly,
+    reduceOnly: intent.reduceOnly ?? false,
     tif: intent.tif,
-    // Forwarded as authored. `buildOrderAction` decides the grouping.
+    // Forwarded as authored. The adapter decides the grouping and whether
+    // the venue supports exits at all (HIP-4 does not).
     takeProfit: intent.takeProfit,
     stopLoss: intent.stopLoss,
   });
 
   return {
-    action,
+    action: action as unknown as Record<string, unknown>,
     nonce,
     domain: HL_DOMAIN,
     types: {

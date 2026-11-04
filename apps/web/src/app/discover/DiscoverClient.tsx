@@ -59,6 +59,15 @@ import { heroLines } from "@/lib/hero-copy";
 interface DiscoverPass {
   publicId: string;
   asset: string;
+  marketClass?: "perp" | "spot" | "hip4" | null;
+  outcome?: {
+    outcomeId: number;
+    side: "yes" | "no";
+    name: string | null;
+    orderCoin: string;
+    balanceCoin: string;
+    assetId: number;
+  } | null;
   direction: "long" | "short";
   status: PassLifecycle;
   /** The Pass's own order type — read, never inferred. Always present. */
@@ -279,19 +288,29 @@ export function DiscoverClient() {
                 // Market Passes store no entry price (it is derived at
                 // execution): no row, no label, no value, no unit, no "—".
                 const isMarket = p.entryType === "market";
+                const isHip4 = (p.marketClass ?? "perp") === "hip4";
+                const outcomeLabel = p.outcome?.name?.trim() || p.asset;
+                const outcomeSide = p.outcome?.side.toUpperCase() ?? (p.direction === "long" ? "YES" : "NO");
 
                 return (
                   <DataCard
                     key={p.publicId}
-                    id={`${p.asset} ${p.direction === "long" ? "LONG" : "SHORT"}`}
+                    id={
+                      isHip4
+                        ? `${outcomeLabel} ${outcomeSide}`
+                        : `${p.asset} ${p.direction === "long" ? "LONG" : "SHORT"}`
+                    }
                     sub={relative(p.publishedAt) ? `Published ${relative(p.publishedAt)}` : undefined}
-                    value={isMarket ? null : fmt(p.entryPrice)}
-                    unit={isMarket ? undefined : "per unit"}
+                    value={isHip4 || isMarket ? null : fmt(p.entryPrice)}
+                    unit={isHip4 || isMarket ? undefined : "per unit"}
                     headerAside={
                       // Order-type chip beside the status chip: the existing
                       // pass-chip style, the existing spacing token, no new
                       // component. The value is the Pass's own entryType.
                       <span className="pass-inline" style={{ gap: "var(--space-2)" }}>
+                        {isHip4 ? (
+                          <span className="pass-chip">HIP-4</span>
+                        ) : null}
                         <span className="pass-chip">
                           {p.entryType === "market" ? "Market" : "Limit"}
                         </span>
@@ -303,14 +322,21 @@ export function DiscoverClient() {
                       </span>
                     }
                     status={{ tone, label: STATE_LABEL[p.status] ?? p.status }}
-                    metrics={[
-                      { label: "Take profit", value: fmt(p.takeProfit) },
-                      { label: "Stop loss", value: fmt(p.stopLoss) },
-                      // D-032: R:R is derived from the entry price, so on a
-                      // market Pass there is nothing to derive it from. Omit
-                      // the metric entirely rather than render a dash.
-                      ...(isMarket ? [] : [{ label: "R:R", value: riskReward(p) }]),
-                    ]}
+                    metrics={
+                      isHip4
+                        ? [
+                            { label: "Outcome", value: outcomeLabel },
+                            { label: "Side", value: outcomeSide },
+                          ]
+                        : [
+                            { label: "Take profit", value: fmt(p.takeProfit) },
+                            { label: "Stop loss", value: fmt(p.stopLoss) },
+                            // D-032: R:R is derived from the entry price, so on a
+                            // market Pass there is nothing to derive it from. Omit
+                            // the metric entirely rather than render a dash.
+                            ...(isMarket ? [] : [{ label: "R:R", value: riskReward(p) }]),
+                          ]
+                    }
                     action={{ label: "Open Pass", href }}
                     interactive
                   >
@@ -327,7 +353,7 @@ export function DiscoverClient() {
                     {/* The whole card is a hit target as well as the action, so
                         §14.5's hover state is reachable from anywhere on it. */}
                     <Link href={href} className="visually-hidden">
-                      Open {p.asset} {p.direction} Pass
+                      Open {isHip4 ? `${outcomeLabel} ${outcomeSide}` : `${p.asset} ${p.direction}`} Pass
                     </Link>
                   </DataCard>
                 );

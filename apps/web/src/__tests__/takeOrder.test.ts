@@ -177,7 +177,7 @@ describe("take bracket assembly", () => {
     expect(action.type).toBe("order");
     expect(action.grouping).toBe("normalTpsl");
     expect(action.orders).toHaveLength(3);
-    const [entry, tp, sl] = action.orders as Array<Record<string, unknown>>;
+    const [entry, tp, sl] = action.orders as unknown as Array<Record<string, unknown>>;
     expect(entry).toMatchObject({ a: 0, b: true, p: "113400", s: "0.01102", r: false });
     expect(tp).toMatchObject({ b: false, r: true });
     expect(sl).toMatchObject({ b: false, r: true });
@@ -204,9 +204,72 @@ describe("take bracket assembly", () => {
       stopLoss: null,
       tif: "Ioc",
     });
-    const [entry] = ioc.orders as Array<Record<string, unknown>>;
+    const [entry] = ioc.orders as unknown as Array<Record<string, unknown>>;
     expect(entry).toMatchObject({ p: "114068", r: false });
     expect((entry?.t as { limit: { tif: string } }).limit.tif).toBe("Ioc");
+  });
+});
+
+describe("HIP-4 take assembly", () => {
+  it("emits one outcome leg with grouping na and no reduceOnly", () => {
+    // Outcome 2, YES = 10 * 2 + 0 -> `#20`, asset id 100_000_020.
+    const action = buildTakeAction({
+      assetIndex: 100000020,
+      asset: "#20",
+      marketClass: "hip4",
+      szDecimals: 2,
+      isBuy: true,
+      entryPrice: "0.42",
+      baseSize: "100",
+      takeProfit: null,
+      stopLoss: null,
+      tif: "Ioc",
+    });
+    expect(action.grouping).toBe("na");
+    expect(action.orders).toHaveLength(1);
+    expect(action.orders[0]).toEqual({
+      a: 100000020,
+      b: true,
+      p: "0.42",
+      s: "100",
+      t: { limit: { tif: "Ioc" } },
+    });
+    // The wire shape must not carry the perp-only field at all.
+    expect(action.orders[0]).not.toHaveProperty("r");
+    expect(action.orders[0]).not.toHaveProperty("t.trigger");
+  });
+
+  it("drops authored TP/SL instead of sending trigger legs the venue rejects", () => {
+    const action = buildTakeAction({
+      assetIndex: 100000021,
+      asset: "#21",
+      marketClass: "hip4",
+      szDecimals: 2,
+      isBuy: false,
+      entryPrice: "0.57",
+      baseSize: "50",
+      takeProfit: "0.7",
+      stopLoss: "0.4",
+    });
+    expect(action.grouping).toBe("na");
+    expect(action.orders).toHaveLength(1);
+    expect(action.orders.some((o) => "trigger" in o.t)).toBe(false);
+  });
+
+  it("leaves the perp shape unchanged (regression)", () => {
+    const action = buildTakeAction({
+      assetIndex: 0,
+      isBuy: true,
+      entryPrice: "113400",
+      baseSize: "0.01102",
+      takeProfit: "116000",
+      stopLoss: "111900",
+    });
+    expect(action.grouping).toBe("normalTpsl");
+    expect(action.orders).toHaveLength(3);
+    expect(action.orders[0]).toMatchObject({ a: 0, r: false });
+    expect(action.orders[1]).toMatchObject({ r: true });
+    expect(action.orders[2]).toMatchObject({ r: true });
   });
 });
 

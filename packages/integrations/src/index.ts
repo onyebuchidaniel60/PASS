@@ -19,6 +19,11 @@ export * from "./mock.js";
 export { LiveHyperliquid, SplitHyperliquid } from "./hyperliquid/live.js";
 export { HyperliquidInfoClient } from "./hyperliquid/info.js";
 export { HyperliquidExchangeClient } from "./hyperliquid/exchange.js";
+export {
+  outcomeAssets,
+  parseOutcomeMeta,
+  reportedQuoteToken,
+} from "./hyperliquid/outcomes.js";
 export { LiveEthos } from "./ethos/live.js";
 export { LiveX, redactX } from "./x/live.js";
 

@@ -637,3 +637,37 @@ per the venue's tick rule — computed at runtime from the universe
 whole ticks only, and the result is asserted tick-divisible before
 signing. Market Passes store no entry price and render no entry row on
 Discover, the Take page, or pass lists (limit rendering is unchanged).
+
+## D-033 — HIP-4 outcome markets are an additive market class
+
+**Date:** 2026-11-03
+**Status:** Accepted. Testnet/mock enabled; mainnet not enabled.
+
+**Decision:** PASS authors and executes Hyperliquid HIP-4 binary outcome
+markets as a third market class (`hip4`) alongside `perp` and `spot`.
+Perp stays the default: `passes.market_class` is `perp` by default and
+existing rows are not rewritten. Authoring captures `outcome_name` so
+Discover and Pass detail need no live `outcomeMeta` read.
+
+- Encoding is `N = 10 * outcome_id + side` (0 = YES, 1 = NO). Orders and
+  books use `#N`, balances use `+N`, and the asset id is `100_000_000 + N`.
+- HIP-4 orders use `grouping: "na"`, carry no `reduceOnly` and no TP/SL
+  trigger legs. Outcome markets have no leverage or liquidation, so a
+  HIP-4 Pass has no leverage, TP, SL or R:R, and its collateral is USDH.
+  Entry is market-style at the live probability (D-031/D-032 unchanged for
+  perps).
+- One adapter boundary, `packages/domain/src/markets.ts`, owns
+  `resolveMarket` plus per-class entry/exit builders. Callers ask the
+  resolved market for its order shape instead of branching on the class.
+- `enabledMarketClasses` and `venue` come from one API config read by
+  `/health` and `GET /api/v1/markets`. It is `["perp", "hip4"]` on
+  testnet/mock and `["perp"]` on mainnet. Enabling HIP-4 on mainnet is a
+  separate, explicit decision.
+- Signing, Taker-side confirmation, agent approval gating, and the
+  relay-only server are unchanged. The Taker still chooses their own size
+  and signs their own order; PASS holds no funds.
+- `outcomeMeta` is not in the public Info API docs. Its absence is
+  reported as "outcome markets unavailable on this venue", never faked as
+  an empty market list. The USDH-vs-venue `quoteToken` and unpublished
+  outcome size decimals are recorded as open verification items in
+  `docs/INTEGRATION_VERIFICATION.md` §18.

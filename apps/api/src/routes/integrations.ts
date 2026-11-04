@@ -15,6 +15,7 @@ import {
 } from "../services/profile-service.js";
 import { AppError } from "../errors.js";
 import { ETHOS_DISCLAIMER } from "../services/profile-service.js";
+import { listMarkets } from "../services/market-service.js";
 
 const ApproveAgentBody = z
   .object({
@@ -278,12 +279,7 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
 
   app.get("/api/v1/markets", async () => {
     try {
-      const assets = await ctx.adapters.hyperliquid.listAssets();
-      const mids = await ctx.adapters.hyperliquid.getMids();
-      return {
-        mode: ctx.adapters.hyperliquid.mode,
-        assets: assets.map((a) => ({ ...a, midPrice: mids[a.asset] ?? null })),
-      };
+      return await listMarkets(ctx);
     } catch {
       throw new AppError("PROVIDER_UNAVAILABLE");
     }

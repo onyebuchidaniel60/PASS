@@ -181,6 +181,13 @@ export const passes = pgTable(
     version: integer("version").notNull().default(1),
     asset: text("asset").notNull(),
     dex: text("dex"),
+    /**
+     * Market class this Pass executes as. Existing Passes are perps, so the
+     * column defaults to "perp" and needs no data migration (D-033).
+     */
+    marketClass: text("market_class").notNull().default("perp"),
+    /** HIP-4 outcome question captured at authoring time; null otherwise. */
+    outcomeName: text("outcome_name"),
     direction: directionEnum("direction").notNull(),
     entryType: entryTypeEnum("entry_type").notNull(),
     entryPrice: numeric("entry_price"),

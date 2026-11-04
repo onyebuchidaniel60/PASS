@@ -72,6 +72,16 @@ interface PassDetail {
   publicId: string;
   version: number;
   asset: string;
+  marketClass?: "perp" | "spot" | "hip4" | null;
+  outcome?: {
+    outcomeId: number;
+    side: "yes" | "no";
+    name: string | null;
+    description: string | null;
+    orderCoin: string;
+    balanceCoin: string;
+    assetId: number;
+  } | null;
   direction: "long" | "short";
   status: PassLifecycle;
   entryType: string;
@@ -300,6 +310,11 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
   // D-032: a market Pass derives its entry at execution, so there is no entry
   // price to show and no R:R to derive from one.
   const isMarketEntry = data.entryType === "market";
+  const marketClass = data.marketClass ?? "perp";
+  const isHip4 = marketClass === "hip4";
+  const outcome = data.outcome ?? null;
+  const outcomeName = outcome?.name?.trim() || asset;
+  const outcomeSide = outcome?.side.toUpperCase() ?? (data.direction === "long" ? "YES" : "NO");
   const direction = data.direction === "long" ? "LONG" : "SHORT";
   const market = data.market;
   const series = market?.series;
@@ -325,7 +340,10 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                     §14.4's rule that §3.2 binds in reverse. */}
                 <div className="pass-detail-object">
                   <DisplayHeadline
-                    lines={[[{ text: asset }], [{ text: direction, accent: true }]]}
+                    lines={[
+                      [{ text: isHip4 ? outcomeName : asset }],
+                      [{ text: isHip4 ? outcomeSide : direction, accent: true }],
+                    ]}
                     as="h1"
                   />
                 </div>
@@ -340,9 +358,9 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                 </Inline>
 
                 <p className="pass-note" id="pass-object">
-                  Entry type {data.entryType}. Expires{" "}
-                  <Timestamp value={data.expiresAt} />. PASS {data.publicId},
-                  version {data.version}.
+                  Market {isHip4 ? "HIP-4" : marketClass.toUpperCase()}. Entry
+                  type {data.entryType}. Expires <Timestamp value={data.expiresAt} />.
+                  PASS {data.publicId}, version {data.version}.
                 </p>
 
                 {/* Take CTA, desktop instance: the in-flow CTA measures at
@@ -371,23 +389,35 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
             <Stack gap="4">
               <NumberedEyebrow label="Levels" number={2} />
               <MetricCardRow>
-                {/* D-032: a market Pass stores no entry price (it is derived at
-                    execution), so Entry and every figure derived from it are
-                    omitted rather than rendered as a dash. Take profit, stop
-                    loss and leverage are plan-level and always render. */}
-                {isMarketEntry ? null : (
-                  // The unit reads the Pass's own asset — never a hardcoded
-                  // coin. A SOL-perp Pass reads "per SOL".
-                  <MetricCard label="Entry" value={fmt(data.entryPrice)} unit={`per ${asset}`} />
-                )}
-                <MetricCard label="Take profit" value={fmt(data.takeProfit)} unit={`per ${asset}`} />
-                <MetricCard label="Stop loss" value={fmt(data.stopLoss)} unit={`per ${asset}`} />
-                <MetricCard label="Leverage" value={`${data.leverage}x`} />
-                {isMarketEntry ? null : (
-                  <MetricCard
-                    label="R:R"
-                    value={riskReward(data.entryPrice, data.takeProfit, data.stopLoss)}
-                  />
+                {isHip4 ? (
+                  <>
+                    {/* HIP-4 is a probability market: no leverage, no
+                        liquidation, no venue TP/SL (and therefore no R:R).
+                        Show the one decision the Pass actually encodes. */}
+                    <MetricCard label="Outcome" value={outcomeName} />
+                    <MetricCard label="Side" value={outcomeSide} />
+                  </>
+                ) : (
+                  <>
+                    {/* D-032: a market Pass stores no entry price (it is derived at
+                        execution), so Entry and every figure derived from it are
+                        omitted rather than rendered as a dash. Take profit, stop
+                        loss and leverage are plan-level and always render. */}
+                    {isMarketEntry ? null : (
+                      // The unit reads the Pass's own asset — never a hardcoded
+                      // coin. A SOL-perp Pass reads "per SOL".
+                      <MetricCard label="Entry" value={fmt(data.entryPrice)} unit={`per ${asset}`} />
+                    )}
+                    <MetricCard label="Take profit" value={fmt(data.takeProfit)} unit={`per ${asset}`} />
+                    <MetricCard label="Stop loss" value={fmt(data.stopLoss)} unit={`per ${asset}`} />
+                    <MetricCard label="Leverage" value={`${data.leverage}x`} />
+                    {isMarketEntry ? null : (
+                      <MetricCard
+                        label="R:R"
+                        value={riskReward(data.entryPrice, data.takeProfit, data.stopLoss)}
+                      />
+                    )}
+                  </>
                 )}
               </MetricCardRow>
             </Stack>

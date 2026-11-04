@@ -150,6 +150,44 @@ describe("Pass detail renders a Pass (§10.3)", () => {
     expect(screen.getByText("1.73:1")).toBeInTheDocument();
   });
 
+  it("renders a HIP-4 Pass without TP, SL, leverage or R:R (probability market)", async () => {
+    await renderPass({
+      asset: "#20",
+      marketClass: "hip4",
+      outcome: {
+        outcomeId: 2,
+        side: "yes",
+        name: "Will BTC close above 120k by Friday?",
+        description: null,
+        orderCoin: "#20",
+        balanceCoin: "+20",
+        assetId: 100000020,
+      },
+      direction: "long",
+      entryType: "market",
+      entryPrice: null,
+      stopLoss: null,
+      takeProfit: null,
+      leverage: null,
+    });
+    const h1 = await screen.findByRole("heading", { level: 1 });
+    // The headline names the outcome and the side, not the wire coin.
+    expect(h1.textContent).toContain("Will BTC close above 120k by Friday?");
+    expect(h1.textContent ?? "").toMatch(/Yes/i);
+    // Outcome markets have no leverage, liquidation or venue exits, so none of
+    // those plan-level rows may appear — not even as an empty value.
+    expect(screen.queryByText("Take profit")).toBeNull();
+    expect(screen.queryByText("Stop loss")).toBeNull();
+    expect(screen.queryByText("Leverage")).toBeNull();
+    expect(screen.queryByText("R:R")).toBeNull();
+    expect(screen.queryByText("Entry")).toBeNull();
+    // The two decisions the Pass actually encodes are shown instead.
+    expect(screen.getByText("Outcome")).toBeInTheDocument();
+    expect(screen.getByText("Side")).toBeInTheDocument();
+    // The market class is stated, so the wire coin is never read as a perp.
+    expect(screen.getByText(/HIP-4/)).toBeInTheDocument();
+  });
+
   it("separates reputation from PASS performance with a rule", async () => {
     // D-007 / PRD §12 make merging them a P0 anti-pattern.
     renderPass();

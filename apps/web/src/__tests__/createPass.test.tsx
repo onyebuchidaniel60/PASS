@@ -34,6 +34,22 @@ const MARKETS = [
   { asset: "ETH", dex: "perp", maxLeverage: 25 },
 ];
 
+const HIP4_MARKET = {
+  asset: "#20",
+  dex: "hip4",
+  marketClass: "hip4" as const,
+  maxLeverage: null,
+  label: "Will BTC close above 120k by Friday? · Yes",
+  outcome: {
+    outcomeId: 2,
+    side: "yes" as const,
+    name: "Will BTC close above 120k by Friday?",
+    orderCoin: "#20",
+    balanceCoin: "+20",
+    assetId: 100000020,
+  },
+};
+
 function rejected(message: string): Promise<never> {
   const p = Promise.reject(new Error(message));
   p.catch(() => {});
@@ -107,6 +123,25 @@ describe("live validation (UX_SPEC §7)", () => {
     expect(validate({ ...BASE, leverage: 10 }).leverage).toBeUndefined();
   });
 
+  it("accepts an outcome Pass with no TP, SL, entry or leverage", () => {
+    const outcome = {
+      ...BASE,
+      asset: "#20",
+      entryType: "market" as const,
+      entry: "",
+      sl: "",
+      tp: "",
+      leverage: 1,
+      markets: [...MARKETS, HIP4_MARKET],
+    };
+    // Nothing to validate: HIP-4 is market-entry only and has no venue exits.
+    expect(validate(outcome)).toEqual({});
+    // A limit entry would author a price the venue never quotes.
+    expect(validate({ ...outcome, entryType: "limit" }).entry).toBe(
+      "Outcome Passes must use a market entry.",
+    );
+  });
+
   it("rejects a missing or past expiry (§7 expiry validity)", () => {
     expect(validate({ ...BASE, expiry: "" }).expiry).toBe("Set an expiry.");
     expect(validate({ ...BASE, expiry: "not-a-date" }).expiry).toBe(
@@ -126,7 +161,15 @@ beforeEach(() => {
   searchGet.mockReturnValue(null);
 });
 
-async function renderForm({ authed = true, xConnected = true } = {}) {
+async function renderForm({
+  authed = true,
+  xConnected = true,
+  markets = MARKETS,
+}: {
+  authed?: boolean;
+  xConnected?: boolean;
+  markets?: Array<Record<string, unknown>>;
+} = {}) {
   mockGet.mockImplementation((url?: unknown) => {
     const path = String(url ?? "");
     if (path.includes("/api/v1/me")) {
@@ -158,7 +201,7 @@ async function renderForm({ authed = true, xConnected = true } = {}) {
         tradingAccounts: [],
       });
     }
-    return Promise.resolve({ assets: MARKETS });
+    return Promise.resolve({ assets: markets });
   });
   let out!: ReturnType<typeof render>;
   await act(async () => {
@@ -202,6 +245,23 @@ describe("Create Pass states (§10.5)", () => {
     expect(screen.getByLabelText(/Stop loss/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Thesis/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Expiry/)).toBeInTheDocument();
+  });
+
+  it("switches to an outcome market and hides TP, SL, leverage and entry", async () => {
+    await renderForm({ markets: [...MARKETS, HIP4_MARKET] });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.selectOptions(screen.getByLabelText(/Asset/), "#20");
+    // HIP-4 has no authored entry, venue exits, or leverage. The controls must
+    // be absent, not disabled or filled with a meaningless value.
+    await waitFor(() => expect(screen.queryByLabelText(/Entry price/)).toBeNull());
+    expect(screen.queryByLabelText(/Stop loss/)).toBeNull();
+    expect(screen.queryByLabelText(/Take profit/)).toBeNull();
+    expect(screen.queryByLabelText(/Leverage/)).toBeNull();
+    // The decision the author actually makes is the outcome side.
+    expect(screen.getByLabelText(/Side/)).toBeInTheDocument();
+    expect(screen.getByText(/no limit price, take profit, stop loss or leverage/i)).toBeInTheDocument();
   });
 });
 

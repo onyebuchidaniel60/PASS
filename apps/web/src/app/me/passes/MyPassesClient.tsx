@@ -61,6 +61,8 @@ export interface MyPass {
   version: number;
   status: PassLifecycle;
   asset: string;
+  marketClass?: "perp" | "spot" | "hip4" | null;
+  outcome?: { side: "yes" | "no"; name: string | null } | null;
   direction: string;
   entryType?: "limit" | "market";
   entryPrice: string | null;
@@ -108,8 +110,12 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     label: "PASS",
     render: (p) => (
       <Inline gap="2">
-        <strong>{p.asset}</strong>
-        <span className="pass-stale">{p.direction}</span>
+        <strong>{p.marketClass === "hip4" ? (p.outcome?.name ?? p.asset) : p.asset}</strong>
+        <span className="pass-stale">
+          {p.marketClass === "hip4"
+            ? (p.outcome?.side?.toUpperCase() ?? p.direction)
+            : p.direction}
+        </span>
       </Inline>
     ),
   },
