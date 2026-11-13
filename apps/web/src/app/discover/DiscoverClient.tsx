@@ -206,7 +206,7 @@ export function DiscoverClient() {
 
   return (
     <PageShell>
-      <ShellContent>
+      <ShellContent className="pass-discover">
         <Stack gap="6">
           {/* §14.1 the Discover header takes the SECTION-strength wash: this page
               is data-heavy, so it does not get the hero wash (§14.1's flat rule
@@ -229,137 +229,149 @@ export function DiscoverClient() {
               unavailable rather than rendering empty. */}
           <TickerBar entries={ticker} unavailable={state !== "ready" || ticker.length === 0} />
 
-          <Section label="Discover">
-            <Stack gap="4">
-              {/* §10.2 item 2 — filters always visible, never behind a menu.
-                  §14.9 renders them as chamfered chips with exactly one
-                  selected, which is §2.5's accent ration applied to a bar. */}
-              <ChipBar label="Filter by status">
-                {STATUS_OPTIONS.map((o) => (
-                  <ChipButton
-                    key={o.value}
-                    toggle
-                    selected={status === o.value}
-                    onClick={() => setStatus(o.value)}
-                  >
-                    {o.label}
-                  </ChipButton>
-                ))}
-              </ChipBar>
+          {/* The ledger layout: filters own a sticky left rail, the Passes own
+              the wide field. On mobile the rail becomes a normal block and the
+              field stacks under it. */}
+          <div className="pass-discover-layout">
+            <aside className="pass-discover-rail">
+              <Section label="Discover">
+                <Stack gap="4">
+                  {/* §10.2 item 2 — filters always visible, never behind a menu.
+                      §14.9 renders them as chamfered chips with exactly one
+                      selected, which is §2.5's accent ration applied to a bar. */}
+                  <ChipBar label="Filter by status">
+                    {STATUS_OPTIONS.map((o) => (
+                      <ChipButton
+                        key={o.value}
+                        toggle
+                        selected={status === o.value}
+                        onClick={() => setStatus(o.value)}
+                      >
+                        {o.label}
+                      </ChipButton>
+                    ))}
+                  </ChipBar>
 
-              {/* §10.2 item 3 — a mono count so the list is self-describing when
-                  short. §14.3's dot variant, because this section is live. */}
-              <DotEyebrow label="Published plans">
-                <span className="pass-stale">
-                  {state === "ready"
-                    ? `${visible.length} ${visible.length === 1 ? "Pass" : "Passes"}`
-                    : "Counting…"}
-                </span>
-              </DotEyebrow>
-            </Stack>
-          </Section>
+                  {/* §10.2 item 3 — a mono count so the list is self-describing
+                      when short. §14.3's dot variant, because this section is
+                      live. */}
+                  <DotEyebrow label="Published plans">
+                    <span className="pass-stale">
+                      {state === "ready"
+                        ? `${visible.length} ${visible.length === 1 ? "Pass" : "Passes"}`
+                        : "Counting…"}
+                    </span>
+                  </DotEyebrow>
+                </Stack>
+              </Section>
+            </aside>
 
-          {state === "loading" ? (
-            <LoadingBlock label="Loading Passes" rows={4} />
-          ) : state === "error" ? (
-            <ErrorBlock detail={error} onRetry={load} />
-          ) : visible.length === 0 ? (
-            /* §10.2 empty state names the absence and offers Create a Pass. */
-            <EmptyBlock
-              title="No Passes match this filter"
-              action={
-                <Link href="/passes/new" className="pass-row-link-plain">
-                  <Button variant="primary" size="md">
-                    Create a Pass
-                  </Button>
-                </Link>
-              }
-            >
-              Nothing is published under this status right now.
-            </EmptyBlock>
-          ) : (
-            /* §14.5 the card grid. `auto-fit` decides the column count from the
-               available width, so no hand-set breakpoint can drift. */
-            <div className="pass-info-cards">
-              {visible.map((p) => {
-                const href = p.canonicalPath || `/p/${p.publicId}`;
-                const series = p.sparkline;
-                const tone: StatusTone = TONE[p.status] ?? "draft";
-                // Market Passes store no entry price (it is derived at
-                // execution): no row, no label, no value, no unit, no "—".
-                const isMarket = p.entryType === "market";
-                const isHip4 = (p.marketClass ?? "perp") === "hip4";
-                const outcomeLabel = p.outcome?.name?.trim() || p.asset;
-                const outcomeSide = p.outcome?.side.toUpperCase() ?? (p.direction === "long" ? "YES" : "NO");
-
-                return (
-                  <DataCard
-                    key={p.publicId}
-                    id={
-                      isHip4
-                        ? `${outcomeLabel} ${outcomeSide}`
-                        : `${p.asset} ${p.direction === "long" ? "LONG" : "SHORT"}`
-                    }
-                    sub={relative(p.publishedAt) ? `Published ${relative(p.publishedAt)}` : undefined}
-                    value={isHip4 || isMarket ? null : fmt(p.entryPrice)}
-                    unit={isHip4 || isMarket ? undefined : "per unit"}
-                    headerAside={
-                      // Order-type chip beside the status chip: the existing
-                      // pass-chip style, the existing spacing token, no new
-                      // component. The value is the Pass's own entryType.
-                      <span className="pass-inline" style={{ gap: "var(--space-2)" }}>
-                        {isHip4 ? (
-                          <span className="pass-chip">HIP-4</span>
-                        ) : null}
-                        <span className="pass-chip">
-                          {p.entryType === "market" ? "Market" : "Limit"}
-                        </span>
-                        {tone === "active" || tone === "open" ? (
-                          <LiveDot label="Live" />
-                        ) : (
-                          <StatusBadge tone={tone} label={STATE_LABEL[p.status] ?? p.status} variant="bare" />
-                        )}
-                      </span>
-                    }
-                    status={{ tone, label: STATE_LABEL[p.status] ?? p.status }}
-                    metrics={
-                      isHip4
-                        ? [
-                            { label: "Outcome", value: outcomeLabel },
-                            { label: "Side", value: outcomeSide },
-                          ]
-                        : [
-                            { label: "Take profit", value: fmt(p.takeProfit) },
-                            { label: "Stop loss", value: fmt(p.stopLoss) },
-                            // D-032: R:R is derived from the entry price, so on a
-                            // market Pass there is nothing to derive it from. Omit
-                            // the metric entirely rather than render a dash.
-                            ...(isMarket ? [] : [{ label: "R:R", value: riskReward(p) }]),
-                          ]
-                    }
-                    action={{ label: "Open Pass", href }}
-                    interactive
-                  >
-                    {/* §14.5.7 the only chart PASS has. Rendered only when the
-                        payload carries a real series: §11.2 forbids inventing
-                        one, and a flat line would be an invented observation. */}
-                    {series && series.length > 1 ? (
-                      <Sparkline
-                        points={series}
-                        tone={tone === "sl_hit" || tone === "expired" ? "negative" : "positive"}
-                        label={`${p.asset} last 24 hours`}
-                      />
-                    ) : null}
-                    {/* The whole card is a hit target as well as the action, so
-                        §14.5's hover state is reachable from anywhere on it. */}
-                    <Link href={href} className="visually-hidden">
-                      Open {isHip4 ? `${outcomeLabel} ${outcomeSide}` : `${p.asset} ${p.direction}`} Pass
+            <div className="pass-discover-results">
+              {state === "loading" ? (
+                <LoadingBlock label="Loading Passes" rows={4} />
+              ) : state === "error" ? (
+                <ErrorBlock detail={error} onRetry={load} />
+              ) : visible.length === 0 ? (
+                /* §10.2 empty state names the absence and offers Create a Pass. */
+                <EmptyBlock
+                  title="No Passes match this filter"
+                  action={
+                    <Link href="/passes/new" className="pass-row-link-plain">
+                      <Button variant="primary" size="md">
+                        Create a Pass
+                      </Button>
                     </Link>
-                  </DataCard>
-                );
-              })}
+                  }
+                >
+                  Nothing is published under this status right now.
+                </EmptyBlock>
+              ) : (
+                /* §14.5 the card field. The newest Pass is the feature; the rest
+                   are satellites at a smaller span, so the eye has somewhere to
+                   land instead of a uniform deck of equal tiles. */
+                <div className="pass-discover-grid">
+                  {visible.map((p, index) => {
+                    const href = p.canonicalPath || `/p/${p.publicId}`;
+                    const series = p.sparkline;
+                    const tone: StatusTone = TONE[p.status] ?? "draft";
+                    // Market Passes store no entry price (it is derived at
+                    // execution): no row, no label, no value, no unit, no "—".
+                    const isMarket = p.entryType === "market";
+                    const isHip4 = (p.marketClass ?? "perp") === "hip4";
+                    const outcomeLabel = p.outcome?.name?.trim() || p.asset;
+                    const outcomeSide = p.outcome?.side.toUpperCase() ?? (p.direction === "long" ? "YES" : "NO");
+
+                    return (
+                      <DataCard
+                        key={p.publicId}
+                        className={index === 0 ? "pass-discover-feature" : undefined}
+                        id={
+                          isHip4
+                            ? `${outcomeLabel} ${outcomeSide}`
+                            : `${p.asset} ${p.direction === "long" ? "LONG" : "SHORT"}`
+                        }
+                        sub={relative(p.publishedAt) ? `Published ${relative(p.publishedAt)}` : undefined}
+                        value={isHip4 || isMarket ? null : fmt(p.entryPrice)}
+                        unit={isHip4 || isMarket ? undefined : "per unit"}
+                        headerAside={
+                          // Order-type chip beside the status chip: the existing
+                          // pass-chip style, the existing spacing token, no new
+                          // component. The value is the Pass's own entryType.
+                          <span className="pass-inline" style={{ gap: "var(--space-2)" }}>
+                            {isHip4 ? (
+                              <span className="pass-chip">HIP-4</span>
+                            ) : null}
+                            <span className="pass-chip">
+                              {p.entryType === "market" ? "Market" : "Limit"}
+                            </span>
+                            {tone === "active" || tone === "open" ? (
+                              <LiveDot label="Live" />
+                            ) : (
+                              <StatusBadge tone={tone} label={STATE_LABEL[p.status] ?? p.status} variant="bare" />
+                            )}
+                          </span>
+                        }
+                        status={{ tone, label: STATE_LABEL[p.status] ?? p.status }}
+                        metrics={
+                          isHip4
+                            ? [
+                                { label: "Outcome", value: outcomeLabel },
+                                { label: "Side", value: outcomeSide },
+                              ]
+                            : [
+                                { label: "Take profit", value: fmt(p.takeProfit) },
+                                { label: "Stop loss", value: fmt(p.stopLoss) },
+                                // D-032: R:R is derived from the entry price, so on a
+                                // market Pass there is nothing to derive it from. Omit
+                                // the metric entirely rather than render a dash.
+                                ...(isMarket ? [] : [{ label: "R:R", value: riskReward(p) }]),
+                              ]
+                        }
+                        action={{ label: "Open Pass", href }}
+                        interactive
+                      >
+                        {/* §14.5.7 the only chart PASS has. Rendered only when the
+                            payload carries a real series: §11.2 forbids inventing
+                            one, and a flat line would be an invented observation. */}
+                        {series && series.length > 1 ? (
+                          <Sparkline
+                            points={series}
+                            tone={tone === "sl_hit" || tone === "expired" ? "negative" : "positive"}
+                            label={`${p.asset} last 24 hours`}
+                          />
+                        ) : null}
+                        {/* The whole card is a hit target as well as the action, so
+                            §14.5's hover state is reachable from anywhere on it. */}
+                        <Link href={href} className="visually-hidden">
+                          Open {isHip4 ? `${outcomeLabel} ${outcomeSide}` : `${p.asset} ${p.direction}`} Pass
+                        </Link>
+                      </DataCard>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </Stack>
       </ShellContent>
     </PageShell>

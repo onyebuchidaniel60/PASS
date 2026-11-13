@@ -120,7 +120,7 @@ const STEPS: StepSpec[] = [
 export default function LandingPage() {
   return (
     <PageShell>
-      <ShellContent>
+      <ShellContent className="pass-landing">
         {/* §14.1 the hero is the one surface that gets the full wash, the grain
             and the ghost watermark. All three are absolutely positioned inside
             this clipping shell, which is what stops them painting over the
@@ -136,37 +136,72 @@ export default function LandingPage() {
 
           {/* §14.2 one of exactly four bracket frames in the product. */}
           <CornerBracketFrame className="pass-landing-frame" labelledBy="landing-hero">
+            {/* The hero is a stage, not a centred stack: the authored copy holds
+                the left two-thirds and a single specimen Pass sits off-axis on
+                the right, bleeding toward the clip edge. The composition is the
+                point — one object, one satellite, one floor line. */}
             <div className="pass-landing-hero">
-              {/* §14.4 the hero is three authored lines with ONE ember word,
-                  on line one. Not a single wrapped sentence. No gradient wash:
-                  the reference rations accent to one word per headline, and a
-                  gradient tints every word ember. */}
-              <DisplayHeadline lines={heroLines("landing")} />
-              <p className="pass-landing-lede" id="landing-hero">
-                A trader publishes a Hyperliquid plan. You read it, size it yourself,
-                and authorize it with your own wallet. Nothing is copied and no key
-                ever leaves your browser.
-              </p>
+              <div className="pass-landing-stage">
+                {/* §14.4 the hero is three authored lines with ONE ember word,
+                    on line one. Not a single wrapped sentence. No gradient wash:
+                    the reference rations accent to one word per headline, and a
+                    gradient tints every word ember. */}
+                <DisplayHeadline lines={heroLines("landing")} />
+                <p className="pass-landing-lede" id="landing-hero">
+                  A trader publishes a Hyperliquid plan. You read it, size it yourself,
+                  and authorize it with your own wallet. Nothing is copied and no key
+                  ever leaves your browser.
+                </p>
 
-              {/* §10.1 item 1 — one SignalLine, reveal once, with one reticle. */}
+                {/* §10.1 item 2 — Explore Passes is the single accent-filled
+                    button; Create a Pass is ghost IMMEDIATELY after and never
+                    accented. */}
+                <Inline gap="3" className="pass-landing-ctas">
+                  <Link href="/discover" className="pass-landing-cta-primary">
+                    <Button variant="primary" size="lg">
+                      Explore Passes
+                    </Button>
+                  </Link>
+                  <Link href="/passes/new" className="pass-landing-cta-ghost">
+                    <Button variant="ghost" size="lg">
+                      Create a Pass
+                    </Button>
+                  </Link>
+                </Inline>
+              </div>
+
+              {/* The satellite. It is a specimen, labelled as one, so the page
+                  never implies a live trade. Its values are the same illustrative
+                  levels the step grid uses below. */}
+              <aside className="pass-landing-specimen" aria-label="Sample Pass anatomy">
+                <p className="pass-landing-specimen-kicker">Sample plan</p>
+                <p className="pass-landing-specimen-id">
+                  BTC <span className="pass-landing-specimen-side">LONG</span>
+                </p>
+                <dl className="pass-landing-specimen-levels">
+                  <div className="pass-landing-specimen-level">
+                    <dt>Entry</dt>
+                    <dd>$113.4K</dd>
+                  </div>
+                  <div className="pass-landing-specimen-level">
+                    <dt>Stop</dt>
+                    <dd>$111.9K</dd>
+                  </div>
+                  <div className="pass-landing-specimen-level">
+                    <dt>Target</dt>
+                    <dd>$116.0K</dd>
+                  </div>
+                </dl>
+                <p className="pass-landing-specimen-note">
+                  The plan is the trader's. The size is yours.
+                </p>
+              </aside>
+
+              {/* §10.1 item 1 — one SignalLine, reveal once, with one reticle.
+                  It runs across both columns as the stage floor. */}
               <SignalLine reveal node={<Reticle label="Signal line origin" />} />
             </div>
           </CornerBracketFrame>
-
-          {/* §10.1 item 2 — Explore Passes is the single accent-filled button;
-              Create a Pass is ghost IMMEDIATELY after and never accented. */}
-          <Inline gap="3" className="pass-landing-ctas">
-            <Link href="/discover" className="pass-landing-cta-primary">
-              <Button variant="primary" size="lg">
-                Explore Passes
-              </Button>
-            </Link>
-            <Link href="/passes/new" className="pass-landing-cta-ghost">
-              <Button variant="ghost" size="lg">
-                Create a Pass
-              </Button>
-            </Link>
-          </Inline>
         </Surface>
 
         {/* §14.3 section 01. */}

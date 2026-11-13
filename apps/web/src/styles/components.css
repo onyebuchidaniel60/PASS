@@ -659,7 +659,10 @@
 
 .pass-landing {
   position: relative;
-  padding-block: var(--space-10) var(--space-8);
+  /* The hero surface owns its own vertical padding and the sections carry the
+   * page rhythm. A page-level block padding here would double the top gap, so
+   * the wrapper contributes position and width only. */
+  padding-block: 0;
   min-width: 0;
 }
 
@@ -690,6 +693,9 @@
      because `inset-*` on an absolutely positioned child resolves against the
      padding box and would move the watermark back out to the gutter. */
   padding-inline: var(--shell-gutter);
+  /* The ghost wordmark belongs on the empty right side of the stage, not behind
+     the headline. It balances the specimen without competing with the copy. */
+  text-align: end;
 }
 
 /* §14.2 the bracket frame sits INSIDE the padded shell, so the corner marks are
@@ -722,6 +728,135 @@
   position: relative;
   /* Above the grid field, so the grid can never sit on top of text. */
   z-index: 1;
+}
+
+/* The hero is a stage with one satellite, not a centred stack. Copy holds the
+ * left track; the sample Pass sits lower on the right, so the eye lands on the
+ * headline first and then finds the object it is describing. */
+.pass-landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.pass-landing-stage {
+  min-width: 0;
+}
+
+.pass-landing-hero > .pass-signal-line {
+  min-width: 0;
+}
+
+/* The satellite specimen. Same aperture grammar as a data card — darker than
+ * the canvas, lit top edge, chamfered foot — but taller and quieter, so it reads
+ * as a product artefact placed on the stage rather than another section card. */
+.pass-landing-specimen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--card-pad);
+  background: var(--card-bg);
+  border: var(--border-width-hairline) solid var(--card-border);
+  border-block-start: var(--border-accent-edge);
+  border-radius: var(--radius-none);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--chamfer-size)),
+    calc(100% - var(--chamfer-size)) 100%,
+    0 100%
+  );
+  min-width: 0;
+}
+
+.pass-landing-specimen-kicker {
+  font-family: var(--type-eyebrow-font);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-landing-specimen-id {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-family: var(--font-data);
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+  letter-spacing: var(--type-data-l-track);
+  font-variant-numeric: var(--numeric-tabular);
+  color: var(--color-accent);
+  text-transform: uppercase;
+}
+
+.pass-landing-specimen-side {
+  color: var(--color-text-primary);
+}
+
+.pass-landing-specimen-levels {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border-block-start: var(--border-hairline);
+}
+
+.pass-landing-specimen-level {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-block-end: var(--border-hairline);
+  min-width: 0;
+}
+
+.pass-landing-specimen-level dt {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-landing-specimen-level dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-data-m-size);
+  line-height: var(--type-data-m-line);
+  font-variant-numeric: var(--numeric-tabular);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.pass-landing-specimen-note {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 1024px) {
+  .pass-landing-hero {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 3fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  /* Pushed down the stage: the headline starts the reading, the specimen answers
+   * it. The offset is the asymmetry; the alignment is still hard-edged. */
+  .pass-landing-specimen {
+    margin-block-start: var(--space-8);
+  }
+
+  .pass-landing-hero > .pass-signal-line {
+    grid-column: 1 / -1;
+    margin-block-start: var(--space-5);
+  }
 }
 
 .pass-hero-line {
@@ -796,6 +931,50 @@
   letter-spacing: var(--type-data-l-track);
 }
 
+/* A ledger band, not five floating labels: full rules top and bottom, a rule
+ * between entries, and display type for the step itself. The numbered mono
+ * label stays the coordinate; the value becomes the headline of each cell. */
+.pass-landing .pass-loop-strip {
+  gap: 0;
+  border-block: var(--border-hairline);
+}
+
+.pass-landing .pass-loop-step {
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.pass-landing .pass-loop-strip .pass-coordinate-pair-label {
+  color: var(--color-accent);
+}
+
+.pass-landing .pass-loop-strip .pass-coordinate-pair-value {
+  font-family: var(--type-title-l-font);
+  font-size: var(--type-title-l-size);
+  line-height: var(--type-title-l-line);
+  letter-spacing: var(--type-title-l-track);
+  font-weight: 600;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+@media (max-width: 767px) {
+  .pass-landing .pass-loop-step {
+    padding-inline: 0;
+  }
+
+  .pass-landing .pass-loop-step + .pass-loop-step {
+    border-block-start: var(--border-hairline);
+  }
+}
+
+@media (min-width: 768px) {
+  .pass-landing .pass-loop-step + .pass-loop-step {
+    border-inline-start: var(--border-hairline);
+  }
+}
+
 .pass-landing-support {
   font-family: var(--type-body-l-font);
   font-size: var(--type-body-l-size);
@@ -807,10 +986,59 @@
   margin-block-start: var(--space-7);
 }
 
+/* The four actions read as one index sheet at desktop, not a 2×2 card deck.
+ * The bracket frame already provides the enclosure; the cells provide the
+ * rhythm. Cards inside cards was the most template-looking block on the page. */
 @media (min-width: 1024px) {
-  .pass-landing {
-    padding-block: var(--space-10) var(--space-9);
+  .pass-landing .pass-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    border-block-start: var(--border-hairline);
+    border-block-end: var(--border-hairline);
   }
+
+  .pass-landing .pass-step {
+    padding: var(--space-5);
+    background: transparent;
+    border: 0;
+    border-inline-start: var(--border-hairline);
+    border-radius: var(--radius-none);
+  }
+
+  .pass-landing .pass-step:first-child {
+    border-inline-start: 0;
+  }
+
+  .pass-landing .pass-step-badge {
+    inline-size: auto;
+    block-size: auto;
+    border: 0;
+    font-size: var(--type-eyebrow-size);
+    letter-spacing: var(--type-eyebrow-track);
+  }
+
+  .pass-landing .pass-step-title {
+    font-size: var(--type-title-m-size);
+    line-height: var(--type-title-m-line);
+    letter-spacing: var(--type-title-m-track);
+  }
+
+  .pass-landing .pass-step-visual .pass-metric-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pass-landing .pass-step-visual .pass-metric-card-value {
+    font-size: var(--type-data-l-size);
+    line-height: var(--type-data-l-line);
+    letter-spacing: var(--type-data-l-track);
+  }
+}
+
+/* The support line closes the page like a colophon: a rule, then the sentence. */
+.pass-landing .pass-landing-support {
+  border-block-start: var(--border-hairline);
+  padding-block-start: var(--space-4);
+  padding-block-end: var(--space-1);
 }
 
 /* Reduced motion: ï¿½6.6 the signal line renders final-state with no sweep, and
@@ -3097,6 +3325,196 @@ li[data-ghost="true"] {
 }
 
 /* ===========================================================================
+ * §10.2 Discover.
+ *
+ * The page is a ledger, not a card catalogue: a wide editorial header, a
+ * full-bleed market band, then a sticky filter rail beside an asymmetric card
+ * field whose first Pass is the feature. The ordering is the design.
+ * ======================================================================== */
+
+.pass-discover-head {
+  padding: var(--space-6) var(--space-5);
+  border-block-end: var(--border-hairline);
+}
+
+@media (min-width: 768px) {
+  .pass-discover-head {
+    padding: var(--space-7) var(--space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-discover-head {
+    display: grid;
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+    grid-template-areas:
+      "eyebrow lede"
+      "headline lede";
+    column-gap: var(--space-8);
+    row-gap: var(--space-4);
+    align-items: end;
+    padding: var(--space-8) var(--space-7) var(--space-7);
+  }
+
+  .pass-discover-head > .pass-numbered-eyebrow {
+    grid-area: eyebrow;
+  }
+
+  .pass-discover-head > .pass-section-display {
+    grid-area: headline;
+  }
+
+  .pass-discover-head > .pass-landing-lede {
+    grid-area: lede;
+    margin-block-start: 0;
+    padding-block-end: var(--space-1);
+    align-self: end;
+  }
+}
+
+/* Full-bleed market band: the page's one edge-to-edge rule. It gives the header
+ * a floor and keeps the data bar from reading as another inset panel. */
+.pass-discover .pass-ticker {
+  margin-inline: calc(var(--layout-margin-mobile) * -1);
+  padding-inline: var(--layout-margin-mobile);
+  border-block-start: var(--border-hairline);
+  border-block-end: var(--border-hairline);
+}
+
+@media (min-width: 768px) {
+  .pass-discover .pass-ticker {
+    margin-inline: calc(var(--layout-margin-tablet) * -1);
+    padding-inline: var(--layout-margin-tablet);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-discover .pass-ticker {
+    margin-inline: calc(var(--layout-margin-desktop) * -1);
+    padding-inline: var(--layout-margin-desktop);
+  }
+}
+
+.pass-discover-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.pass-discover-rail .pass-section {
+  margin-block: 0;
+}
+
+@media (min-width: 1024px) {
+  .pass-discover-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 8fr);
+    gap: var(--space-8);
+    align-items: start;
+  }
+
+  .pass-discover-rail {
+    position: sticky;
+    inset-block-start: calc(var(--layout-topbar) + var(--space-5));
+  }
+
+  .pass-discover-rail .pass-section {
+    padding-inline-end: var(--space-5);
+    border-inline-end: var(--border-hairline);
+  }
+
+  /* The rail is too narrow for label and count on one line. Stack them: the
+   * label is the coordinate, the count is the reading, and the count gets the
+   * data face so the rail has one figure in it. */
+  .pass-discover-rail .pass-dot-eyebrow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--space-2);
+    row-gap: var(--space-1);
+  }
+
+  .pass-discover-rail .pass-dot-eyebrow > .pass-stale {
+    grid-column: 2;
+    font-family: var(--font-data);
+    font-size: var(--type-data-m-size);
+    line-height: var(--type-data-m-line);
+    letter-spacing: var(--type-data-m-track);
+    color: var(--color-text-primary);
+  }
+}
+
+.pass-discover-results {
+  min-width: 0;
+}
+
+.pass-discover-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-discover-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .pass-discover-grid > .pass-card {
+    grid-column: span 3;
+  }
+
+  .pass-discover-grid > .pass-discover-feature {
+    grid-column: span 6;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-discover-grid > .pass-card {
+    grid-column: span 2;
+  }
+
+  .pass-discover-grid > .pass-discover-feature {
+    grid-column: span 4;
+    padding: var(--space-6);
+    border-inline-start: var(--border-width-selected) solid var(--color-accent-edge);
+  }
+
+  .pass-discover-feature .pass-card-id {
+    font-size: var(--type-data-l-size);
+    line-height: var(--type-data-l-line);
+    letter-spacing: var(--type-data-l-track);
+  }
+
+  .pass-discover-feature .pass-card-sub {
+    font-size: var(--type-body-m-size);
+    line-height: var(--type-body-m-line);
+    opacity: 1;
+  }
+
+  .pass-discover-feature .pass-card-metric dd {
+    font-size: var(--type-data-l-size);
+    line-height: var(--type-data-l-line);
+  }
+}
+
+/* The action is a quiet outline until hovered: thirty accent-filled buttons on
+ * one page is a wall of ember, and it spends the accent the filter already
+ * uses. The card's identifier stays the accent in the resting state. */
+.pass-discover .pass-card-action {
+  background: transparent;
+  color: var(--color-text-primary);
+  border-color: var(--color-line-strong);
+}
+
+.pass-discover .pass-card-action:hover {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-accent);
+}
+
+/* ===========================================================================
  * Â§10.3 Pass detail.
  * ======================================================================== */
 
@@ -3111,6 +3529,207 @@ li[data-ghost="true"] {
 @media (min-width: 768px) {
   .pass-detail-shell {
     padding-block: var(--space-8) var(--space-7);
+  }
+}
+
+/* The hero is a stage: plan on the left, decision rail on the right. The rail
+ * gives the page a second vertical edge and puts the one action beside the plan
+ * it acts on, instead of leaving half the wash empty. */
+.pass-detail-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.pass-detail-plan {
+  min-width: 0;
+}
+
+.pass-detail-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.pass-detail-decision-kicker {
+  font-family: var(--type-eyebrow-font);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-detail-decision-facts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border-block-start: var(--border-hairline);
+}
+
+.pass-detail-decision-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-block-end: var(--border-hairline);
+  min-width: 0;
+}
+
+.pass-detail-decision-fact dt {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-detail-decision-fact dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  line-height: var(--type-data-s-line);
+  letter-spacing: var(--type-data-s-track);
+  font-variant-numeric: var(--numeric-tabular);
+  color: var(--color-text-primary);
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* On a phone the rail follows the plan, so it gets a rule above rather than
+ * beside: the hero stays one column and the three facts still read as a strip
+ * of their own, not as loose prose. */
+@media (max-width: 1023px) {
+  .pass-detail-decision {
+    padding-block-start: var(--space-5);
+    border-block-start: var(--border-hairline);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-detail-stage {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 3fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  .pass-detail-decision {
+    padding-inline-start: var(--space-5);
+    border-inline-start: var(--border-hairline);
+  }
+}
+
+/* A left spine down the reading column. Every section sits against the same
+ * rule, so the page reads as one edited document rather than a stack of blocks
+ * that happened to land on the same page. The hero above already shares this
+ * left edge, which is what makes the spine feel structural. */
+@media (min-width: 1024px) {
+  .pass-detail .pass-section {
+    position: relative;
+    padding-inline-start: var(--space-5);
+    border-inline-start: var(--border-hairline);
+  }
+
+  /* One ember tick at the top of the spine: enough to mark the start of the
+   * document body, not enough to repeat down every section. */
+  .pass-detail .pass-section:first-of-type::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: calc(var(--border-width-selected) * -1);
+    inline-size: var(--border-width-selected);
+    block-size: var(--space-6);
+    background: var(--color-accent);
+  }
+}
+
+/* The levels are a ledger row, not five equal cards. Entry is the reference
+ * point and takes twice the width; the rest are columns on the same rule. */
+@media (min-width: 1024px) {
+  .pass-detail-levels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-block: var(--border-hairline);
+  }
+
+  .pass-detail-levels > .pass-metric-card {
+    flex: 1 1 0;
+    padding: var(--space-4);
+    background: transparent;
+    border: 0;
+    border-inline-start: var(--border-hairline);
+    border-radius: var(--radius-none);
+  }
+
+  .pass-detail-levels > .pass-metric-card:first-child {
+    flex-grow: 2;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+    border-block-start: var(--border-accent-edge);
+  }
+
+  .pass-detail-levels > .pass-metric-card:last-child {
+    padding-inline-end: 0;
+  }
+
+  .pass-detail-levels > .pass-metric-card:first-child .pass-metric-card-value {
+    font-size: var(--type-display-l-size);
+    line-height: var(--type-display-l-line);
+    letter-spacing: var(--type-display-l-track);
+  }
+}
+
+/* The thesis is the one piece of authored prose on the page, so it is set as a
+ * pull-quote: a rule in the margin and the first size step above body. */
+.pass-detail .pass-thesis {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  border-inline-start: var(--border-hairline);
+  font-size: var(--type-title-l-size);
+  line-height: var(--type-title-l-line);
+  letter-spacing: var(--type-title-l-track);
+  color: var(--color-text-primary);
+}
+
+@media (min-width: 1024px) {
+  .pass-detail .pass-thesis {
+    border-inline-start: var(--border-signal);
+    padding-inline-start: var(--space-6);
+  }
+}
+
+/* The market snapshot gets the tallest sparkline in the product: it is the
+ * section a Taker checks last before deciding, so the shape gets room to read. */
+.pass-detail-market .pass-sparkline {
+  block-size: var(--space-10);
+}
+
+/* The closing band is a footer, not another section: a rule, the one action,
+ * then the custody and fee notes set beside it on desktop. */
+.pass-detail-close {
+  border-block-start: var(--border-hairline);
+  padding-block-start: var(--space-5);
+}
+
+.pass-detail-close > :only-child {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .pass-detail-close {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  .pass-detail-close > .pass-inline {
+    grid-row: span 2;
+    align-self: start;
   }
 }
 

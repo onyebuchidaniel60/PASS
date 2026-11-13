@@ -329,55 +329,81 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
               digits costs the contrast §11.1 refuses to compromise. */}
           <Surface strength="section" className="pass-detail-shell">
             <CornerBracketFrame labelledBy="pass-object">
-              <Stack gap="3">
-                <NumberedEyebrow label="The plan" number={1} />
+              <div className="pass-detail-stage">
+                <div className="pass-detail-plan">
+                  <Stack gap="3">
+                    <NumberedEyebrow label="The plan" number={1} />
 
-                {/* §14.4 two authored lines, one ember word on the second.
-                    THE GRADIENT VARIANT IS FORBIDDEN HERE: the headline
-                    carries a live value, and a gradient behind changing digits
-                    makes the digits harder to read. The asset and the direction
-                    are set in the DATA face rather than the display face, per
-                    §14.4's rule that §3.2 binds in reverse. */}
-                <div className="pass-detail-object">
-                  <DisplayHeadline
-                    lines={[
-                      [{ text: isHip4 ? outcomeName : asset }],
-                      [{ text: isHip4 ? outcomeSide : direction, accent: true }],
-                    ]}
-                    as="h1"
-                  />
+                    {/* §14.4 two authored lines, one ember word on the second.
+                        THE GRADIENT VARIANT IS FORBIDDEN HERE: the headline
+                        carries a live value, and a gradient behind changing digits
+                        makes the digits harder to read. The asset and the direction
+                        are set in the DATA face rather than the display face, per
+                        §14.4's rule that §3.2 binds in reverse. */}
+                    <div className="pass-detail-object">
+                      <DisplayHeadline
+                        lines={[
+                          [{ text: isHip4 ? outcomeName : asset }],
+                          [{ text: isHip4 ? outcomeSide : direction, accent: true }],
+                        ]}
+                        as="h1"
+                      />
+                    </div>
+
+                    {/* §10.3 item 2 — status directly under the asset line. The word
+                        is the state; §9.4 colour and icon only reinforce it. */}
+                    <Inline gap="3">
+                      <StatusBadge tone={tone} label={label} />
+                      <span className="pass-stale">
+                        Published <Timestamp value={data.publishedAt} />
+                      </span>
+                    </Inline>
+
+                    <p className="pass-note" id="pass-object">
+                      Market {isHip4 ? "HIP-4" : marketClass.toUpperCase()}. Entry
+                      type {data.entryType}. Expires <Timestamp value={data.expiresAt} />.
+                      PASS {data.publicId}, version {data.version}.
+                    </p>
+                  </Stack>
                 </div>
 
-                {/* §10.3 item 2 — status directly under the asset line. The word
-                    is the state; §9.4 colour and icon only reinforce it. */}
-                <Inline gap="3">
-                  <StatusBadge tone={tone} label={label} />
-                  <span className="pass-stale">
-                    Published <Timestamp value={data.publishedAt} />
-                  </span>
-                </Inline>
+                {/* The decision rail. It exists to keep the one action and the
+                    custody facts beside the plan instead of letting the hero end
+                    in empty canvas on desktop. Same three facts on every Pass:
+                    where it executes, who chooses the size, who signs. */}
+                <aside className="pass-detail-decision" aria-label="Execution">
+                  <p className="pass-detail-decision-kicker">At execution</p>
+                  <dl className="pass-detail-decision-facts">
+                    <div className="pass-detail-decision-fact">
+                      <dt>Venue</dt>
+                      <dd>Hyperliquid</dd>
+                    </div>
+                    <div className="pass-detail-decision-fact">
+                      <dt>Size</dt>
+                      <dd>Yours</dd>
+                    </div>
+                    <div className="pass-detail-decision-fact">
+                      <dt>Signer</dt>
+                      <dd>Your wallet</dd>
+                    </div>
+                  </dl>
 
-                <p className="pass-note" id="pass-object">
-                  Market {isHip4 ? "HIP-4" : marketClass.toUpperCase()}. Entry
-                  type {data.entryType}. Expires <Timestamp value={data.expiresAt} />.
-                  PASS {data.publicId}, version {data.version}.
-                </p>
-
-                {/* Take CTA, desktop instance: the in-flow CTA measures at
-                    y≈3241 against an 800px viewport, so desktop readers never
-                    see an action without scrolling. This instance sits with
-                    the status block; the §10.3 item-7 CTA below is untouched.
-                    Rendered only while takable, like the original. */}
-                {takable ? (
-                  <Inline gap="3" className="pass-detail-take-top">
-                    <Link href={takeHref} className="pass-row-link-plain">
-                      <Button variant="primary" size="lg">
-                        Take Pass
-                      </Button>
-                    </Link>
-                  </Inline>
-                ) : null}
-              </Stack>
+                  {/* Take CTA, desktop instance: the in-flow CTA measures at
+                      y≈3241 against an 800px viewport, so desktop readers never
+                      see an action without scrolling. This instance sits with
+                      the status block; the §10.3 item-7 CTA below is untouched.
+                      Rendered only while takable, like the original. */}
+                  {takable ? (
+                    <Inline gap="3" className="pass-detail-take-top">
+                      <Link href={takeHref} className="pass-row-link-plain">
+                        <Button variant="primary" size="lg">
+                          Take Pass
+                        </Button>
+                      </Link>
+                    </Inline>
+                  ) : null}
+                </aside>
+              </div>
             </CornerBracketFrame>
           </Surface>
 
@@ -388,7 +414,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
           <Section label="The plan">
             <Stack gap="4">
               <NumberedEyebrow label="Levels" number={2} />
-              <MetricCardRow>
+              <MetricCardRow className="pass-detail-levels">
                 {isHip4 ? (
                   <>
                     {/* HIP-4 is a probability market: no leverage, no
@@ -531,6 +557,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
               <NumberedEyebrow label="Market" number={5} />
               {market ? (
                 <DataCard
+                  className="pass-detail-market"
                   id="MARKET SNAPSHOT"
                   value={fmt(market.markPrice)}
                   unit="mark"
@@ -614,7 +641,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
 
           {/* §10.3 item 7 — the single accent-filled CTA, while takable. */}
           {takable ? (
-          <Stack gap="3">
+          <Stack gap="3" className="pass-detail-close">
             <Inline gap="3">
               <Link href={takeHref} className="pass-row-link-plain">
                 <Button variant="primary" size="lg">
@@ -633,7 +660,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
             </p>
           </Stack>
           ) : (
-          <Stack gap="3">
+          <Stack gap="3" className="pass-detail-close">
             <p className="pass-note pass-note-status">
               This Pass is {expired ? "expired" : label.toLowerCase()} and cannot
               be taken. It stays readable, because a plan is worth reading
