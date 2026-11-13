@@ -187,6 +187,8 @@ export function buildOrderAction(params: {
    */
   takeProfit?: string | null;
   stopLoss?: string | null;
+  /** Optional builder fee attachment: f is tenths of a basis point. */
+  builder?: { b: string; f: number } | null;
 }) {
   const orders: Array<Record<string, unknown>> = [
     {
@@ -258,5 +260,13 @@ export function buildOrderAction(params: {
     grouping: hasExits
       ? ((params.grouping ?? "normalTpsl") as "na" | "normalTpsl" | "positionTpsl")
       : "na",
+    ...(params.builder
+      ? {
+          builder: {
+            b: params.builder.b.trim().toLowerCase(),
+            f: params.builder.f,
+          },
+        }
+      : {}),
   };
 }

@@ -53,6 +53,13 @@ export function createAdapters(env: ApiEnv, log: (m: string) => void = () => {})
     if (w) log(w);
   }
 
+  if (!env.HYPERLIQUID_BUILDER_ADDRESS) {
+    log(
+      "[hyperliquid] HYPERLIQUID_BUILDER_ADDRESS is not set. " +
+        "Orders will be relayed without a builder fee; local/mock development is unaffected.",
+    );
+  }
+
   /**
    * D-021: reads and writes are wired from SEPARATE flags.
    *

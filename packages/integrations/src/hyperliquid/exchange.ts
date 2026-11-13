@@ -237,6 +237,71 @@ export class HyperliquidExchangeClient {
     return { ok: true, raw: parsed };
   }
 
+  /**
+   * Relays a client-signed `approveBuilderFee` action. The master wallet
+   * authorizes a maximum fee rate for the PASS builder/treasury address; no
+   * key material reaches this client.
+   */
+  async relayApproveBuilderFee(params: {
+    builder: string;
+    maxFeeRate: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+    hyperliquidChain?: string;
+  }): Promise<{ ok: boolean; raw?: unknown }> {
+    const testnet = params.hyperliquidChain === "Testnet";
+    const action = {
+      type: "approveBuilderFee",
+      hyperliquidChain: params.hyperliquidChain ?? "Mainnet",
+      signatureChainId: testnet ? "0x66eee" : "0xa4b1",
+      maxFeeRate: params.maxFeeRate,
+      builder: params.builder,
+      nonce: params.nonce,
+    };
+
+    let res: Response;
+    try {
+      res = await fetch(this.exchangeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          nonce: params.nonce,
+          signature: params.signature,
+        }),
+      });
+    } catch (err) {
+      throw new ProviderUnavailableError("hyperliquid", String(err));
+    }
+
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = text;
+    }
+
+    if (!res.ok) {
+      throw new ProviderError(
+        `Hyperliquid Exchange API ${res.status}: ${text.slice(0, 200)}`,
+        "hyperliquid",
+        res.status >= 500,
+      );
+    }
+
+    const body = parsed as { status?: string; response?: unknown } | null;
+    if (body?.status === "err") {
+      throw new ProviderError(
+        `Hyperliquid rejected the builder fee approval: ${JSON.stringify(body.response ?? {})}`,
+        "hyperliquid",
+        false,
+      );
+    }
+
+    return { ok: true, raw: parsed };
+  }
+
   async getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null> {
     const oid = Number(providerOrderId);
     if (!Number.isFinite(oid)) return null;

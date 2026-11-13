@@ -246,12 +246,17 @@ mainnet test; all of them are blockers for real users at real size.
    linking have not been exercised against the real provider.
 8. **No end-to-end test against mainnet.** Every test either mocks `fetch` or runs
    against mock adapters. Nothing asserts that a real relay succeeds.
-9. **Live builder fee is not wired.** `packages/domain/fees.ts` defines the
-   0.05% (5 bps) fee and `fee_ledger` records it for simulated executions
-   only. The signed Hyperliquid order action contains no `builder` field, and
-   PASS has no configured builder address or `approveBuilderFee` flow. Do not
-   claim the fee is charged on live orders until both are implemented and
-   verified on the venue.
+9. **CLOSED 2026-11-14: the live builder fee is wired.** `packages/domain/fees.ts`
+   defines 0.05% (5 bps), which is `f: 50` in Hyperliquid's tenths-of-a-basis-
+   point unit. `HYPERLIQUID_BUILDER_ADDRESS` supplies the treasury address;
+   when set, `/health` publishes it and the order action carries
+   `builder: { b, f: 50 }`. Before the first fee-bearing order, the Take flow
+   reads the Info API `maxBuilderFee` approval and, if needed, has the master
+   wallet sign `approveBuilderFee` with `maxFeeRate: "0.05%"`; PASS relays it
+   through `/api/v1/trading-accounts/{address}/approve-builder-fee`. Missing
+   builder configuration logs a startup warning and relays orders without a
+   fee, which keeps local/mock development working. A live venue confirmation
+   is still required before relying on fee collection in production.
 
 ---
 

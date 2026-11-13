@@ -194,6 +194,25 @@ export class SplitHyperliquid implements HyperliquidPort {
     }
     return this.exchange.relayApproveAgent(params);
   }
+
+  async relayApproveBuilderFee(params: {
+    builder: string;
+    maxFeeRate: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+    hyperliquidChain?: string;
+  }): Promise<{ ok: boolean; raw?: unknown }> {
+    if (!this.exchange) {
+      return {
+        ok: false,
+        raw: {
+          reason:
+            "HYPERLIQUID_MODE=mock — builder fee approval is disabled in this deployment.",
+        },
+      };
+    }
+    return this.exchange.relayApproveBuilderFee(params);
+  }
 }
 
 /**

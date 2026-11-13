@@ -25,11 +25,12 @@ export default defineConfig({
       // the real implementation, which is what should be tested.
       "pass-gallery": path.resolve(__dirname, "src/gallery/impl.tsx"),
       "@pass/contracts": path.resolve(__dirname, "../../packages/contracts/src/index.ts"),
-      // The markets adapter is a browser-safe subset of @pass/domain. The
+      // The markets/fees modules are browser-safe subsets of @pass/domain. The
       // package root also exposes ids.ts, which imports node:crypto and cannot
-      // be bundled into a client component. Keep this entry first so the
+      // be bundled into a client component. Keep these entries first so the
       // prefix match wins over the root alias below.
       "@pass/domain/markets": path.resolve(__dirname, "../../packages/domain/src/markets.ts"),
+      "@pass/domain/fees": path.resolve(__dirname, "../../packages/domain/src/fees.ts"),
       "@pass/domain": path.resolve(__dirname, "../../packages/domain/src/index.ts"),
       "@pass/ui": path.resolve(__dirname, "../../packages/ui/src/index.tsx"),
     },

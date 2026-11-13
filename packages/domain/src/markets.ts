@@ -251,10 +251,20 @@ export interface MarketOrderLeg {
 
 export type OrderGrouping = "na" | "normalTpsl" | "positionTpsl";
 
+/** Hyperliquid order-level builder fee attachment. */
+export interface MarketOrderBuilder {
+  /** Builder/treasury address that receives the fee. */
+  b: string;
+  /** Fee in tenths of a basis point: 50 = 5 bps = 0.05%. */
+  f: number;
+}
+
 export interface MarketOrderAction {
   type: "order";
   orders: MarketOrderLeg[];
   grouping: OrderGrouping;
+  /** Present only when a builder address is configured for this order. */
+  builder?: MarketOrderBuilder;
 }
 
 export interface BuildEntryOrderInput {
@@ -384,15 +394,27 @@ export function resolveMarket(
 export function buildTakeOrderAction(
   market: MarketResolution,
   input: BuildEntryOrderInput & BuildExitOrderInput,
+  opts: { builder?: MarketOrderBuilder | null } = {},
 ): MarketOrderAction {
   const adapter = marketAdapterFor(market.assetClass);
   const entry = adapter.buildEntryOrder(market, input);
   const exits = adapter.buildExits(market, input);
-  return {
+  const action: MarketOrderAction = {
     type: "order",
     orders: [entry, ...exits],
     grouping: exits.length > 0 ? "normalTpsl" : "na",
   };
+  if (opts.builder) {
+    const address = opts.builder.b.trim().toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(address)) {
+      throw new Error("Builder fee address is not a valid EVM address.");
+    }
+    if (!Number.isInteger(opts.builder.f) || opts.builder.f <= 0) {
+      throw new Error("Builder fee must be a positive integer in tenths of a basis point.");
+    }
+    action.builder = { b: address, f: opts.builder.f };
+  }
+  return action;
 }
 
 /**

@@ -31,6 +31,36 @@ describe("signExchangeRequest", () => {
     expect(signed.signature).toMatchObject({ v: 27, mock: true });
   });
 
+  it("attaches the builder fee to the mocked signed order payload", async () => {
+    const builder = "0x1234567890abcdef1234567890abcdef12345678";
+    const request = buildExchangeRequest({
+      assetIndex: 0,
+      isBuy: true,
+      size: "0.01102",
+      limitPx: "113400",
+      takeProfit: "116000",
+      stopLoss: "111900",
+      builder: { b: builder, f: 50 },
+    });
+    expect(request.action).toMatchObject({
+      builder: { b: builder, f: 50 },
+    });
+    const signed = await signExchangeRequest("mock", request);
+    expect(
+      (signed.exchangeRequest as { action: { builder?: unknown } }).action,
+    ).toMatchObject({ builder: { b: builder, f: 50 } });
+  });
+
+  it("omits the builder field when no treasury address is configured", () => {
+    const request = buildExchangeRequest({
+      assetIndex: 0,
+      isBuy: true,
+      size: "0.01102",
+      limitPx: "113400",
+    });
+    expect(request.action).not.toHaveProperty("builder");
+  });
+
   it("builds the HIP-4 outcome shape through the market adapter", () => {
     // Outcome 2, side NO = 10 * 2 + 1 -> `#21`; the asset id is offset by
     // 100_000_000. Authored TP/SL must be dropped, not forwarded.

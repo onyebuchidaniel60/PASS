@@ -37,6 +37,7 @@ Names only — no values. API names come from `ApiEnvSchema`
 | `HYPERLIQUID_READS_MODE` | api |
 | `HYPERLIQUID_INFO_URL` | api |
 | `HYPERLIQUID_EXCHANGE_URL` | api |
+| `HYPERLIQUID_BUILDER_ADDRESS` | api |
 | `ETHOS_MODE` | api |
 | `ETHOS_API_BASE_URL` | api |
 | `NEAR_INTENTS_MODE` | api |

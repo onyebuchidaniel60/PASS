@@ -51,6 +51,22 @@ export const ApiEnvSchema = z.object({
   HYPERLIQUID_READS_MODE: modeFlag("HYPERLIQUID_READS"),
   HYPERLIQUID_INFO_URL: z.string().url().optional(),
   HYPERLIQUID_EXCHANGE_URL: z.string().url().optional(),
+  /**
+   * Protocol treasury / builder wallet that receives the 0.05% builder fee.
+   * Optional so local mock development can run without a fee recipient; when
+   * absent PASS logs a startup warning and relays orders without a builder.
+   */
+  HYPERLIQUID_BUILDER_ADDRESS: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z
+      .string()
+      .regex(
+        /^0x[0-9a-fA-F]{40}$/,
+        "HYPERLIQUID_BUILDER_ADDRESS must be a 0x EVM address",
+      )
+      .optional(),
+  ),
 
   ETHOS_MODE: modeFlag("ETHOS"),
   ETHOS_API_BASE_URL: z.string().url().optional(),

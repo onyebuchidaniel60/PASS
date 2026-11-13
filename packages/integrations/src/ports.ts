@@ -69,6 +69,17 @@ export interface ExchangePort {
      */
     hyperliquidChain?: string;
   }): Promise<{ ok: boolean; raw?: unknown }>;
+  /**
+   * Relays a master-signed `approveBuilderFee` action. This is the venue's
+   * prerequisite for charging a builder fee on orders.
+   */
+  relayApproveBuilderFee(params: {
+    builder: string;
+    maxFeeRate: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+    hyperliquidChain?: string;
+  }): Promise<{ ok: boolean; raw?: unknown }>;
   getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null>;
 }
 

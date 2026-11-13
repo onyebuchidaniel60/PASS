@@ -33,6 +33,8 @@ const {
   mockMemoryKey,
   mockRunApprove,
   mockVenueActive,
+  mockBuilderApproved,
+  mockRunApproveBuilder,
 } = vi.hoisted(() => ({
   mockPost: vi.fn(),
   mockGet: vi.fn(),
@@ -43,6 +45,8 @@ const {
   mockMemoryKey: vi.fn(),
   mockRunApprove: vi.fn(),
   mockVenueActive: vi.fn(),
+  mockBuilderApproved: vi.fn(),
+  mockRunApproveBuilder: vi.fn(),
 }));
 
 vi.mock("@/lib/client", () => ({
@@ -79,6 +83,10 @@ vi.mock("@/lib/approve-agent", async (importOriginal) => {
     isAgentActiveOnVenue: (...a: unknown[]) => mockVenueActive(...a),
   };
 });
+vi.mock("@/lib/builder-fee", () => ({
+  isBuilderFeeApproved: (...a: unknown[]) => mockBuilderApproved(...a),
+  runApproveBuilderFee: (...a: unknown[]) => mockRunApproveBuilder(...a),
+}));
 
 const PASS = {
   publicId: "UvvuxpWPZ4",
@@ -122,6 +130,13 @@ const HEALTH_TESTNET = {
   hyperliquidVenue: "testnet",
   hyperliquidInfoUrl: TESTNET_INFO_URL,
 };
+const BUILDER_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
+const HEALTH_BUILDER = {
+  ...HEALTH_TESTNET,
+  hyperliquidBuilderAddress: BUILDER_ADDRESS,
+  hyperliquidBuilderFeeTenthsBps: 50,
+  hyperliquidBuilderMaxFeeRate: "0.05%",
+};
 
 type PassFixture = Omit<typeof PASS, "entryType"> & { entryType: "limit" | "market" };
 
@@ -146,6 +161,8 @@ function defaultMocks() {
   mockMemoryKey.mockReturnValue(AGENT_KEY);
   mockRunApprove.mockResolvedValue({ agentAddress: AGENT, persisted: true });
   mockVenueActive.mockResolvedValue(true);
+  mockBuilderApproved.mockResolvedValue(true);
+  mockRunApproveBuilder.mockResolvedValue(undefined);
 }
 
 /**
@@ -167,6 +184,8 @@ beforeEach(() => {
   mockMemoryKey.mockReset();
   mockRunApprove.mockReset();
   mockVenueActive.mockReset();
+  mockBuilderApproved.mockReset();
+  mockRunApproveBuilder.mockReset();
   meResponse = ME_READY;
   defaultMocks();
 });
@@ -762,6 +781,54 @@ describe("Stage F wiring — the signed bracket (D-025)", () => {
       body.signedPayload as { exchangeRequest: { action: { orders: Array<Record<string, unknown>> } } }
     ).exchangeRequest.action;
     expect(action.orders[0]?.s).toBe("0.00088");
+  });
+
+  it("approves and attaches the configured builder fee in live mode", async () => {
+    mockGet.mockImplementation((url?: unknown) => {
+      const path = String(url ?? "");
+      if (path === "/api/v1/me") return Promise.resolve(ME_READY);
+      if (path.includes("/api/v1/markets")) return Promise.resolve(MARKETS);
+      if (path.includes("/health")) return Promise.resolve(HEALTH_BUILDER);
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
+    mockBuilderApproved.mockResolvedValue(false);
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({
+        executionId: "ex-builder",
+        providerOrderId: "hl-builder",
+        status: "open",
+      });
+
+    await toAuthorized("1250");
+    await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
+
+    expect(mockBuilderApproved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        infoUrl: TESTNET_INFO_URL,
+        user: ADDR,
+        builder: BUILDER_ADDRESS,
+        requiredTenthsBps: 50,
+      }),
+    );
+    expect(mockRunApproveBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        masterAddress: ADDR,
+        builder: BUILDER_ADDRESS,
+        maxFeeRate: "0.05%",
+        chain: "Testnet",
+      }),
+    );
+
+    const body = executionsBody();
+    const action = (
+      body.signedPayload as {
+        exchangeRequest: {
+          action: { builder?: { b: string; f: number } };
+        };
+      }
+    ).exchangeRequest.action;
+    expect(action.builder).toEqual({ b: BUILDER_ADDRESS, f: 50 });
   });
 });
 describe("Take prompt with no wallet installed", () => {

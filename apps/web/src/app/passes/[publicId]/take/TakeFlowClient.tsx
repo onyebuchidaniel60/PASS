@@ -76,6 +76,10 @@ import {
   isUserRejection,
   runApproveAgent,
 } from "@/lib/approve-agent";
+import {
+  isBuilderFeeApproved,
+  runApproveBuilderFee,
+} from "@/lib/builder-fee";
 import { buildExchangeRequest, signExchangeRequest } from "@/lib/signer";
 import {
   entrySourceLabel,
@@ -87,6 +91,10 @@ import {
   resolveEntryPrice,
 } from "@/lib/take-order";
 import { HIP4_DEFAULT_SZ_DECIMALS } from "@pass/domain/markets";
+import {
+  BUILDER_FEE_RATE_PERCENT,
+  BUILDER_FEE_TENTHS_BPS,
+} from "@pass/domain/fees";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -153,6 +161,12 @@ interface Health {
   hyperliquidVenue?: string | null;
   /** Configured Info API URL for the current venue. */
   hyperliquidInfoUrl?: string | null;
+  /** Builder/treasury address that receives the fee, when configured. */
+  hyperliquidBuilderAddress?: string | null;
+  /** Fee in tenths of a basis point (50 = 0.05%). */
+  hyperliquidBuilderFeeTenthsBps?: number | null;
+  /** Percent string for approveBuilderFee, e.g. "0.05%". */
+  hyperliquidBuilderMaxFeeRate?: string | null;
 }
 
 const STEP_TITLE: Record<Step, string> = {
@@ -227,6 +241,13 @@ export function TakeFlowClient({
   const [venue, setVenue] = useState<"mainnet" | "testnet">("mainnet");
   // Info API URL for the venue, from /health. Never a hardcoded host.
   const [venueInfoUrl, setVenueInfoUrl] = useState<string | null>(null);
+  // Builder fee config from /health. Null when no treasury address is set,
+  // in which case orders are relayed without a builder attachment.
+  const [builderConfig, setBuilderConfig] = useState<{
+    b: `0x${string}`;
+    f: number;
+    maxFeeRate: string;
+  } | null>(null);
   // D-026: an anonymous approval completed this page load. The key in
   // memory implies the completed approval; signed-in rows additionally
   // carry their agent address from /me.
@@ -236,6 +257,7 @@ export function TakeFlowClient({
   const [needWallet, setNeedWallet] = useState(false);
   const [pending, setPending] = useState<"preview" | "authorize" | null>(null);
   const [agentNote, setAgentNote] = useState<string | null>(null);
+  const [builderNote, setBuilderNote] = useState<string | null>(null);
 
   const { address, isConnected: browserConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -269,6 +291,20 @@ export function TakeFlowClient({
         setExecMode(health.modes?.hyperliquidExecution === "live" ? "live" : "mock");
         setVenue(health.hyperliquidVenue === "testnet" ? "testnet" : "mainnet");
         setVenueInfoUrl(health.hyperliquidInfoUrl ?? null);
+        const builderAddress = health.hyperliquidBuilderAddress?.trim();
+        setBuilderConfig(
+          builderAddress && /^0x[0-9a-fA-F]{40}$/.test(builderAddress)
+            ? {
+                b: builderAddress as `0x${string}`,
+                f:
+                  health.hyperliquidBuilderFeeTenthsBps ??
+                  BUILDER_FEE_TENTHS_BPS,
+                maxFeeRate:
+                  health.hyperliquidBuilderMaxFeeRate ??
+                  BUILDER_FEE_RATE_PERCENT,
+              }
+            : null,
+        );
         setBoot("ready");
       } catch {
         if (!cancelled) setBoot("denied");
@@ -563,11 +599,67 @@ export function TakeFlowClient({
     }
   }
 
+  /**
+   * Builder-fee approval. The venue only accepts an order with `builder`
+   * after the master wallet approves at least that rate. The Info API read
+   * is authoritative; any failure prompts the signature rather than risking
+   * an ORDER_REJECTED at relay time.
+   */
+  async function ensureBuilderFee(config: {
+    b: `0x${string}`;
+    f: number;
+    maxFeeRate: string;
+  }): Promise<boolean> {
+    // Mock execution never reaches the venue, so no approval is needed.
+    if (execMode !== "live") return true;
+    if (!browserConnected || !address) return false;
+    try {
+      const approved = await isBuilderFeeApproved({
+        infoUrl: venueInfoUrl ?? "",
+        user: address,
+        builder: config.b,
+        requiredTenthsBps: config.f,
+      });
+      if (approved) return true;
+
+      setBuilderNote(
+        "Approving the builder fee — your master wallet signs once.",
+      );
+      await runApproveBuilderFee({
+        masterAddress: address,
+        builder: config.b,
+        maxFeeRate: config.maxFeeRate,
+        chain: venue === "testnet" ? "Testnet" : "Mainnet",
+        signTypedDataAsync: (args) => signTypedDataAsync(args as never),
+        postApprove: (walletAddress, body) =>
+          clientPost<{ ok: boolean }>(
+            `/api/v1/trading-accounts/${walletAddress}/approve-builder-fee`,
+            body as unknown as Record<string, unknown>,
+          ),
+      });
+      setBuilderNote(null);
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Builder fee approval failed.";
+      const code = (e as { code?: string }).code;
+      setBuilderNote(null);
+      setFailed(
+        isUserRejection(e)
+          ? "You cancelled the builder fee signature. No order was submitted."
+          : code
+            ? `${code}: ${msg}`
+            : msg,
+      );
+      return false;
+    }
+  }
+
   async function authorize() {
     setBusy(true);
     setFailed(null);
     setRejected(null);
     setAgentNote(null);
+    setBuilderNote(null);
     try {
       if (!browserConnected || !address) {
         setPending("authorize");
@@ -581,6 +673,7 @@ export function TakeFlowClient({
         return;
       }
       if (!(await ensureAgent(row))) return;
+      if (builderConfig && !(await ensureBuilderFee(builderConfig))) return;
       // D-025: the same numbers the preview displayed, signed, not demoed.
       const nums = takeNumbers();
       if ("error" in nums) {
@@ -602,6 +695,8 @@ export function TakeFlowClient({
         // HIP-4 has no venue exits; the adapter drops these by construction.
         takeProfit: isHip4 ? null : (initialPass.takeProfit ?? null),
         stopLoss: isHip4 ? null : (initialPass.stopLoss ?? null),
+        // Attached only when the server has a treasury address configured.
+        builder: builderConfig ? { b: builderConfig.b, f: builderConfig.f } : null,
       });
       // Live mode without a key throws here; nothing is sent (fail closed).
       // isTestnet follows the health venue: L1 signatures are venue-scoped.
@@ -1047,6 +1142,11 @@ export function TakeFlowClient({
               {agentNote && !failed ? (
                 <p role="status" className="pass-note pass-note-status">
                   {agentNote}
+                </p>
+              ) : null}
+              {builderNote && !failed ? (
+                <p role="status" className="pass-note pass-note-status">
+                  {builderNote}
                 </p>
               ) : null}
 

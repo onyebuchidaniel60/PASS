@@ -174,6 +174,8 @@ export function buildTakeAction(params: {
   marketClass?: MarketClass;
   /** Asset size decimals (HIP-4 default 2 when the venue omits them). */
   szDecimals?: number | null;
+  /** Optional builder fee attachment (tenths of a basis point). */
+  builder?: { b: string; f: number } | null;
 }) {
   const market = resolveMarket(
     {
@@ -187,15 +189,19 @@ export function buildTakeAction(params: {
   if (!market) {
     throw new Error("The market could not be resolved for this order.");
   }
-  return buildTakeOrderAction(market, {
-    isBuy: params.isBuy,
-    price: params.entryPrice,
-    size: params.baseSize,
-    reduceOnly: false,
-    tif: params.tif ?? "Gtc",
-    takeProfit: params.takeProfit,
-    stopLoss: params.stopLoss,
-  });
+  return buildTakeOrderAction(
+    market,
+    {
+      isBuy: params.isBuy,
+      price: params.entryPrice,
+      size: params.baseSize,
+      reduceOnly: false,
+      tif: params.tif ?? "Gtc",
+      takeProfit: params.takeProfit,
+      stopLoss: params.stopLoss,
+    },
+    { builder: params.builder ?? null },
+  );
 }
 
 /** True when the Pass's market needs the outcome price builder. */

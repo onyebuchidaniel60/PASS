@@ -247,6 +247,32 @@ export class MockExchange implements ExchangePort {
     return { ok: true, raw: { status: "ok", response: { type: "default" }, mock: true } };
   }
 
+  /** Simulated approveBuilderFee. No network call and no real fee approval. */
+  async relayApproveBuilderFee(params: {
+    builder: string;
+    maxFeeRate: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }): Promise<{ ok: boolean; raw?: unknown }> {
+    if (!/^0x[0-9a-f]{40}$/i.test(params.builder)) {
+      throw new ProviderError("Invalid builder address", "hyperliquid", false);
+    }
+    if (!/^\d+(?:\.\d+)?%$/.test(params.maxFeeRate)) {
+      throw new ProviderError("Invalid max builder fee rate", "hyperliquid", false);
+    }
+    return {
+      ok: true,
+      raw: {
+        status: "ok",
+        response: { type: "default" },
+        mock: true,
+        builder: params.builder.toLowerCase(),
+        maxFeeRate: params.maxFeeRate,
+        nonce: params.nonce,
+      },
+    };
+  }
+
   async getOrderStatus(providerOrderId: string): Promise<HLOrderStatus | null> {
     const found = this.known.get(providerOrderId);
     if (!found) {
@@ -287,6 +313,12 @@ export class MockHyperliquid
     nonce: number;
     signature: Record<string, unknown>;
   }) => this.exchange.relayApproveAgent(p);
+  relayApproveBuilderFee = (p: {
+    builder: string;
+    maxFeeRate: string;
+    nonce: number;
+    signature: Record<string, unknown>;
+  }) => this.exchange.relayApproveBuilderFee(p);
   getOrderStatus = (id: string) => this.exchange.getOrderStatus(id);
 }
 

@@ -57,7 +57,11 @@ function ctxish(): AppContext {
 beforeAll(async () => {
   process.env.ENCRYPTION_KEY = "test-encryption-key-for-hackathon-routes";
   resetEnv();
-  const env: ApiEnv = { ...loadEnv({}), APP_URL: "http://test.local" };
+  const env: ApiEnv = {
+    ...loadEnv({}),
+    APP_URL: "http://test.local",
+    HYPERLIQUID_BUILDER_ADDRESS: "0x1234567890abcdef1234567890abcdef12345678",
+  };
   const dir = mkdtempSync(join(tmpdir(), "pass-hackathon-routes-"));
   handle = await createDb({ pglitePath: dir });
   await runMigrations(handle);
@@ -245,6 +249,28 @@ describe("Agent Execution API", () => {
       .limit(1);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.positionSize).toBe("0.02");
+  });
+});
+
+describe("Builder fee approval", () => {
+  it("relays a master-signed approveBuilderFee action", async () => {
+    const address = "0x5555555555555555555555555555555555555555";
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/v1/trading-accounts/${address}/approve-builder-fee`,
+      headers: { "content-type": "application/json" },
+      payload: {
+        nonce: Date.now(),
+        signature: { r: `0x${"11".repeat(32)}`, s: `0x${"22".repeat(32)}`, v: 27 },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      ok: true,
+      builder: "0x1234567890abcdef1234567890abcdef12345678",
+      maxFeeRate: "0.05%",
+      mode: "mock",
+    });
   });
 });
 

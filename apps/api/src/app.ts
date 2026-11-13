@@ -14,7 +14,13 @@ import { registerIntegrationRoutes } from "./routes/integrations.js";
 import { registerShareRoutes } from "./routes/share.js";
 import { registerFundingRoutes } from "./routes/funding.js";
 import { registerAgentRoutes } from "./routes/agent.js";
+import { registerBuilderFeeRoutes } from "./routes/builder-fee.js";
 import { marketServiceConfig } from "./services/market-service.js";
+import {
+  BUILDER_FEE_BPS,
+  BUILDER_FEE_RATE_PERCENT,
+  BUILDER_FEE_TENTHS_BPS,
+} from "@pass/domain";
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   const app = Fastify({
@@ -123,6 +129,13 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
       // reads this instead of hardcoding mainnet/testnet hosts, so flipping
       // HYPERLIQUID_INFO_URL on Render moves both sides together.
       hyperliquidInfoUrl: ctx.env.HYPERLIQUID_INFO_URL ?? null,
+      // Builder-fee configuration. The client attaches `builder` to order
+      // actions only when an address is configured, and uses the same rate
+      // for the approveBuilderFee signature.
+      hyperliquidBuilderAddress: ctx.env.HYPERLIQUID_BUILDER_ADDRESS ?? null,
+      hyperliquidBuilderFeeBps: BUILDER_FEE_BPS,
+      hyperliquidBuilderFeeTenthsBps: BUILDER_FEE_TENTHS_BPS,
+      hyperliquidBuilderMaxFeeRate: BUILDER_FEE_RATE_PERCENT,
       enabledMarketClasses: markets.enabledMarketClasses,
       demoMode: ctx.demoMode,
       time: new Date().toISOString(),
@@ -137,6 +150,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await registerShareRoutes(app, ctx);
   await registerFundingRoutes(app, ctx);
   await registerAgentRoutes(app, ctx);
+  await registerBuilderFeeRoutes(app, ctx);
 
   return app;
 }

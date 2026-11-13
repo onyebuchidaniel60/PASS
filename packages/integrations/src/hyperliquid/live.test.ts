@@ -240,3 +240,73 @@ describe("approveAgent venue label", () => {
     expect(postedAction(fetchMock).signatureChainId).toBe("0xa4b1");
   });
 });
+
+describe("approveBuilderFee venue label", () => {
+  const TESTNET_EXCHANGE = "https://api.hyperliquid-testnet.xyz/exchange";
+
+  function stubApproveOk(): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ status: "ok", response: { type: "default" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  function postedAction(fetchMock: ReturnType<typeof vi.fn>) {
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as {
+      action?: Record<string, unknown>;
+    };
+    return body.action ?? {};
+  }
+
+  it("posts the configured builder and 0.05% rate with the Testnet label", async () => {
+    const fetchMock = stubApproveOk();
+    const hl = new SplitHyperliquid({
+      infoUrl: "https://api.hyperliquid-testnet.xyz/info",
+      exchangeUrl: TESTNET_EXCHANGE,
+      readsLive: true,
+      writesLive: true,
+    });
+
+    const result = await hl.relayApproveBuilderFee({
+      builder: "0x1234567890abcdef1234567890abcdef12345678",
+      maxFeeRate: "0.05%",
+      nonce: 1760000000000,
+      signature: { r: "0x0", s: "0x0", v: 27 },
+      hyperliquidChain: "Testnet",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(String(fetchMock.mock.calls[0]?.[0] ?? "")).toBe(TESTNET_EXCHANGE);
+    expect(postedAction(fetchMock)).toMatchObject({
+      type: "approveBuilderFee",
+      hyperliquidChain: "Testnet",
+      signatureChainId: "0x66eee",
+      maxFeeRate: "0.05%",
+      builder: "0x1234567890abcdef1234567890abcdef12345678",
+    });
+  });
+
+  it("uses the mainnet chain id for a mainnet approval", async () => {
+    const fetchMock = stubApproveOk();
+    const hl = new SplitHyperliquid({
+      infoUrl: INFO,
+      exchangeUrl: EXCHANGE,
+      readsLive: true,
+      writesLive: true,
+    });
+
+    await hl.relayApproveBuilderFee({
+      builder: "0x1234567890abcdef1234567890abcdef12345678",
+      maxFeeRate: "0.05%",
+      nonce: 1760000000000,
+      signature: { r: "0x0", s: "0x0", v: 27 },
+      hyperliquidChain: "Mainnet",
+    });
+
+    expect(postedAction(fetchMock).hyperliquidChain).toBe("Mainnet");
+    expect(postedAction(fetchMock).signatureChainId).toBe("0xa4b1");
+  });
+});

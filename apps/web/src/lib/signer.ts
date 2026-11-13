@@ -53,6 +53,8 @@ export interface OrderIntent {
    */
   takeProfit?: string | null;
   stopLoss?: string | null;
+  /** Optional Hyperliquid builder fee attachment. */
+  builder?: { b: string; f: number } | null;
 }
 
 /**
@@ -86,17 +88,21 @@ export function buildExchangeRequest(intent: OrderIntent): {
   if (!market) {
     throw new Error("The market could not be resolved for this order.");
   }
-  const action = buildTakeOrderAction(market, {
-    isBuy: intent.isBuy,
-    price: intent.limitPx,
-    size: intent.size,
-    reduceOnly: intent.reduceOnly ?? false,
-    tif: intent.tif,
-    // Forwarded as authored. The adapter decides the grouping and whether
-    // the venue supports exits at all (HIP-4 does not).
-    takeProfit: intent.takeProfit,
-    stopLoss: intent.stopLoss,
-  });
+  const action = buildTakeOrderAction(
+    market,
+    {
+      isBuy: intent.isBuy,
+      price: intent.limitPx,
+      size: intent.size,
+      reduceOnly: intent.reduceOnly ?? false,
+      tif: intent.tif,
+      // Forwarded as authored. The adapter decides the grouping and whether
+      // the venue supports exits at all (HIP-4 does not).
+      takeProfit: intent.takeProfit,
+      stopLoss: intent.stopLoss,
+    },
+    { builder: intent.builder ?? null },
+  );
 
   return {
     action: action as unknown as Record<string, unknown>,

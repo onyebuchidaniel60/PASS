@@ -10,6 +10,7 @@ coverage/
 
 .env
 .env.*
+!/.env.example
 !.env.example
 !.env.local.example
 
@@ -26,6 +27,7 @@ extension/dist/
 apps/extension/dist/
 .vercel
 .env*
+!/.env.example
 # Public build configuration for the extension: these hold only public URLs,
 # never secrets, and the production values must be versioned so a build is
 # reproducible from the repository alone.

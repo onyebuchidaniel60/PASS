@@ -2,15 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   BUILDER_FEE_BPS,
+  BUILDER_FEE_RATE_PERCENT,
+  BUILDER_FEE_TENTHS_BPS,
   CREATOR_SHARE_PCT,
   PROTOCOL_SHARE_PCT,
   computeFee,
   splitFee,
 } from "./fees.js";
 
-describe("simulated builder fees", () => {
+describe("builder fee math", () => {
   it("computeFee charges 5 bps of notional", () => {
     expect(BUILDER_FEE_BPS).toBe(5);
+    // Hyperliquid order/approval units: 5 bps = 50 tenths of a bp = 0.05%.
+    expect(BUILDER_FEE_TENTHS_BPS).toBe(50);
+    expect(BUILDER_FEE_RATE_PERCENT).toBe("0.05%");
     // Operator walk: size 100 at 2x = 200 notional -> 0.10 fee.
     expect(computeFee(200)).toBeCloseTo(0.1, 10);
     expect(computeFee(1000)).toBeCloseTo(0.5, 10);

@@ -211,9 +211,10 @@ simulated boolean NOT NULL DEFAULT true
 created_at timestamptz
 ```
 
-Live executions never write here — no real fees are charged by PASS. Every
-surface reading this table (Take receipt, My Passes) must label its numbers
-simulated. Added by migration `0007_fee_ledger.sql`.
+Live executions never write here; the live builder fee is enforced on-chain
+by Hyperliquid from the order action's `builder` field. Every surface reading
+this table (Take receipt, My Passes) must label its numbers simulated. Added
+by migration `0007_fee_ledger.sql`.
 
 ### ethos_profiles
 
