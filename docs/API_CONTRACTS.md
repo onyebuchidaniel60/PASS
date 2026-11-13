@@ -409,3 +409,58 @@ INTERNAL_ERROR
 ## 15. API evolution
 
 Breaking API changes require a version bump or explicit migration plan. Shared schemas should live in `packages/contracts` and be imported by both API and web client.
+
+## 16. NEAR Intents, Agent Execution, and Agent Revocation
+
+### POST `/funding/intents/quote`
+
+Creates a 1Click quote for cross-chain funding into a PASS trading account.
+
+```json
+{
+  "sourceChain": "ethereum",
+  "sourceToken": "USDC",
+  "destinationAddress": "0xYourPASSTradingAccount",
+  "amount": "100",
+  "isConfidential": true
+}
+```
+
+`isConfidential: true` adds `confidentiality: "basic"` to the upstream 1Click
+request. The response contains `depositAddress`, `transactionPayload`, the
+quoted amounts, and `confidentiality`. The endpoint never moves funds.
+
+### GET `/agent/passes`
+
+Returns active Passes in an execution-oriented shape. Fields: `passId`,
+`version`, `asset`, `marketClass`, `outcome`, `direction`, `status`,
+`entryType`, `entryPrice`, `stopLoss`, `takeProfit`, `leverage`, `thesis`,
+`publishedAt`, `expiresAt`, `canonicalPath`, and `executeEndpoint`. No trader,
+reputation, or market decoration is included.
+
+### POST `/agent/execute`
+
+```json
+{
+  "passId": "8xK29",
+  "agentWalletAddress": "0xYourHyperliquidAccount",
+  "clientRequestId": "optional-idempotency-key",
+  "signedPayload": {
+    "exchangeRequest": {},
+    "signature": {}
+  }
+}
+```
+
+The signed Hyperliquid action is the authority. The endpoint applies the same
+Pass-version, idempotency, relay, and recording checks as the human Take path,
+without requiring a session. `clientRequestId` defaults to a generated value;
+retries should send the same one.
+
+### POST `/trading-accounts/{address}/revoke-agent`
+
+Accepts a master-wallet-signed `approveAgent` payload for a throwaway
+replacement address. Hyperliquid deregisters the current unnamed agent when the
+replacement is approved. PASS relays the action and clears its stored agent
+association. The body is the same `{ agentAddress, nonce, signature }` shape as
+approve-agent, plus an optional `revokedAgentAddress` for audit context.

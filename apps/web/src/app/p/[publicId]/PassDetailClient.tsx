@@ -389,7 +389,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                   </dl>
 
                   {/* Take CTA, desktop instance: the in-flow CTA measures at
-                      y≈3241 against an 800px viewport, so desktop readers never
+                      y≈3241 against an 800 px viewport, so desktop readers never
                       see an action without scrolling. This instance sits with
                       the status block; the §10.3 item-7 CTA below is untouched.
                       Rendered only while takable, like the original. */}
@@ -683,7 +683,7 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
 
       {/* Take CTA, mobile instance: a bottom action bar pinned to the
           viewport, visible from page load and while scrolling (the in-flow
-          CTA measures at y≈3349 against an 800px viewport). Composes the
+          CTA measures at y≈3349 against an 800 px viewport). Composes the
           existing Inline + Button primitives — no new component. Rendered
           only while takable. The .pass-detail-takable clearance below keeps
           it from covering content. */}

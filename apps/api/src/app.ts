@@ -12,6 +12,8 @@ import { registerPassRoutes } from "./routes/pass.js";
 import { registerExecutionRoutes } from "./routes/pass.js";
 import { registerIntegrationRoutes } from "./routes/integrations.js";
 import { registerShareRoutes } from "./routes/share.js";
+import { registerFundingRoutes } from "./routes/funding.js";
+import { registerAgentRoutes } from "./routes/agent.js";
 import { marketServiceConfig } from "./services/market-service.js";
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
@@ -128,6 +130,8 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await registerExecutionRoutes(app, ctx);
   await registerIntegrationRoutes(app, ctx);
   await registerShareRoutes(app, ctx);
+  await registerFundingRoutes(app, ctx);
+  await registerAgentRoutes(app, ctx);
 
   return app;
 }

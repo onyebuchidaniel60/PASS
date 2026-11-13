@@ -467,7 +467,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
               plan levels, link. Thumbnails, timestamps and value columns
               have no counterpart in this endpoint's rows and are dropped.
               The shared DataTable primitive (wide table, stacked list under
-              720px, no sideways scroll) carries it, so each row links once
+              720 px, no sideways scroll) carries it, so each row links once
               and never nests anchors. */}
           <section className="pass-section" aria-labelledby="passes-h">
             <span className="pass-numbered-eyebrow" id="passes-h">

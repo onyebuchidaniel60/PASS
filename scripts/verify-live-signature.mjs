@@ -146,7 +146,6 @@ console.log(`Signature: r=${String(signature.r).slice(0, 10)}… s=${String(sign
 // 4. POST directly to the Exchange API. No PASS server involved.
 let httpStatus;
 let raw;
-let parsed;
 try {
   const res = await fetch(EXCHANGE_URL, {
     method: "POST",
@@ -155,11 +154,6 @@ try {
   });
   httpStatus = res.status;
   raw = await res.text();
-  try {
-    parsed = raw ? JSON.parse(raw) : null;
-  } catch {
-    parsed = raw;
-  }
 } catch (e) {
   fail2(`Network failure reaching Hyperliquid Exchange API: ${e?.message ?? e}`);
 }
@@ -186,7 +180,7 @@ if (signatureRe.test(haystack)) {
 }
 // A top-level err without balance wording is a rejection but not the proof
 // we need — report it as a failure, not a pass.
-if (/\"status\"\s*:\s*\"err\"/.test(raw) || /\"error\"/.test(raw)) {
+if (/"status"\s*:\s*"err"/.test(raw) || /"error"/.test(raw)) {
   if (/does not exist/i.test(raw)) {
     console.log(
       "RESULT: Hyperliquid reports the signer as unknown (never approved and/or never funded). " +

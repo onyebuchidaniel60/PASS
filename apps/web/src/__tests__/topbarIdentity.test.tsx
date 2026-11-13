@@ -34,6 +34,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("wagmi", () => ({
   useAccount: () => ({ isConnected: false }),
   useDisconnect: () => ({ disconnect: vi.fn() }),
+  useSignTypedData: () => ({ signTypedDataAsync: vi.fn() }),
 }));
 
 vi.mock("connectkit", () => ({

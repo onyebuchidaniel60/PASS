@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as ApproveAgentModule from "@/lib/approve-agent";
 
 import { ApproveAgentControl } from "../components/ApproveAgentControl";
 
@@ -37,7 +38,7 @@ vi.mock("wagmi", () => ({
 }));
 
 vi.mock("@/lib/approve-agent", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/approve-agent")>();
+  const actual = await importOriginal<typeof ApproveAgentModule>();
   return {
     ...actual,
     runApproveAgent: (...a: unknown[]) => mockRunApprove(...a),

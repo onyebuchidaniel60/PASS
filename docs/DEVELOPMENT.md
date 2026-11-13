@@ -39,6 +39,10 @@ Names only — no values. API names come from `ApiEnvSchema`
 | `HYPERLIQUID_EXCHANGE_URL` | api |
 | `ETHOS_MODE` | api |
 | `ETHOS_API_BASE_URL` | api |
+| `NEAR_INTENTS_MODE` | api |
+| `NEAR_INTENTS_API_URL` | api |
+| `NEAR_INTENTS_JWT` | api |
+| `NEAR_INTENTS_DESTINATION_ASSET` | api |
 | `X_MODE` | api |
 | `X_CLIENT_ID` | api |
 | `X_CLIENT_SECRET` | api |

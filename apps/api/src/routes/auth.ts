@@ -144,6 +144,9 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
         // Venue the presented approval belongs to (null when none). The
         // client signs approveAgent with the matching hyperliquidChain.
         venue: visibleAgentAddress(ctx, a) ? a.venue : null,
+        // Explicit boolean for the Security dashboard: absent/stale-venue
+        // approvals read as not approved, never as "unknown".
+        agentApproved: Boolean(visibleAgentAddress(ctx, a) && a.agentApprovedAt),
         isPrimary: a.isPrimary,
       })),
       demoMode: ctx.demoMode,

@@ -14,6 +14,101 @@ A trader authors a structured trade plan — entry, take-profit, stop-loss, size
 4. The taker chooses their own position size and reviews the live order preview.
 5. The taker authorizes with their own wallet; PASS relays the signed order to Hyperliquid. Non-custodial throughout.
 
+## NEAR Intents Integration
+
+PASS can fund a trading account from another chain without asking the user to
+bridge manually. The web app's **Fund with Any Chain** flow requests a quote
+from the PASS API; the API calls NEAR's 1Click service and returns a deposit
+address plus the transaction payload. The user pays that address from their own
+funding wallet, and 1Click settles USDC into their HyperCore account.
+
+```bash
+curl -X POST https://pass-pz7f.onrender.com/api/v1/funding/intents/quote \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sourceChain": "ethereum",
+    "sourceToken": "USDC",
+    "destinationAddress": "0xYourPASSTradingAccount",
+    "amount": "100",
+    "isConfidential": true
+  }'
+```
+
+The API returns `depositAddress`, `transactionPayload`, the quoted amounts, and
+`confidentiality: "basic"` when privacy is on. Funding is non-custodial: PASS
+never receives the deposit or holds a key that could move it.
+
+Relevant API environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `NEAR_INTENTS_MODE` | `mock` (default, deterministic quote, no network) or `live` |
+| `NEAR_INTENTS_API_URL` | 1Click base URL; defaults to `https://1click.chaindefuser.com` |
+| `NEAR_INTENTS_JWT` | Bearer token required by 1Click for confidential quotes |
+| `NEAR_INTENTS_DESTINATION_ASSET` | Override the default USDC-on-HyperCore destination asset |
+
+## Confidential Trading
+
+Confidential Intents is NEAR's private execution layer for cross-chain swaps.
+When the user enables **Use Confidential Intents (Privacy)**, PASS adds
+`confidentiality: "basic"` to the 1Click quote request. The deposit and the
+HyperCore withdrawal are settled through NEAR's private shard, so an observer
+cannot link the funding wallet to the PASS trading account.
+
+The trade itself still settles on Hyperliquid and remains visible as a venue
+action. Confidentiality protects the funding-to-trading link, not the existence
+of the position.
+
+### Dark Pool privacy for social traders
+
+A social trader has two identities that should not be joined by a public
+block explorer: the wallet that funds the account and the account that takes
+Passes. PASS uses NEAR Confidential Intents as a privacy membrane between
+them. The trader can publish a Pass publicly, let takers evaluate it, and fund
+the execution account privately — without running a custodial mixer or asking
+users to trust a PASS-controlled wallet. The same rail serves AI agents that
+need to operate without exposing their treasury graph.
+
+## Agent Economy
+
+The Agent Execution API lets a bot discover live Passes and submit a
+pre-signed Hyperliquid order. It requires no browser session and accepts no
+private key; the signature in the payload is the authorization.
+
+```text
+GET  /api/v1/agent/passes?limit=20
+POST /api/v1/agent/execute
+```
+
+`GET /agent/passes` returns a clean execution-oriented payload: `passId`,
+asset, direction, entry, stop, target, leverage, status, and expiry. It omits
+UI-only reputation and market decoration. `POST /agent/execute` accepts
+`passId`, `agentWalletAddress`, and `signedPayload`, then runs the same Pass
+version, idempotency, relay, and recording checks as the human Take flow.
+
+Settings includes an **Agent Access** section with live request examples and a
+hackathon-only mock API key generator. The generated key is browser-local, is
+never stored, and is not checked by the API.
+
+## Non-Custodial Security
+
+PASS's Hyperliquid agent key can sign trade orders only. It cannot:
+
+- withdraw funds;
+- transfer tokens;
+- change account settings.
+
+The master wallet remains the only authority for those actions, and no private
+key is ever sent to the PASS API. Settings has a **Security** section that shows
+the venue-scoped agent status, the forbidden permissions, and a **Revoke Agent
+Key** action. Revocation uses Hyperliquid's deregistration path: PASS approves a
+throwaway replacement unnamed agent (which deregisters the current one) with a
+master-wallet signature, then clears its local association. The throwaway
+address is never stored and never signs an order.
+
+See [docs/NEAR_HACKATHON.md](docs/NEAR_HACKATHON.md) for the hackathon pitch,
+track mapping, and demo flow.
+
 ## Live
 
 - Web: https://pass-web-dun.vercel.app

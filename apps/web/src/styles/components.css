@@ -4278,3 +4278,66 @@ text-underline-offset: 0.2em;
 .pass-anchor {
   scroll-margin-top: var(--layout-topbar);
 }
+
+/* ---------------------------------------------------------------------------
+ * NEAR Hackathon additions: funding, agent access, security.
+ *
+ * All values come from the token layer. The dialog already owns the overlay
+ * tier; these classes only style content inside it and inside Settings.
+ * ------------------------------------------------------------------------- */
+
+.pass-near-badge {
+  white-space: normal;
+}
+
+.pass-intent-quote,
+.pass-agent-key-box,
+.pass-security-status {
+  border: var(--border-hairline);
+  background-color: var(--color-surface-sunken);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.pass-agent-code {
+  display: block;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: var(--border-hairline);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  padding: var(--space-3);
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  line-height: var(--type-data-xs-line);
+}
+
+.pass-agent-key {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  line-height: var(--type-data-s-line);
+  color: var(--color-text-primary);
+}
+
+.pass-security-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  color: var(--color-text-secondary);
+  font-family: var(--type-body-m-font);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+}
+
+.pass-security-list li::marker {
+  color: var(--color-accent);
+}
+
+.pass-security-status .pass-badge {
+  flex: 0 0 auto;
+}

@@ -50,6 +50,8 @@ export interface MeTradingAccount {
   agentAddress: string | null;
   /** Venue the presented approval belongs to; null when none (D-021). */
   venue: string | null;
+  /** Venue-scoped approval flag. False when the stored agent is stale. */
+  agentApproved?: boolean;
   isPrimary: boolean;
 }
 

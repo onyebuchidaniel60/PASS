@@ -18,9 +18,12 @@ interface AccountState {
 let account: AccountState = { isConnected: false };
 const disconnect = vi.fn();
 
+const signTypedDataAsync = vi.fn();
+
 vi.mock("wagmi", () => ({
   useAccount: () => account,
   useDisconnect: () => ({ disconnect }),
+  useSignTypedData: () => ({ signTypedDataAsync }),
 }));
 
 vi.mock("connectkit", () => ({
@@ -565,7 +568,7 @@ describe("Settings redesign (reference 14)", () => {
   });
 
   it("renders the realized-PnL panel with a sparkline", async () => {
-    const { container } = render(
+    render(
       <SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />,
     );
     const pnl = await screen.findByTestId("settings-pnl");
@@ -580,12 +583,34 @@ describe("Settings redesign (reference 14)", () => {
     expect(screen.queryByText(/simulated/i)).toBeNull();
   });
 
-  it("offers section navigation: Identity, Connections, Wallet, Tour", async () => {
+  it("offers section navigation including Funding, Agent Access, and Security", async () => {
     render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
     await screen.findByTestId("settings-identity");
-    for (const label of ["Identity", "Connections", "Wallet", "Tour"]) {
+    for (const label of [
+      "Identity",
+      "Connections",
+      "Wallet",
+      "Funding",
+      "Agent Access",
+      "Security",
+      "Tour",
+    ]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
+  });
+
+  it("renders the NEAR funding, agent, and security surfaces in Settings", async () => {
+    render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    expect(
+      await screen.findByRole("heading", { name: "Fund with any chain" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Agent Access" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Security" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Fund with Any Chain" }),
+    ).toBeInTheDocument();
   });
 });
 

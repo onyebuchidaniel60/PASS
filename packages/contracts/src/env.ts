@@ -55,6 +55,22 @@ export const ApiEnvSchema = z.object({
   ETHOS_MODE: modeFlag("ETHOS"),
   ETHOS_API_BASE_URL: z.string().url().optional(),
 
+  /**
+   * NEAR Intents 1Click API. Mock mode returns a deterministic quote and
+   * makes no network call, so tests and local development never depend on
+   * the upstream service. Live mode requires a JWT for confidential quotes;
+   * public quotes work without one.
+   */
+  NEAR_INTENTS_MODE: modeFlag("NEAR_INTENTS"),
+  NEAR_INTENTS_API_URL: z.string().url().optional(),
+  NEAR_INTENTS_JWT: z.string().optional(),
+  /**
+   * Destination asset for PASS account funding. Defaults to USDC on
+   * HyperCore, so a deposit lands directly in the user's Hyperliquid
+   * account rather than an intermediate chain.
+   */
+  NEAR_INTENTS_DESTINATION_ASSET: z.string().optional(),
+
   X_MODE: modeFlag("X"),
   X_CLIENT_ID: z.string().optional(),
   X_CLIENT_SECRET: z.string().optional(),

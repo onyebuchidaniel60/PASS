@@ -542,6 +542,27 @@ export async function recordAgentApprovalById(
 }
 
 /**
+ * Clears the stored agent association after Hyperliquid accepted a
+ * replacement `approveAgent` action. Hyperliquid has no separate revoke
+ * action: registering a new unnamed agent deregisters the previous unnamed
+ * one. The replacement is a throwaway address; PASS clears its local cache so
+ * the Security dashboard immediately reads "Not approved".
+ */
+export async function clearAgentApprovalById(
+  ctx: AppContext,
+  accountId: string,
+): Promise<void> {
+  await ctx.db
+    .update(tradingAccounts)
+    .set({
+      agentAddress: null,
+      agentApprovedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(tradingAccounts.id, accountId));
+}
+
+/**
  * Resolves Ethos reputation for the user's own linked identity and caches it.
  * D-018.7: refresh operates only on the caller's own identity.
  */

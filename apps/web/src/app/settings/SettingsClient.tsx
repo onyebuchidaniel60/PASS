@@ -43,6 +43,9 @@ import { useAccount, useDisconnect } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 
 import { AuthenticatedView } from "@/components/AuthenticatedView";
+import { AgentAccess } from "@/components/AgentAccess";
+import { FundWithAnyChain } from "@/components/FundWithAnyChain";
+import { SecuritySection } from "@/components/SecuritySection";
 import { notifyMeChanged, onMeChanged } from "@/lib/me-events";
 import {
   connectionByName,
@@ -89,6 +92,10 @@ export interface Me {
     id: string;
     accountAddress: string;
     agentAddress: string | null;
+    /** Venue the approval belongs to; null when none. */
+    venue?: string | null;
+    /** Server-authoritative approval flag for the Security dashboard. */
+    agentApproved?: boolean;
     isPrimary: boolean;
   }[];
   demoMode: boolean;
@@ -572,6 +579,33 @@ function PnlPanel({ executions }: { executions: SettingsExecution[] }) {
   );
 }
 
+const CONFIDENTIAL_INTENTS_KEY = "pass.confidential-intents.enabled";
+
+/**
+ * UI preference for Confidential Intents. Persisted locally only: the quote
+ * request carries the actual boolean, so a stale preference can never cause
+ * a private quote to be sent by accident.
+ */
+function useConfidentialIntents(): [boolean, (next: boolean) => void] {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    try {
+      setEnabled(window.localStorage.getItem(CONFIDENTIAL_INTENTS_KEY) === "true");
+    } catch {
+      setEnabled(false);
+    }
+  }, []);
+  const update = (next: boolean) => {
+    setEnabled(next);
+    try {
+      window.localStorage.setItem(CONFIDENTIAL_INTENTS_KEY, next ? "true" : "false");
+    } catch {
+      // A browser with storage disabled still gets the in-memory toggle.
+    }
+  };
+  return [enabled, update];
+}
+
 function SettingsReady({
   me,
   loadExtra = fetchSettingsExtra,
@@ -622,6 +656,11 @@ function SettingsReady({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Tour replay (D-022): resetting completion re-opens the one-time tour.
   const [tourState, setTourState] = useState<"idle" | "working" | "done" | "error">("idle");
+  // NEAR Hackathon additions: funding modal + local privacy preference.
+  const [fundingOpen, setFundingOpen] = useState(false);
+  const [confidentialEnabled, setConfidentialEnabled] = useConfidentialIntents();
+  const primaryAccount =
+    me.tradingAccounts.find((a) => a.isPrimary) ?? me.tradingAccounts[0] ?? null;
 
   const startEdit = () => {
     setDisplayName(me.displayName ?? "");
@@ -846,6 +885,9 @@ function SettingsReady({
         <ChipButton href="#settings-identity-section">Identity</ChipButton>
         <ChipButton href="#settings-connections">Connections</ChipButton>
         <ChipButton href="#settings-wallet">Wallet</ChipButton>
+        <ChipButton href="#settings-funding">Funding</ChipButton>
+        <ChipButton href="#settings-agent">Agent Access</ChipButton>
+        <ChipButton href="#settings-security">Security</ChipButton>
         <ChipButton href="#settings-tour">Tour</ChipButton>
       </ChipBar>
 
@@ -938,6 +980,72 @@ function SettingsReady({
         </Section>
       </div>
 
+      {/* NEAR Intents: cross-chain, optionally confidential funding. */}
+      <div id="settings-funding" className="pass-anchor">
+        <Section label="Funding">
+          <Panel>
+            <Stack gap="4">
+              <Inline gap="3" align="center" wrap>
+                <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
+                  Fund with any chain
+                </h2>
+                <span className="pass-badge pass-near-badge" data-tone="active">
+                  Powered by NEAR Intents
+                </span>
+                {confidentialEnabled ? (
+                  <span className="pass-badge" data-tone="active">
+                    Privacy Enabled
+                  </span>
+                ) : null}
+              </Inline>
+              <p className="pass-stale">
+                Deposit USDC from Ethereum, Base, Solana, or another supported
+                chain directly into your PASS trading account. The quote names
+                a deposit address; your funding wallet signs the transfer.
+              </p>
+              <p className="pass-note">
+                Confidential deposits hide the link between your funding wallet
+                and your PASS trading account.
+              </p>
+              <Inline gap="3">
+                <button
+                  type="button"
+                  className="pass-btn"
+                  data-variant="primary"
+                  onClick={() => setFundingOpen(true)}
+                >
+                  Fund with Any Chain
+                </button>
+                {!primaryAccount ? (
+                  <span className="pass-stale">
+                    Link a trading wallet to enable funding.
+                  </span>
+                ) : null}
+              </Inline>
+            </Stack>
+          </Panel>
+        </Section>
+      </div>
+
+      {/* AGT track: bot discovery + pre-signed execution. */}
+      <div id="settings-agent" className="pass-anchor">
+        <Section label="Agent Access">
+          <AgentAccess />
+        </Section>
+      </div>
+
+      {/* SEC track: agent permissions, revocation, and privacy state. */}
+      <div id="settings-security" className="pass-anchor">
+        <Section label="Security">
+          <SecuritySection
+            account={primaryAccount}
+            confidentialEnabled={confidentialEnabled}
+            onConfidentialChange={setConfidentialEnabled}
+            onRevoked={reload}
+          />
+        </Section>
+      </div>
+
       {/* D-022: the one-time tour can be re-opened from here. */}
       <div id="settings-tour" className="pass-anchor">
         <Section label="Tour">
@@ -975,6 +1083,14 @@ function SettingsReady({
           </Panel>
         </Section>
       </div>
+
+      <FundWithAnyChain
+        open={fundingOpen}
+        onClose={() => setFundingOpen(false)}
+        destinationAddress={primaryAccount?.accountAddress ?? null}
+        defaultConfidential={confidentialEnabled}
+        onConfidentialUsed={() => setConfidentialEnabled(true)}
+      />
     </Stack>
   );
 }

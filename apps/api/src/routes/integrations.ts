@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
 import { requireUser } from "../plugins/session.js";
 import {
+  clearAgentApprovalById,
   currentVenue,
   getEthosProfile,
   getTradingAccounts,
@@ -28,6 +29,17 @@ const ApproveAgentBody = z
   .strict();
 
 type ApproveAgentInput = z.infer<typeof ApproveAgentBody>;
+
+/**
+ * Revocation replaces the unnamed agent with a throwaway address. Hyperliquid
+ * deregisters an existing unnamed agent when a new unnamed agent is approved,
+ * which is its documented deregistration path (there is no separate revoke
+ * action). The replacement address is supplied by the client and never signs
+ * anything.
+ */
+const RevokeAgentBody = ApproveAgentBody.extend({
+  revokedAgentAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+});
 
 /**
  * Shared approve-agent core (D-027): resolve the wallet's row by
@@ -274,6 +286,63 @@ export async function registerIntegrationRoutes(app: FastifyInstance, ctx: AppCo
       // Unknown ids stay indistinguishable (docs/SECURITY_SPEC.md §10).
       if (!row) throw new AppError("FORBIDDEN", "That trading account is not yours.");
       return approveAgentForAddress(ctx, row.accountAddress, body);
+    },
+  );
+
+  /**
+   * Revoke PASS's Hyperliquid agent key.
+   *
+   * Hyperliquid has no standalone revoke action: approving a new unnamed
+   * agent deregisters the previous unnamed agent. The client signs an
+   * `approveAgent` payload for a throwaway address with the MASTER wallet;
+   * the server relays it and then clears its local agent cache. The
+   * throwaway address is never stored and has no key in PASS or the browser.
+   */
+  app.post<{ Params: { address: string } }>(
+    "/api/v1/trading-accounts/:address/revoke-agent",
+    async (req) => {
+      const body = RevokeAgentBody.parse(req.body);
+      const normalized = req.params.address.trim().toLowerCase();
+      if (!/^0x[0-9a-f]{40}$/.test(normalized)) {
+        throw new AppError("INVALID_REQUEST", "That is not a valid EVM address.");
+      }
+      const row = await resolveTradingAccountByAddress(ctx, normalized);
+      const relayLabel = currentVenue(ctx) === "testnet" ? "Testnet" : "Mainnet";
+      try {
+        await ctx.adapters.hyperliquid.relayApproveAgent({
+          agentAddress: body.agentAddress.toLowerCase(),
+          nonce: body.nonce,
+          signature: body.signature,
+          hyperliquidChain: relayLabel,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/reject|recover signer|err/i.test(msg)) {
+          throw new AppError(
+            "SIGNATURE_REJECTED",
+            `Hyperliquid rejected the agent revocation: ${msg.slice(0, 200)}`,
+          );
+        }
+        throw new AppError(
+          "PROVIDER_UNAVAILABLE",
+          `Could not reach Hyperliquid: ${msg.slice(0, 160)}`,
+        );
+      }
+
+      await clearAgentApprovalById(ctx, row.id);
+      ctx.log.info("agent key revoked", {
+        accountAddress: row.accountAddress,
+        revokedAgentAddress: body.revokedAgentAddress ?? null,
+        replacementAgentAddress: body.agentAddress.toLowerCase(),
+        venue: currentVenue(ctx),
+      });
+
+      return {
+        ok: true,
+        accountAddress: row.accountAddress,
+        revokedAgentAddress: body.revokedAgentAddress ?? null,
+        mode: ctx.adapters.hyperliquid.mode,
+      };
     },
   );
 
