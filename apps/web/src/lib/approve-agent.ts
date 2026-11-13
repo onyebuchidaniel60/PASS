@@ -15,8 +15,6 @@ import {
   APPROVE_AGENT_PRIMARY_TYPE,
   APPROVE_AGENT_TYPES,
   approveAgentDomain,
-  HYPERLIQUID_INFO_URL,
-  HYPERLIQUID_TESTNET_INFO_URL,
   nowNonce,
   signatureChainIdFor,
   type HLChain,
@@ -132,15 +130,20 @@ export interface VenueAgent {
   validUntil?: number | null;
 }
 
-/** Read-only agent list for a master account. Throws on transport or shape errors. */
+/**
+ * Read-only agent list for a master account. Throws on transport or shape
+ * errors. `infoUrl` comes from GET /health (the server's configured Info API
+ * for the current venue), so the browser never carries a mainnet/testnet host.
+ */
 export async function listVenueAgents(params: {
   masterAddress: string;
-  chain?: HLChain;
+  infoUrl: string;
   fetchImpl?: typeof fetch;
 }): Promise<VenueAgent[]> {
-  const infoUrl =
-    params.chain === "Testnet" ? HYPERLIQUID_TESTNET_INFO_URL : HYPERLIQUID_INFO_URL;
-  const res = await (params.fetchImpl ?? fetch)(infoUrl, {
+  if (!params.infoUrl) {
+    throw new Error("The Hyperliquid Info API URL is not configured.");
+  }
+  const res = await (params.fetchImpl ?? fetch)(params.infoUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ type: "extraAgents", user: params.masterAddress }),
@@ -183,14 +186,15 @@ export async function listVenueAgents(params: {
 export async function isAgentActiveOnVenue(params: {
   masterAddress: string;
   agentAddress: string;
-  chain?: HLChain;
+  /** Configured Info API URL from GET /health. */
+  infoUrl: string;
   fetchImpl?: typeof fetch;
   now?: number;
 }): Promise<boolean> {
   try {
     const agents = await listVenueAgents({
       masterAddress: params.masterAddress,
-      chain: params.chain,
+      infoUrl: params.infoUrl,
       fetchImpl: params.fetchImpl,
     });
     const found = agents.find(
@@ -358,6 +362,12 @@ export async function runApproveAgent(deps: {
    * execution mode makes no venue network calls).
    */
   verifyOnVenue?: boolean;
+  /**
+   * Info API URL for the current venue, from GET /health. Required for a
+   * venue-checked skip; without it the caller safely falls through to
+   * re-approval rather than querying a guessed host.
+   */
+  venueInfoUrl?: string | null;
   /** Injected Info API fetch for tests. Defaults to the global fetch. */
   fetchImpl?: typeof fetch;
 }): Promise<{
@@ -414,12 +424,14 @@ export async function runApproveAgent(deps: {
     if (deps.verifyOnVenue === false) {
       return { agentAddress, persisted: true, skipped: true };
     }
-    const active = await isAgentActiveOnVenue({
-      masterAddress: deps.address,
-      agentAddress,
-      chain: deps.chain,
-      fetchImpl: deps.fetchImpl,
-    });
+    const active = deps.venueInfoUrl
+      ? await isAgentActiveOnVenue({
+          masterAddress: deps.address,
+          agentAddress,
+          infoUrl: deps.venueInfoUrl,
+          fetchImpl: deps.fetchImpl,
+        })
+      : false;
     if (active) {
       return { agentAddress, persisted: true, skipped: true };
     }

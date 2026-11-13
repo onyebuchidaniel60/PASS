@@ -116,9 +116,11 @@ const MARKETS = {
 };
 
 const HEALTH_MOCK = { modes: { hyperliquidExecution: "mock" } };
+const TESTNET_INFO_URL = "https://api.hyperliquid-testnet.xyz/info";
 const HEALTH_TESTNET = {
   modes: { hyperliquidExecution: "live" },
   hyperliquidVenue: "testnet",
+  hyperliquidInfoUrl: TESTNET_INFO_URL,
 };
 
 type PassFixture = Omit<typeof PASS, "entryType"> & { entryType: "limit" | "market" };
@@ -973,7 +975,10 @@ describe("Stage F wiring — lazy wallet and first-execution approval", () => {
     await user.click(screen.getByRole("button", { name: /Authorize order/ }));
     await waitFor(() => expect(screen.getByText("STEP 4 / 4")).toBeInTheDocument());
     expect(mockVenueActive).toHaveBeenCalledWith(
-      expect.objectContaining({ masterAddress: ADDR, chain: "Testnet" }),
+      expect.objectContaining({
+        masterAddress: ADDR,
+        infoUrl: TESTNET_INFO_URL,
+      }),
     );
     expect(mockRunApprove).not.toHaveBeenCalled();
   });

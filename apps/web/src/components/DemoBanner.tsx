@@ -136,7 +136,7 @@ export function DemoBanner() {
     if (!venue) return null;
     return (
       <div className="pass-demo-banner" role="status">
-        <VenueIndicator venue={health?.hyperliquidVenue ?? "testnet"} label={venue} />
+        <VenueIndicator venue={health?.hyperliquidVenue ?? "unknown"} label={venue} />
       </div>
     );
   }
@@ -145,7 +145,7 @@ export function DemoBanner() {
     <div className="pass-demo-banner" role="status">
       {venue ? (
         <>
-          <VenueIndicator venue={health?.hyperliquidVenue ?? "testnet"} label={venue} />{" "}
+          <VenueIndicator venue={health?.hyperliquidVenue ?? "unknown"} label={venue} />{" "}
         </>
       ) : null}
       <span className="pass-demo-banner-lead">

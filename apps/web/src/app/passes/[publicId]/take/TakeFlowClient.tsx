@@ -151,6 +151,8 @@ interface Health {
   modes?: { hyperliquidExecution?: "live" | "mock"; hyperliquid?: "live" | "mock" };
   /** Current venue per the server's own config — the signing source of truth. */
   hyperliquidVenue?: string | null;
+  /** Configured Info API URL for the current venue. */
+  hyperliquidInfoUrl?: string | null;
 }
 
 const STEP_TITLE: Record<Step, string> = {
@@ -223,6 +225,8 @@ export function TakeFlowClient({
   // hardcoded default. Drives the approveAgent chain label + domain AND
   // the L1 isTestnet flag.
   const [venue, setVenue] = useState<"mainnet" | "testnet">("mainnet");
+  // Info API URL for the venue, from /health. Never a hardcoded host.
+  const [venueInfoUrl, setVenueInfoUrl] = useState<string | null>(null);
   // D-026: an anonymous approval completed this page load. The key in
   // memory implies the completed approval; signed-in rows additionally
   // carry their agent address from /me.
@@ -264,6 +268,7 @@ export function TakeFlowClient({
         // mis-signings fail safe at the relay (ORDER_REJECTED, no funds move).
         setExecMode(health.modes?.hyperliquidExecution === "live" ? "live" : "mock");
         setVenue(health.hyperliquidVenue === "testnet" ? "testnet" : "mainnet");
+        setVenueInfoUrl(health.hyperliquidInfoUrl ?? null);
         setBoot("ready");
       } catch {
         if (!cancelled) setBoot("denied");
@@ -477,7 +482,7 @@ export function TakeFlowClient({
           (await isAgentActiveOnVenue({
             masterAddress: address,
             agentAddress: derived,
-            chain: venue === "testnet" ? "Testnet" : "Mainnet",
+            infoUrl: venueInfoUrl ?? "",
           }))
         ) {
           setAgentReady(true);
@@ -506,8 +511,8 @@ export function TakeFlowClient({
     try {
       // Venue label for the approval, from /health (the server's current
       // venue — not the row's stored venue, which goes stale across venue
-      // switches). Testnet signs hyperliquidChain "Testnet" under the
-      // fixed 42161 domain; mainnet takes "Mainnet".
+      // switches). The domain follows the same venue: Arbitrum One for
+      // mainnet, Arbitrum Sepolia for testnet.
       const approvalChain = venue === "testnet" ? "Testnet" : "Mainnet";
       const done = await runApproveAgent({
         accountId: address,
@@ -517,6 +522,7 @@ export function TakeFlowClient({
         // approval entirely (changed wallets re-prompt).
         knownAgentAddress: row.agentAddress ?? preview?.agentAddress ?? null,
         chain: approvalChain,
+        venueInfoUrl,
         // Live execution verifies the skip against the venue; mock stays
         // fully offline and keeps the legacy DB-comparison skip.
         verifyOnVenue: execMode === "live",

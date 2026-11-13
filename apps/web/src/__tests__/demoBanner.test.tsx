@@ -51,7 +51,30 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     });
     render(<DemoBanner />);
     // The persistent indicator — and the only thing rendered when live.
-    expect(await screen.findByText("Hyperliquid Testnet")).toBeInTheDocument();
+    const label = await screen.findByText("Hyperliquid Testnet");
+    expect(label.closest(".pass-venue-indicator")).toHaveAttribute(
+      "data-venue",
+      "testnet",
+    );
+  });
+
+  it("names Hyperliquid Mainnet and marks the dot mainnet when the venue is mainnet", async () => {
+    mockHealth({
+      modes: {
+        hyperliquidReads: "live",
+        hyperliquidExecution: "live",
+        ethos: "live",
+        x: "live",
+        database: "live",
+      },
+      hyperliquidVenue: "mainnet",
+    });
+    render(<DemoBanner />);
+    const label = await screen.findByText("Hyperliquid Mainnet");
+    expect(label.closest(".pass-venue-indicator")).toHaveAttribute(
+      "data-venue",
+      "mainnet",
+    );
   });
 
   it("renders nothing when live but the venue is unknown", async () => {

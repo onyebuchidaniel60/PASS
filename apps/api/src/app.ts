@@ -118,6 +118,11 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
       // from a stored default — so Mainnet-shaped payloads cannot leak onto
       // testnet (or vice versa).
       hyperliquidVenue: markets.venue,
+      // Public Info API base URL for the CURRENT venue, from the same env
+      // config the server adapter uses. The browser's agent-presence check
+      // reads this instead of hardcoding mainnet/testnet hosts, so flipping
+      // HYPERLIQUID_INFO_URL on Render moves both sides together.
+      hyperliquidInfoUrl: ctx.env.HYPERLIQUID_INFO_URL ?? null,
       enabledMarketClasses: markets.enabledMarketClasses,
       demoMode: ctx.demoMode,
       time: new Date().toISOString(),

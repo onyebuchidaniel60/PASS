@@ -3,7 +3,11 @@
 import { buildTakeOrderAction, resolveMarket } from "@pass/domain/markets";
 import type { MarketClass } from "@pass/contracts";
 
-import { HL_DOMAIN, type HLChain } from "./hyperliquid";
+import {
+  HL_DOMAIN,
+  HL_SIGNATURE_CHAIN_ID,
+  type HLChain,
+} from "./hyperliquid";
 
 /**
  * Order-intent construction and submission envelope.
@@ -108,7 +112,7 @@ export function buildExchangeRequest(intent: OrderIntent): {
     primaryType: "HyperliquidTransaction:Exchange",
     message: {
       hyperliquidChain: intent.chain ?? "Mainnet",
-      signatureChainId: "0xa4b1",
+      signatureChainId: HL_SIGNATURE_CHAIN_ID,
       nonce: BigInt(nonce),
       action: JSON.stringify(action),
     },

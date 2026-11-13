@@ -1,6 +1,6 @@
 "use client";
 
-import { arbitrum } from "viem/chains";
+import { arbitrum, arbitrumSepolia } from "viem/chains";
 
 /**
  * Chain and EIP-712 domain for Hyperliquid L1 actions.
@@ -32,41 +32,39 @@ import { arbitrum } from "viem/chains";
  * exactly as specified.
  */
 
-export const HYPERLIQUID_EXCHANGE_URL = "https://api.hyperliquid.xyz/exchange";
-export const HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info";
-/** Testnet Info API: same paths, testnet host (read-only venue agent list lives here). */
-export const HYPERLIQUID_TESTNET_INFO_URL = "https://api.hyperliquid-testnet.xyz/info";
+/**
+ * Chain IDs are derived from the viem chain objects rather than repeated as
+ * literals. Mainnet is Arbitrum One; testnet is Arbitrum Sepolia. Hyperliquid
+ * reconstructs the EIP-712 domain from the action's own signatureChainId, so
+ * the hex form MUST be the same numeric chain id.
+ */
+function chainIdHex(id: number): `0x${string}` {
+  return `0x${id.toString(16)}` as `0x${string}`;
+}
 
-/** Arbitrum mainnet: Hyperliquid L1 signs with chain id 42161 (0xa4b1). */
-export const hyperliquidChain = {
-  ...arbitrum,
-  id: 42161,
-} as const;
+/** Arbitrum mainnet: the chain Hyperliquid mainnet actions sign against. */
+export const hyperliquidChain = arbitrum;
 
 export const HL_DOMAIN = {
   name: "HyperliquidSignTransaction",
   version: "1",
-  chainId: 42161,
+  chainId: arbitrum.id,
   verifyingContract: "0x0000000000000000000000000000000000000000",
 } as const;
 
 /**
  * EIP-712 domain chain id for user-signed actions (approveAgent).
  *
- * The domain is NOT fixed at 42161: both reference SDKs derive it
- * numerically from the action's own signatureChainId — the Python SDK's
- * `user_signed_payload` uses `int(action["signatureChainId"], 16)` and
- * nktkas `signUserSignedAction` uses `parseInt(action.signatureChainId)`.
- * Mainnet posts "0xa4b1" (→ 42161); testnet posts "0x66eee" (→ 421614,
- * Arbitrum Sepolia). Hyperliquid reconstructs the hash with that venue
- * domain, so a testnet approval signed under 42161 recovers to a different
- * garbage address on every attempt ("Must deposit … User: 0x…").
+ * The domain is venue-scoped: both reference SDKs derive it numerically from
+ * the action's own signatureChainId. Mainnet resolves to Arbitrum One;
+ * testnet resolves to Arbitrum Sepolia. A mismatch recovers to a garbage
+ * signer, so the label and the domain always travel together.
  *
- * `HL_DOMAIN` above stays the mainnet/default domain for the order
- * envelope; approveAgent resolves its domain through this function.
+ * `HL_DOMAIN` above stays the mainnet/default domain for the order envelope;
+ * approveAgent resolves its domain through this function.
  */
-export const HL_MAINNET_DOMAIN_CHAIN_ID = 42161;
-export const HL_TESTNET_DOMAIN_CHAIN_ID = 421614;
+export const HL_MAINNET_DOMAIN_CHAIN_ID = arbitrum.id;
+export const HL_TESTNET_DOMAIN_CHAIN_ID = arbitrumSepolia.id;
 
 export function approveAgentDomain(chain: HLChain): {
   name: string;
@@ -76,19 +74,21 @@ export function approveAgentDomain(chain: HLChain): {
 } {
   return {
     ...HL_DOMAIN,
-    chainId: chain === "Testnet" ? HL_TESTNET_DOMAIN_CHAIN_ID : HL_MAINNET_DOMAIN_CHAIN_ID,
+    chainId:
+      chain === "Testnet"
+        ? HL_TESTNET_DOMAIN_CHAIN_ID
+        : HL_MAINNET_DOMAIN_CHAIN_ID,
   };
 }
 
-/** hex form of 42161, as the docs require for signatureChainId. */
-export const HL_SIGNATURE_CHAIN_ID = "0xa4b1";
+/** Hex signatureChainId for Arbitrum One (mainnet). */
+export const HL_SIGNATURE_CHAIN_ID = chainIdHex(arbitrum.id);
 
-/** hex form of 421614 (Arbitrum Sepolia), for testnet approveAgent actions. */
-export const HL_TESTNET_SIGNATURE_CHAIN_ID = "0x66eee";
+/** Hex signatureChainId for Arbitrum Sepolia (testnet). */
+export const HL_TESTNET_SIGNATURE_CHAIN_ID = chainIdHex(arbitrumSepolia.id);
 
 /**
- * Wire signatureChainId for a venue ("0xa4b1" on mainnet, "0x66eee" on
- * testnet). This MUST satisfy
+ * Wire signatureChainId for a venue. This MUST satisfy
  * `Number.parseInt(signatureChainIdFor(chain), 16) ===
  * approveAgentDomain(chain).chainId` — both reference SDKs derive the
  * EIP-712 domain numerically from the action's own signatureChainId, so any
@@ -96,8 +96,10 @@ export const HL_TESTNET_SIGNATURE_CHAIN_ID = "0x66eee";
  * `approveAgentRabby.test.ts` ("the wire signatureChainId matches the venue
  * of the domain chainId").
  */
-export function signatureChainIdFor(chain: HLChain): "0xa4b1" | "0x66eee" {
-  return chain === "Testnet" ? "0x66eee" : "0xa4b1";
+export function signatureChainIdFor(chain: HLChain): string {
+  return chain === "Testnet"
+    ? HL_TESTNET_SIGNATURE_CHAIN_ID
+    : HL_SIGNATURE_CHAIN_ID;
 }
 
 /**

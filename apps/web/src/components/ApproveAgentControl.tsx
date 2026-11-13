@@ -41,16 +41,21 @@ export function ApproveAgentControl({ accountAddress }: { accountAddress: string
   // approval the wallet must reject (live MetaMask refusal: 'Provided
   // chainId "42161" must match the active chainId "421614"').
   const [approvalChain, setApprovalChain] = useState<HLChain | null>(null);
+  const [venueInfoUrl, setVenueInfoUrl] = useState<string | null>(null);
   const [venueReady, setVenueReady] = useState(false);
   const [venueError, setVenueError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    clientGet<{ hyperliquidVenue?: string | null }>("/health").then(
+    clientGet<{
+      hyperliquidVenue?: string | null;
+      hyperliquidInfoUrl?: string | null;
+    }>("/health").then(
       (h) => {
         if (cancelled) return;
         const chain = venueToHLChain(h?.hyperliquidVenue ?? null);
         setApprovalChain(chain);
+        setVenueInfoUrl(h?.hyperliquidInfoUrl ?? null);
         setVenueError(
           chain
             ? null
@@ -61,6 +66,7 @@ export function ApproveAgentControl({ accountAddress }: { accountAddress: string
       () => {
         if (cancelled) return;
         setApprovalChain(null);
+        setVenueInfoUrl(null);
         setVenueError(
           "Could not reach /health, so the signing venue is unknown. Refusing to sign rather than guessing Mainnet.",
         );
@@ -109,6 +115,7 @@ export function ApproveAgentControl({ accountAddress }: { accountAddress: string
         accountId: accountAddress,
         address,
         chain: approvalChain,
+        venueInfoUrl,
         signMessageAsync: (args) => signMessageAsync(args),
         signTypedDataAsync: (args) => signTypedDataAsync(args as never),
         postApprove: (walletAddress, body) =>

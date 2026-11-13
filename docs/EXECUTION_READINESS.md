@@ -246,6 +246,12 @@ mainnet test; all of them are blockers for real users at real size.
    linking have not been exercised against the real provider.
 8. **No end-to-end test against mainnet.** Every test either mocks `fetch` or runs
    against mock adapters. Nothing asserts that a real relay succeeds.
+9. **Live builder fee is not wired.** `packages/domain/fees.ts` defines the
+   0.05% (5 bps) fee and `fee_ledger` records it for simulated executions
+   only. The signed Hyperliquid order action contains no `builder` field, and
+   PASS has no configured builder address or `approveBuilderFee` flow. Do not
+   claim the fee is charged on live orders until both are implemented and
+   verified on the venue.
 
 ---
 

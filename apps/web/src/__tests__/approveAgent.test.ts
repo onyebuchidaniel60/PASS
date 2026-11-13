@@ -21,6 +21,7 @@ import {
 const ADDR = "0x1234567890abcdef1234567890abcdef12345678" as const;
 /** A different injected account, for the signer-mismatch guard. */
 const OTHER = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as const;
+const INFO = "https://api.hyperliquid.xyz/info";
 /** A well-formed flat 65-byte wallet signature (r, s, v=27). */
 const FLAT_SIG = `0x${"22".repeat(64)}1b` as `0x${string}`;
 const SPLIT_SIG = {
@@ -179,6 +180,7 @@ describe("runApproveAgent session behaviour (popup table)", () => {
       signTypedDataAsync: d.signTypedDataAsync,
       postApprove: d.postApprove,
       knownAgentAddress: first.agentAddress,
+      venueInfoUrl: INFO,
       fetchImpl: venueWith([first.agentAddress]),
     });
     expect(second.skipped).toBe(true);
@@ -240,7 +242,7 @@ describe("isAgentActiveOnVenue", () => {
 
   it("is true when the venue lists the agent unexpired", async () => {
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT,
         fetchImpl: venueWith([AGENT]),
@@ -250,7 +252,7 @@ describe("isAgentActiveOnVenue", () => {
 
   it("matches addresses case-insensitively", async () => {
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT.toUpperCase(),
         fetchImpl: venueWith([AGENT.toLowerCase()]),
@@ -267,10 +269,10 @@ describe("isAgentActiveOnVenue", () => {
         }) as unknown as Response,
     );
     await expect(
-      isAgentActiveOnVenue({ masterAddress: MASTER, agentAddress: AGENT, fetchImpl: missing }),
+      isAgentActiveOnVenue({ infoUrl: INFO, masterAddress: MASTER, agentAddress: AGENT, fetchImpl: missing }),
     ).resolves.toBe(true);
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT,
         fetchImpl: venueWith([AGENT], 0),
@@ -280,7 +282,7 @@ describe("isAgentActiveOnVenue", () => {
 
   it("is false when the agent expired", async () => {
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT,
         fetchImpl: venueWith([AGENT], Date.now() - 1_000),
@@ -290,7 +292,7 @@ describe("isAgentActiveOnVenue", () => {
 
   it("is false when the venue list does not contain the agent", async () => {
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT,
         fetchImpl: venueWith(["0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]),
@@ -303,13 +305,13 @@ describe("isAgentActiveOnVenue", () => {
       throw new Error("network down");
     });
     await expect(
-      isAgentActiveOnVenue({ masterAddress: MASTER, agentAddress: AGENT, fetchImpl: down }),
+      isAgentActiveOnVenue({ infoUrl: INFO, masterAddress: MASTER, agentAddress: AGENT, fetchImpl: down }),
     ).resolves.toBe(false);
     const badStatus = vi.fn(
       async () => ({ ok: false, status: 503 }) as unknown as Response,
     );
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT,
         fetchImpl: badStatus as never,
@@ -319,7 +321,7 @@ describe("isAgentActiveOnVenue", () => {
       async () => ({ ok: true, json: async () => ({}) }) as unknown as Response,
     );
     await expect(
-      isAgentActiveOnVenue({
+      isAgentActiveOnVenue({ infoUrl: INFO,
         masterAddress: MASTER,
         agentAddress: AGENT,
         fetchImpl: badShape as never,
@@ -327,12 +329,13 @@ describe("isAgentActiveOnVenue", () => {
     ).resolves.toBe(false);
   });
 
-  it("posts extraAgents for the master account to the chain's Info URL", async () => {
+  it("posts extraAgents to the Info URL supplied by /health (testnet)", async () => {
     const fetchImpl = venueWith([AGENT]);
+    const testnetInfo = "https://api.hyperliquid-testnet.xyz/info";
     await isAgentActiveOnVenue({
+      infoUrl: testnetInfo,
       masterAddress: MASTER,
       agentAddress: AGENT,
-      chain: "Testnet",
       fetchImpl,
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -340,15 +343,20 @@ describe("isAgentActiveOnVenue", () => {
       string,
       { body?: string },
     ];
-    expect(url).toBe("https://api.hyperliquid-testnet.xyz/info");
+    expect(url).toBe(testnetInfo);
     expect(JSON.parse(init.body ?? "{}")).toEqual({ type: "extraAgents", user: MASTER });
   });
 
-  it("defaults to the mainnet Info URL", async () => {
+  it("uses the configured mainnet Info URL", async () => {
     const fetchImpl = venueWith([AGENT]);
-    await isAgentActiveOnVenue({ masterAddress: MASTER, agentAddress: AGENT, fetchImpl });
+    await isAgentActiveOnVenue({
+      infoUrl: INFO,
+      masterAddress: MASTER,
+      agentAddress: AGENT,
+      fetchImpl,
+    });
     const [url] = fetchImpl.mock.calls[0] as unknown as [string];
-    expect(url).toBe("https://api.hyperliquid.xyz/info");
+    expect(url).toBe(INFO);
   });
 });
 
@@ -374,6 +382,7 @@ describe("runApproveAgent venue-checked skip", () => {
       signTypedDataAsync: vi.fn(async () => FLAT_SIG),
       postApprove: vi.fn(async () => ({})),
       knownAgentAddress,
+      venueInfoUrl: INFO,
     };
   }
 
@@ -406,6 +415,7 @@ describe("runApproveAgent venue-checked skip", () => {
       signTypedDataAsync,
       postApprove,
       knownAgentAddress: first.agentAddress,
+      venueInfoUrl: INFO,
       fetchImpl: venueWith([first.agentAddress]),
     });
     expect(second.skipped).toBe(true);
