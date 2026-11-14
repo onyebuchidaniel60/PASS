@@ -7015,7 +7015,15 @@ text-underline-offset: 0.2em;
 /* --- Prediction outcome picker ------------------------------------------- */
 .pass-outcome-picker {
   position: relative;
+  z-index: 0;
   min-inline-size: 0;
+  overflow: visible;
+}
+
+/* Lift the whole field while the list is open. A z-index on the listbox alone
+ * cannot escape a sibling field that paints later in the grid. */
+.pass-outcome-picker[data-open="true"] {
+  z-index: 50;
 }
 
 .pass-outcome-picker-input {
@@ -7036,7 +7044,7 @@ text-underline-offset: 0.2em;
 
 .pass-outcome-listbox {
   position: absolute;
-  z-index: 20;
+  z-index: 50;
   inset-inline: 0;
   inset-block-start: calc(100% + var(--space-1));
   max-block-size: 17rem;
@@ -7044,14 +7052,17 @@ text-underline-offset: 0.2em;
   margin: 0;
   padding: var(--space-1);
   list-style: none;
-  background: var(--color-surface-raised);
+  background-color: var(--color-surface-raised);
   border: var(--border-strong);
+  box-shadow: var(--shadow-overlay);
 }
 
 .pass-outcome-option {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-inline-start: var(--border-width-selected) solid transparent;
   cursor: pointer;
@@ -7064,6 +7075,8 @@ text-underline-offset: 0.2em;
 }
 
 .pass-outcome-option-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
   font-family: var(--font-body);
   font-size: var(--type-body-s-size);
   line-height: var(--type-body-s-line);
@@ -7071,11 +7084,13 @@ text-underline-offset: 0.2em;
 }
 
 .pass-outcome-option-meta {
+  flex: 0 0 auto;
   font-family: var(--font-data);
   font-size: var(--type-data-xs-size);
-  letter-spacing: var(--type-label-track);
-  text-transform: uppercase;
+  letter-spacing: normal;
+  text-transform: none;
   color: var(--color-text-tertiary);
+  white-space: nowrap;
 }
 
 .pass-outcome-empty {
@@ -7083,18 +7098,6 @@ text-underline-offset: 0.2em;
   font-family: var(--font-data);
   font-size: var(--type-data-xs-size);
   color: var(--color-text-tertiary);
-}
-
-.pass-market-unavailable {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.pass-market-unavailable .pass-note {
-  margin: 0;
 }
 
 /* --- Legal pages --------------------------------------------------------- */

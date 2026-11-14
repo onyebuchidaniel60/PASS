@@ -50,6 +50,33 @@ const HIP4_MARKET = {
   },
 };
 
+const TEMPLATE_MARKET = {
+  ...HIP4_MARKET,
+  asset: "#30",
+  label: "template fallback · Yes",
+  outcome: {
+    ...HIP4_MARKET.outcome,
+    outcomeId: 3,
+    name: "template fallback",
+    orderCoin: "#30",
+    balanceCoin: "+30",
+    assetId: 100000030,
+  },
+};
+
+const TEMPLATE_MARKET_NO = {
+  ...TEMPLATE_MARKET,
+  asset: "#31",
+  label: "template fallback · No",
+  outcome: {
+    ...TEMPLATE_MARKET.outcome,
+    side: "no" as const,
+    orderCoin: "#31",
+    balanceCoin: "+31",
+    assetId: 100000031,
+  },
+};
+
 function rejected(message: string): Promise<never> {
   const p = Promise.reject(new Error(message));
   p.catch(() => {});
@@ -249,6 +276,36 @@ describe("Create Pass states (§10.5)", () => {
       screen.getByRole("option", { name: /Will BTC close above 120k/ }),
     );
     expect(picker).toHaveValue("Will BTC close above 120k by Friday?");
+  });
+
+  it("filters template and fallback outcomes before rendering the picker", async () => {
+    await renderForm({
+      markets: [...MARKETS, HIP4_MARKET, TEMPLATE_MARKET, TEMPLATE_MARKET_NO],
+    });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    const picker = screen.getByLabelText(/Outcome Market/);
+    await user.click(picker);
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent("Will BTC close above 120k by Friday?");
+    expect(options[0]).toHaveTextContent("#20");
+    expect(screen.queryByText(/template fallback/i)).toBeNull();
+  });
+
+  it("shows the empty state and disables the picker when every outcome is a template", async () => {
+    await renderForm({ markets: [...MARKETS, TEMPLATE_MARKET, TEMPLATE_MARKET_NO] });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    expect(
+      await screen.findByText("No active prediction markets available at this time."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Outcome Market/)).toBeDisabled();
+    expect(screen.queryByText(/template fallback/i)).toBeNull();
   });
 
   it("withholds the form from a session without an X identity (Bug 1)", async () => {

@@ -99,13 +99,32 @@ interface MarketsResponse {
   } | null;
 }
 
+/** Placeholder names the venue emits before a real question is attached. */
+const PLACEHOLDER_OUTCOME = /template|fallback/i;
+
+function isHumanReadableOutcomeName(
+  name: string | null | undefined,
+  asset: string,
+): boolean {
+  const value = name?.trim() ?? "";
+  if (!value) return false;
+  if (PLACEHOLDER_OUTCOME.test(value)) return false;
+  if (/^outcome\s+\d+$/i.test(value)) return false;
+  if (value.toLowerCase() === asset.toLowerCase()) return false;
+  return /[a-z]/i.test(value) && value.length >= 6;
+}
+
 function groupPredictionOutcomes(markets: Market[]): PredictionOutcome[] {
   const byId = new Map<number, PredictionOutcome>();
   for (const market of markets) {
     if (market.marketClass !== "hip4" || !market.outcome) continue;
+    const name = market.outcome.name?.trim() ?? "";
+    // Drop developer placeholders before they ever reach the selector. A
+    // template is not a market, and showing one makes the dropdown look broken.
+    if (!isHumanReadableOutcomeName(name, market.asset)) continue;
     const current = byId.get(market.outcome.outcomeId) ?? {
       id: market.outcome.outcomeId,
-      name: market.outcome.name?.trim() || market.asset,
+      name,
     };
     if (market.outcome.side === "yes") current.yes = market;
     else current.no = market;
@@ -182,7 +201,10 @@ function OutcomeMarketPicker({
   }
 
   return (
-    <div className="pass-outcome-picker">
+    <div
+      className="pass-outcome-picker"
+      data-open={open ? "true" : undefined}
+    >
       <input
         id={id}
         type="text"
@@ -255,8 +277,9 @@ function OutcomeMarketPicker({
               >
                 <span className="pass-outcome-option-name">{outcome.name}</span>
                 <span className="pass-outcome-option-meta">
-                  {outcome.yes ? "YES" : "NO"} ·{" "}
-                  {outcome.yes?.asset ?? outcome.no?.asset ?? ""}
+                  {[outcome.yes?.asset, outcome.no?.asset]
+                    .filter(Boolean)
+                    .join(" / ")}
                 </span>
               </li>
             ))
@@ -350,6 +373,7 @@ export function validate(p: {
   marketMode?: "perp" | "prediction";
   predictionLimit?: string;
   predictionSize?: string;
+  predictionMarketCount?: number;
 }): Errors {
   const e: Errors = {};
   const entry = num(p.entry);
@@ -360,7 +384,11 @@ export function validate(p: {
 
   if (!market) {
     if (p.marketMode === "prediction") {
-      e.predictionOutcome = "Choose an outcome market.";
+      // With no real markets the empty-state note owns the explanation; a
+      // second "choose a market" error would only add noise.
+      if ((p.predictionMarketCount ?? 1) > 0) {
+        e.predictionOutcome = "Choose an outcome market.";
+      }
     } else {
       e.entry = "That market is not supported.";
     }
@@ -475,7 +503,6 @@ export function CreatePassClient() {
 
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketsLoading, setMarketsLoading] = useState(true);
-  const [hip4Reason, setHip4Reason] = useState<string | null>(null);
   const [auth, setAuth] = useState<"checking" | "in" | "out">("checking");
   const [booting, setBooting] = useState(true);
 
@@ -519,11 +546,6 @@ export function CreatePassClient() {
       const response = await clientGet<MarketsResponse>("/api/v1/markets");
       const list = response.assets ?? [];
       setMarkets(list);
-      setHip4Reason(
-        response.hip4 && !response.hip4.available
-          ? response.hip4.reason
-          : null,
-      );
       if (initial && list[0]) setAsset(list[0].asset);
       return list;
     } catch {
@@ -663,6 +685,7 @@ export function CreatePassClient() {
         marketMode,
         predictionLimit,
         predictionSize,
+        predictionMarketCount: predictionOutcomes.length,
       }),
     [
       asset,
@@ -677,6 +700,7 @@ export function CreatePassClient() {
       marketMode,
       predictionLimit,
       predictionSize,
+      predictionOutcomes.length,
     ],
   );
 
@@ -989,23 +1013,11 @@ export function CreatePassClient() {
                     perp entry price.
                   </p>
                 ) : (
-                  <div className="pass-market-unavailable">
-                    <p className="pass-note" role="status">
-                      {marketsLoading
-                        ? "Loading live prediction markets…"
-                        : hip4Reason ??
-                          "No prediction markets are open right now."}
-                    </p>
-                    {!marketsLoading ? (
-                      <button
-                        type="button"
-                        className="pass-link-btn"
-                        onClick={() => void loadMarkets(false)}
-                      >
-                        Retry
-                      </button>
-                    ) : null}
-                  </div>
+                  <p className="pass-note" role="status">
+                    {marketsLoading
+                      ? "Loading live prediction markets…"
+                      : "No active prediction markets available at this time."}
+                  </p>
                 )
               ) : null}
             </div>
