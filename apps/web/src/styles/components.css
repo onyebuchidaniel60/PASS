@@ -7388,3 +7388,26 @@ text-underline-offset: 0.2em;
 .pass-alert-actions .pass-btn {
   flex: 0 0 auto;
 }
+
+/* Expiry display: human-readable at rest, native editor on click. */
+.pass-expiry-display {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: start;
+  cursor: pointer;
+  font-family: var(--font-data);
+  color: var(--color-text-primary);
+}
+
+.pass-expiry-display[data-empty="true"] {
+  color: var(--color-text-tertiary);
+}
+
+.pass-expiry-display:hover {
+  border-block-end-color: var(--color-line-strong);
+}
+
+.pass-expiry-input {
+  color-scheme: dark;
+}

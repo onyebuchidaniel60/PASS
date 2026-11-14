@@ -101,6 +101,10 @@ interface MarketsResponse {
 
 /** Placeholder names the venue emits before a real question is attached. */
 const PLACEHOLDER_OUTCOME = /template|fallback/i;
+const EXACT_PLACEHOLDER_OUTCOMES = new Set([
+  "recurring",
+  "recurring named outcome",
+]);
 
 function isHumanReadableOutcomeName(
   name: string | null | undefined,
@@ -109,6 +113,7 @@ function isHumanReadableOutcomeName(
   const value = name?.trim() ?? "";
   if (!value) return false;
   if (PLACEHOLDER_OUTCOME.test(value)) return false;
+  if (EXACT_PLACEHOLDER_OUTCOMES.has(value.toLowerCase())) return false;
   if (/^outcome\s+\d+$/i.test(value)) return false;
   if (value.toLowerCase() === asset.toLowerCase()) return false;
   return /[a-z]/i.test(value) && value.length >= 6;
@@ -287,6 +292,64 @@ function OutcomeMarketPicker({
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Expiry reads as a human date, not the ISO string the form state carries.
+ * Clicking the display swaps in a native datetime-local editor; blur returns
+ * to the formatted value. The state — and therefore `expiresAt` — stays in the
+ * same local ISO shape the API conversion already expects.
+ */
+function ExpiryField({
+  id,
+  value,
+  onChange,
+  describedBy,
+  invalid = false,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  describedBy?: string;
+  invalid?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const valid = value.trim() !== "" && !Number.isNaN(new Date(value).getTime());
+
+  if (editing) {
+    return (
+      <input
+        id={id}
+        type="datetime-local"
+        className="pass-control pass-terminal-input pass-expiry-input"
+        value={value}
+        autoFocus
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+    );
+  }
+
+  return (
+    <button
+      id={id}
+      type="button"
+      className="pass-control pass-expiry-display"
+      data-empty={valid ? undefined : "true"}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      onClick={() => setEditing(true)}
+    >
+      {valid
+        ? `Expires ${formatDateTime(value)} (your local time)`
+        : "Set an expiry"}
+    </button>
   );
 }
 
@@ -1249,24 +1312,15 @@ export function CreatePassClient() {
                 className="pass-terminal-field"
               >
                 {({ controlId, describedBy }) => (
-                  <TextInput
+                  <ExpiryField
                     id={controlId}
                     value={expiry}
                     onChange={setExpiry}
                     describedBy={describedBy}
                     invalid={Boolean(errors.expiry)}
-                    placeholder="2026-10-07T14:22"
-                    className="pass-terminal-input"
                   />
                 )}
               </Field>
-              {/* Display only: the raw input value above is what the API
-                  receives. This line reads it back human-readably. */}
-              {expiry && !Number.isNaN(new Date(expiry).getTime()) ? (
-                <p className="pass-stale pass-form-note" role="note">
-                  Expires {formatDateTime(expiry)} (your local time).
-                </p>
-              ) : null}
             </div>
 
             <Field

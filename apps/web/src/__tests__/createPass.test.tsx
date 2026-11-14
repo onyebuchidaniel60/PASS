@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -74,6 +74,34 @@ const TEMPLATE_MARKET_NO = {
     orderCoin: "#31",
     balanceCoin: "+31",
     assetId: 100000031,
+  },
+};
+
+const RECURRING_MARKET = {
+  ...HIP4_MARKET,
+  asset: "#40",
+  label: "Recurring · Yes",
+  outcome: {
+    ...HIP4_MARKET.outcome,
+    outcomeId: 4,
+    name: "Recurring",
+    orderCoin: "#40",
+    balanceCoin: "+40",
+    assetId: 100000040,
+  },
+};
+
+const RECURRING_NAMED_MARKET = {
+  ...HIP4_MARKET,
+  asset: "#41",
+  label: "Recurring Named Outcome · Yes",
+  outcome: {
+    ...HIP4_MARKET.outcome,
+    outcomeId: 5,
+    name: "Recurring Named Outcome",
+    orderCoin: "#41",
+    balanceCoin: "+41",
+    assetId: 100000041,
   },
 };
 
@@ -237,6 +265,18 @@ async function renderForm({
   return out;
 }
 
+async function setExpiry(value: string) {
+  fireEvent.click(screen.getByLabelText(/Expiry/));
+  await waitFor(() =>
+    expect(document.querySelector('input[type="datetime-local"]')).not.toBeNull(),
+  );
+  const input = document.querySelector(
+    'input[type="datetime-local"]',
+  ) as HTMLInputElement;
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+}
+
 describe("Create Pass states (§10.5)", () => {
   it("shows a loading state before markets resolve", () => {
     let release: (v: unknown) => void = () => {};
@@ -293,6 +333,39 @@ describe("Create Pass states (§10.5)", () => {
     expect(options[0]).toHaveTextContent("Will BTC close above 120k by Friday?");
     expect(options[0]).toHaveTextContent("#20");
     expect(screen.queryByText(/template fallback/i)).toBeNull();
+  });
+
+  it("drops exact Recurring and Recurring Named Outcome placeholders", async () => {
+    await renderForm({
+      markets: [
+        ...MARKETS,
+        HIP4_MARKET,
+        RECURRING_MARKET,
+        RECURRING_NAMED_MARKET,
+      ],
+    });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    await user.click(screen.getByLabelText(/Outcome Market/));
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.queryByText("Recurring")).toBeNull();
+    expect(screen.queryByText("Recurring Named Outcome")).toBeNull();
+  });
+
+  it("shows the empty state when only Recurring placeholders remain", async () => {
+    await renderForm({
+      markets: [...MARKETS, RECURRING_MARKET, RECURRING_NAMED_MARKET],
+    });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    expect(
+      await screen.findByText("No active prediction markets available at this time."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Outcome Market/)).toBeDisabled();
   });
 
   it("shows the empty state and disables the picker when every outcome is a template", async () => {
@@ -403,11 +476,12 @@ describe("Create Pass preview and publish (§10.5)", () => {
   it("reads the expiry back human-readably without changing the sent value", async () => {
     await renderForm();
     await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
-    const { default: userEvent } = await import("@testing-library/user-event");
-    const user = userEvent.setup({ delay: null });
-    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
-    // Human-readable, locale-formatted — never the raw "2099-01-01T00:00".
-    expect(await screen.findByText(/Expires Jan 1, 2099/)).toBeInTheDocument();
+    await setExpiry("2099-01-01T00:00");
+    // The field itself is human-readable at rest — never the raw
+    // "2099-01-01T00:00" — while the state keeps the local ISO shape.
+    expect(screen.getByLabelText(/Expiry/)).toHaveTextContent(
+      /Expires Jan 1, 2099/,
+    );
   });
 
   it("has no Taker-size field — a Trader publishes a plan, not a size (D-015)", async () => {
@@ -426,7 +500,7 @@ describe("Create Pass publish path (create then publish)", () => {
     await user.type(screen.getByLabelText(/Take profit/), "116000");
     await user.type(screen.getByLabelText(/Entry price/), "113400");
     await user.type(screen.getByLabelText(/Thesis/), "Range top reclaim.");
-    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
+    await setExpiry("2099-01-01T00:00");
     const publish = screen.getByRole("button", { name: /^Publish$/ });
     await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled", "true"));
     return { user, publish };
@@ -445,6 +519,11 @@ describe("Create Pass publish path (create then publish)", () => {
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
     expect(mockPost.mock.calls[0]?.[0]).toBe("/api/v1/passes");
     expect(mockPost.mock.calls[1]?.[0]).toBe("/api/v1/passes/uuid-1/publish");
+    // The display is formatted; the wire value is still the ISO instant.
+    const draftBody = mockPost.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(draftBody.expiresAt).toBe(
+      new Date("2099-01-01T00:00").toISOString(),
+    );
     // Only now is the public URL shown, with a copy control.
     await waitFor(() => expect(screen.getByText("Published")).toBeInTheDocument());
     expect(screen.getByDisplayValue("/p/UvvuxpWPZ4")).toBeInTheDocument();
@@ -466,7 +545,7 @@ describe("Create Pass publish path (create then publish)", () => {
 
     await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
     await user.type(screen.getByLabelText(/Thesis/), "The market is mispricing the outcome.");
-    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
+    await setExpiry("2099-01-01T00:00");
     await user.click(screen.getByRole("button", { name: /^Publish$/ }));
 
     await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
@@ -538,7 +617,7 @@ describe("Create Pass publish path (create then publish)", () => {
     await user.type(screen.getByLabelText(/Stop loss/), "111900");
     await user.type(screen.getByLabelText(/Take profit/), "116000");
     await user.type(screen.getByLabelText(/Thesis/), "Market break.");
-    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
+    await setExpiry("2099-01-01T00:00");
     const publish = screen.getByRole("button", { name: /^Publish$/ });
     await waitFor(() => expect(publish).not.toHaveAttribute("aria-disabled", "true"));
     await user.click(publish);
