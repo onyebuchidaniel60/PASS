@@ -5,45 +5,73 @@
 <h1 align="center">PASS</h1>
 
 <p align="center">
-  <strong>See a trade. Know the trader. Take the trade.</strong>
+  <strong>PASS is a chain-agnostic social trading protocol built on NEAR's intent infrastructure.</strong>
+</p>
+
+<p align="center">
+  <em>See a trade. Know the trader. Take the trade.</em>
 </p>
 
 <p align="center">
   <a href="https://pass-web-dun.vercel.app"><img src="https://img.shields.io/badge/Live%20on-Mainnet-ff4d2e?style=flat-square" alt="Live on Mainnet" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" alt="License: MIT" /></a>
-  <img src="https://img.shields.io/badge/Stack-Next.js%20%7C%20Fastify%20%7C%20Hyperliquid-6b7280?style=flat-square" alt="Tech stack: Next.js, Fastify, Hyperliquid" />
-  <img src="https://img.shields.io/badge/Powered%20by-NEAR%20Intents-00c1a2?style=flat-square" alt="Powered by NEAR Intents" />
+  <img src="https://img.shields.io/badge/Built%20on-NEAR%20Intents-00c1a2?style=flat-square" alt="Built on NEAR Intents" />
+  <img src="https://img.shields.io/badge/Execution-Hyperliquid-6b7280?style=flat-square" alt="Execution venue: Hyperliquid" />
 </p>
 
-PASS is a **social execution layer for Hyperliquid**. A trader publishes a
-trade plan as a shareable **Pass**. A taker reads the plan, chooses their own
-size, and authorizes it with their own wallet. The plan is public. The
-execution is self-custodial.
+PASS turns a social trading idea into an executable plan. NEAR Intents handles
+the cross-chain funding and privacy layer. Hyperliquid is the first execution
+venue. The taker always signs with their own wallet.
 
 ---
 
 ## The problem
 
-Trading alpha lives on Crypto Twitter, but the trade does not. By the time you
-leave the timeline, open an exchange, and rebuild the position, the price has
-moved. Copy-trading bots solve the speed problem by holding your funds and
-asking you to trust their custody.
+Trading alpha lives on social. Liquidity lives across a dozen chains. The gap
+between them is where the trade dies: open the exchange, bridge funds, wait for
+confirmations, size the position, and by then the move is gone.
 
-There should be a way to turn a public trade idea into an executable plan
-without handing over a private key.
+Copy-trading bots promise speed, but they ask for custody of your keys. Every
+bridge is another risk surface. Every manual trade is a race. Every custodial
+bot is a compromise.
 
 ## The solution
 
-**PASS turns a trade plan into a shareable, executable link.** The trader
-publishes the thesis, levels, expiry, and risk. The taker chooses their own
-size and signs the order from their own wallet. PASS relays the signed action
-to Hyperliquid and records the execution against the exact Pass version that
-was live when it was taken.
+**PASS is a chain-agnostic social trading protocol.** A trader publishes a
+plan — entry, target, stop, thesis, expiry — as a Pass. A taker sees it on X,
+clicks it, and chooses their own size.
 
-- **Non-custodial.** PASS never holds funds, seed phrases, or private keys.
-- **Trader-led.** The plan is the public object; the size is the taker's call.
-- **Auditable.** Every execution names the Pass version and provider order id.
-- **Social.** Share the Pass on X and let the timeline execute with context.
+NEAR Intents is the core infrastructure:
+
+- **Fund from any chain** without a manual bridge.
+- **Route privately through NEAR's confidential shards**, so the funding wallet
+  and the trading wallet are never linked on-chain.
+- **Sign with your own wallet.** PASS never holds funds or keys.
+- **Execute on Hyperliquid**, the initial execution venue, and record the
+  receipt against the exact Pass version.
+
+---
+
+## Why NEAR?
+
+### Chain abstraction
+
+Funding is the first friction point in every trade. NEAR Intents turns
+cross-chain USDC into one intent: the taker chooses the source chain, and the
+funds arrive at the trading account without a manual bridge or a wrapped asset.
+
+### Privacy
+
+NEAR Confidential Intents route the deposit through private shards. The
+funding wallet and the trading wallet are not linkable on-chain, which removes
+the front-running surface that a public bridge creates.
+
+### Agent economy
+
+The PASS Agent API lets bots discover live Passes and execute pre-signed
+orders on NEAR's intent rails. A bot can run headless with a Bearer key while
+the wallet remains the signing authority. Social signals become autonomous
+strategies without giving an agent custody.
 
 ---
 
@@ -60,8 +88,8 @@ entry point.
   <img src="public/readme/take-modal.png" width="720" alt="The PASS Take flow at position-size selection" />
 </p>
 
-**The Take flow.** The taker chooses the size; PASS previews the exact order
-and fees before anything is signed.
+**The Take flow.** The taker chooses the size; NEAR Intents funds the account;
+the wallet signs.
 
 <p align="center">
   <img src="public/readme/mobile.png" width="300" alt="The PASS homepage on a 375px mobile viewport" />
@@ -85,18 +113,18 @@ flowchart LR
   T[Trader] --> P[Creates a Pass]
   P --> X[X / Twitter]
   X --> K[Taker clicks]
-  K --> PASS[PASS]
-  PASS --> W[Wallet signs]
-  W --> HL[Hyperliquid]
-  HL --> R[Execution receipt]
+  K --> N[NEAR Intents<br/>Funds + Privacy]
+  N --> PASS[PASS]
+  PASS --> H[Hyperliquid<br/>Initial execution venue]
+  H --> R[Execution receipt]
 ```
 
-1. The **Trader** connects X and publishes a Pass: asset, direction, entry,
-   take profit, stop loss, leverage, thesis, and expiry.
+1. The **Trader** connects X and publishes a Pass.
 2. The Pass is shared on **X** as a public link.
-3. The **Taker** opens the Pass, reads the thesis, and chooses their own size.
-4. PASS previews the exact order and fees. The taker's **wallet signs**.
-5. **Hyperliquid** executes. PASS records the receipt against the Pass version.
+3. The **Taker** opens it, reads the thesis, and chooses their own size.
+4. **NEAR Intents** routes the cross-chain funding privately.
+5. The taker's **wallet signs**. **Hyperliquid** executes. PASS records the
+   receipt against the Pass version.
 
 Prediction markets use the same flow with binary HIP-4 YES/NO outcomes and
 USDH collateral.
@@ -110,9 +138,8 @@ No clone. No terminal. Just the live app.
 1. Open [pass-web-dun.vercel.app](https://pass-web-dun.vercel.app).
 2. **Connect X** — your PASS identity is X-only.
 3. Go to **Discover** and open a Pass. Read the thesis, levels, and expiry.
-4. Connect your wallet when you are ready to take the trade.
-5. Enter **your** position size. PASS previews the order and the 0.05% builder
-   fee.
+4. **Fund from any chain with NEAR Intents.** No manual bridge.
+5. Enter **your** position size. PASS previews the order and fee.
 6. On your first take, approve a Hyperliquid agent key that can place and
    cancel trades only. Then authorize the order.
 7. Your execution appears under **Executions**. If the account is empty,
@@ -146,7 +173,9 @@ pnpm -r typecheck
 pnpm lint
 ```
 
-The production web build uses `apps/web/.env.production`. The extension uses
+NEAR Intents is configured with `NEAR_INTENTS_MODE`, `NEAR_INTENTS_API_URL`,
+and `NEAR_INTENTS_JWT`. The production web build uses
+`apps/web/.env.production`; the extension uses
 `apps/extension/.env.production`.
 
 ---
@@ -155,11 +184,11 @@ The production web build uses `apps/web/.env.production`. The extension uses
 
 | Layer | Choice |
 |---|---|
+| **NEAR Intents** | **Core infrastructure — chain abstraction, confidential cross-chain funding, intent rails** |
+| **Hyperliquid** | **Execution venue — client-signed orders and fills** |
 | Web | Next.js 15, React 19, TypeScript |
 | API | Fastify, Zod, Drizzle ORM |
 | Database | Supabase Postgres; embedded PGlite locally |
-| Execution | Hyperliquid API, client-signed actions |
-| Funding | NEAR Intents / 1Click confidential cross-chain USDC |
 | Extension | Chrome MV3, X overlay |
 | Design | Custom stageshow system, tokens, editorial typography |
 
@@ -200,7 +229,8 @@ Then reload the unpacked extension in `chrome://extensions`.
 ## Demo video
 
 The 3-minute script, voiceover copy, and shot-by-shot storyboard live in
-[`docs/DEMO_VIDEO.md`](docs/DEMO_VIDEO.md).
+[`docs/DEMO_VIDEO.md`](docs/DEMO_VIDEO.md). The finished cut is committed at
+`public/demo/demo.mp4`.
 
 ```bash
 ELEVENLABS_API_KEY=...
@@ -214,8 +244,7 @@ pnpm video:build
 `pnpm generate:voiceover` writes `public/demo/voiceover.mp3`.
 `pnpm video:record` writes the Playwright `.webm` to `public/demo/raw-video/`.
 `pnpm video:build` combines the recording, voiceover, and a locally supplied
-`public/demo/background.mp3` into `public/demo/demo.mp4`. The finished cut is
-committed at `public/demo/demo.mp4` for direct download.
+`public/demo/background.mp3` into `public/demo/demo.mp4`.
 
 The background music is not generated or committed. Add a royalty-free track
 you have the right to use.

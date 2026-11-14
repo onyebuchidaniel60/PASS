@@ -52,7 +52,9 @@ mkdir -p "$(dirname "$OUT")"
 CLEAN_DIR="$(mktemp -d)"
 trap 'rm -rf "$CLEAN_DIR"' EXIT
 CLEAN_VOICE="$CLEAN_DIR/voiceover.wav"
-ffmpeg -y -v error -i "$VOICE" -vn -ac 1 -ar 44100 "$CLEAN_VOICE"
+# 1% tempo lift keeps the five-paragraph NEAR cut under three minutes without
+# changing pitch or trimming any words.
+ffmpeg -y -v error -i "$VOICE" -vn -ac 1 -ar 44100 -filter:a "atempo=1.01" "$CLEAN_VOICE"
 
 # Voiceover at full level, music at 15%. The music loops if it is shorter than
 # the narration. `-shortest` trims the final cut to the shorter stream.
@@ -60,8 +62,8 @@ ffmpeg -y \
   -i "$RAW" \
   -i "$CLEAN_VOICE" \
   -stream_loop -1 -i "$MUSIC" \
-  -filter_complex "[2:a]volume=0.15[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=2[a]" \
-  -map 0:v -map "[a]" \
+  -filter_complex "[0:v]tpad=stop_mode=clone:stop_duration=10[v];[2:a]volume=0.15[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=2[a]" \
+  -map "[v]" -map "[a]" \
   -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
   -shortest "$OUT"

@@ -24,12 +24,11 @@ dotenv.config({ path: resolve(process.cwd(), ".env.local") });
  * artifact of one long request.
  */
 export const VOICEOVER_PARAGRAPHS = [
-  "You see a great trade on X. By the time you open your exchange, the price has moved. Copy-trading bots? They hold your funds. There has to be a better way.",
-  "Meet PASS. The social execution layer for Hyperliquid. A trader publishes a trade plan as a Pass: thesis, entry, target, stop. The Pass carries the trader's identity and reputation context, so you know whose plan you're reading. You read it, size it yourself, and authorize with your own wallet. No custody. No copied position. No private key ever leaves your browser.",
-  "Here's the flow. A trader opens Create a Pass, picks BTC Long, sets entry, take profit, stop loss, and leverage, then publishes. The Pass becomes a link. They share it on X. A taker clicks the link, reads the thesis, and chooses their own size. PASS previews the exact entry, target, stop, and the 0.05% builder fee before you sign. They connect their wallet, approve a Hyperliquid agent key that can place and cancel trades only, and authorize. The order is signed in the browser and relayed to Hyperliquid Mainnet. The receipt records the fill against the exact Pass version.",
-  "Prediction markets work the same way: pick a binary YES/NO market, set a probability, and take the outcome. The market question, side, and probability are visible before you commit. Collateral is USDH.",
-  "Under the hood, PASS is non-custodial by design. D-027: a wallet is an execution device, not an account. Executions reference the wallet address, never ownership. The agent key cannot withdraw, transfer, or change account settings. And funding runs through NEAR Intents confidential cross-chain USDC, so your deposit and your Hyperliquid account cannot be linked on-chain. Builders can plug in through the Agent API with a Bearer key, discover live Passes, and relay pre-signed orders. The same execution layer powers the Chrome extension, so PASS shows up where the trade is discovered.",
-  "PASS. See a trade. Know the trader. Take the trade. Live on Mainnet at pass-web-dun.vercel.app. Documentation at pass-web-dun.vercel.app/docs.",
+  "It's 2 a.m. You're scrolling X. A trader you trust posts a setup: long SOL, tight stop, clear target. By the time you open your exchange, bridge funds, and size the position, the move is gone. And the copy-trading bots that promise to solve it? They want custody of your keys. There has to be a better way to act on alpha without surrendering your wallet.",
+  "The problem isn't information. It's execution. Alpha lives on social, but liquidity lives on-chain—across a dozen networks. Every bridge is a risk. Every manual trade is a race. And every custodial bot is a compromise. Traders need a way to move from idea to execution in one motion, without giving up ownership.",
+  "This is PASS. A social execution layer built on NEAR Intents. A trader publishes a plan—entry, target, stop—as a Pass. You see it on X. You click it. And here's where NEAR changes everything: instead of manually bridging, you fund from any chain using NEAR Intents. Your deposit is routed privately through NEAR's confidential shards, so your funding wallet and your trading wallet are never linked on-chain. Once the funds land, you size the trade yourself and sign with your own wallet. Hyperliquid executes. PASS records the receipt. No custody. No front-running. No friction.",
+  "Watch the flow. A trader publishes a SOL long on PASS. It becomes a link on X. A taker clicks it, reads the thesis, and connects their wallet. They choose their size—fifty dollars. PASS previews the order, the fee, and the exact risk. They authorize. The wallet signs. NEAR Intents handles the cross-chain funding. Hyperliquid fills the order. The receipt appears. And because this is all built on NEAR, builders can plug in through our Agent API—bots that discover Passes and execute pre-signed orders, turning social signals into autonomous strategies.",
+  "PASS isn't just faster trading. It's a new primitive: a trade plan that anyone can execute, anywhere, without trusting a middleman. NEAR makes it possible—chain abstraction for funding, confidential intents for privacy, and an agent economy for scale. This is what social trading looks like when the infrastructure finally catches up to the conversation. PASS. See a trade. Know the trader. Take the trade. Built on NEAR. Live now at pass-web-dun.vercel.app.",
 ] as const;
 
 const OUTPUT = resolve(process.cwd(), "public", "demo", "voiceover.mp3");
@@ -79,6 +78,8 @@ async function synthesize(
           similarity_boost: 0.75,
           style: 0.15,
           use_speaker_boost: true,
+          // Keep the five-paragraph NEAR-first cut under the 3-minute limit.
+          speed: 1.05,
         },
       }),
       signal: AbortSignal.timeout(120_000),
