@@ -43,13 +43,14 @@ vi.mock("connectkit", () => ({
 // The default profile save (PATCH /profiles/me) and the Settings X
 // disconnect (POST /api/v1/auth/x/disconnect) run through the real client
 // module. Mocked here so those flows assert the wire call without network.
-const { mockPatch, mockClientPost } = vi.hoisted(() => ({
+const { mockPatch, mockClientPost, mockClientGet } = vi.hoisted(() => ({
   mockPatch: vi.fn(),
   mockClientPost: vi.fn(),
+  mockClientGet: vi.fn(),
 }));
 
 vi.mock("@/lib/client", () => ({
-  clientGet: vi.fn(),
+  clientGet: (...a: unknown[]) => mockClientGet(...a),
   clientPost: (...a: unknown[]) => mockClientPost(...a),
   clientPatch: (...a: unknown[]) => mockPatch(...a),
   clientDelete: vi.fn(),
@@ -60,6 +61,10 @@ beforeEach(() => {
   account = { isConnected: false };
   mockPatch.mockReset();
   mockClientPost.mockReset();
+  mockClientGet.mockReset();
+  mockClientGet.mockImplementation(async (path: unknown) =>
+    path === "/api/v1/agent/keys" ? { keys: [] } : undefined,
+  );
 });
 
 const ME: Me = {

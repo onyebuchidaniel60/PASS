@@ -138,12 +138,79 @@ describe("NEAR Intents funding modal", () => {
 });
 
 describe("Agent Access", () => {
-  it("generates an API key in the browser", () => {
-    render(<AgentAccess generateKey={() => "pass_agent_test_key"} />);
-    fireEvent.click(screen.getByRole("button", { name: "Generate API key" }));
-    expect(screen.getByTestId("agent-api-key")).toHaveTextContent("pass_agent_test_key");
-    expect(screen.getByText("Developer access")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate another key" })).toBeInTheDocument();
+  const existingKey = {
+    id: "key-1",
+    name: "Existing Bot",
+    prefix: "pass_agt_a1b2c3d4",
+    createdAt: "2026-11-14T00:00:00.000Z",
+    lastUsedAt: null,
+  };
+
+  it("loads keys and shows a newly generated plaintext key exactly once", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const loadKeys = vi.fn(async () => ({ keys: [existingKey] }));
+    const createKey = vi.fn(async (name: string) => ({
+      id: "key-2",
+      name,
+      prefix: "pass_agt_12345678",
+      createdAt: "2026-11-14T01:00:00.000Z",
+      lastUsedAt: null,
+      key: `pass_agt_${"a".repeat(64)}`,
+    }));
+    const revokeKey = vi.fn();
+
+    render(
+      <AgentAccess
+        loadKeys={loadKeys}
+        createKey={createKey}
+        revokeKey={revokeKey}
+      />,
+    );
+
+    expect(await screen.findByText("Existing Bot")).toBeInTheDocument();
+    expect(screen.getByText("pass_agt_a1b2c3d4…")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Key name/), {
+      target: { value: "Python Bot" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Key" }));
+
+    expect(createKey).toHaveBeenCalledWith("Python Bot");
+    const secret = await screen.findByTestId("agent-api-key");
+    expect(secret).toHaveTextContent(`pass_agt_${"a".repeat(64)}`);
+    expect(
+      screen.getByText(
+        "Copy this key now. You won't be able to see it again.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy key" }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`pass_agt_${"a".repeat(64)}`),
+    );
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("revokes a key and removes it from the active list", async () => {
+    const loadKeys = vi.fn(async () => ({ keys: [existingKey] }));
+    const revokeKey = vi.fn(async () => ({ ok: true as const, id: existingKey.id }));
+    render(
+      <AgentAccess loadKeys={loadKeys} revokeKey={revokeKey} />,
+    );
+
+    expect(await screen.findByText("Existing Bot")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+    await waitFor(() => expect(revokeKey).toHaveBeenCalledWith("key-1"));
+    await waitFor(() => expect(screen.queryByText("Existing Bot")).toBeNull());
+    expect(
+      await screen.findByText(
+        "Existing Bot revoked. It can no longer authenticate.",
+      ),
+    ).toBeInTheDocument();
   });
 });
 

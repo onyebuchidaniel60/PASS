@@ -6236,3 +6236,108 @@ text-underline-offset: 0.2em;
 .pass-search-field:focus-within {
   background-color: var(--color-surface-raised);
 }
+
+/* --- Agent API keys (Developers tab) ------------------------------------ */
+.pass-agent-key-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--type-title-s-size);
+  line-height: var(--type-title-s-line);
+  letter-spacing: var(--type-title-s-track);
+  color: var(--color-text-primary);
+}
+
+.pass-agent-key-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.pass-agent-generate {
+  justify-self: start;
+  min-height: var(--size-target-min);
+}
+
+.pass-agent-secret {
+  padding: var(--space-4);
+  border: var(--border-hairline);
+  border-block-start: var(--border-accent-edge);
+  background-color: var(--color-surface-raised);
+  min-width: 0;
+}
+
+.pass-agent-key-list-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.pass-agent-key-count {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-agent-key-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-block-start: var(--border-hairline);
+}
+
+.pass-agent-key-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-block-end: var(--border-hairline);
+  min-width: 0;
+}
+
+.pass-agent-key-row-main {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.pass-agent-key-row-main strong {
+  font-family: var(--font-display);
+  font-size: var(--type-title-s-size);
+  line-height: var(--type-title-s-line);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.pass-agent-key-prefix {
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  color: var(--color-accent-text);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 768px) {
+  .pass-agent-key-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .pass-agent-key-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .pass-agent-key-row .pass-btn {
+    justify-self: start;
+  }
+}
+
+.pass-agent-access .pass-note {
+  margin: 0;
+}

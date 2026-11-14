@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import {
+  apiKeys,
   createDb,
   executions,
   identities,
@@ -147,6 +148,20 @@ async function traderWithActivePass(): Promise<{ publicId: string; cookie: strin
   };
 }
 
+async function createAgentKey(
+  cookie: string,
+  name = "Test Bot",
+): Promise<{ id: string; key: string; prefix: string }> {
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/v1/agent/keys",
+    headers: { cookie, "content-type": "application/json" },
+    payload: { name },
+  });
+  expect(res.statusCode).toBe(201);
+  return res.json() as { id: string; key: string; prefix: string };
+}
+
 describe("NEAR funding intents", () => {
   it("returns a deposit address and includes confidentiality when opted in", async () => {
     const res = await app.inject({
@@ -177,10 +192,12 @@ describe("NEAR funding intents", () => {
 
 describe("Agent Execution API", () => {
   it("lists active Passes with clean execution fields", async () => {
-    const { publicId } = await traderWithActivePass();
+    const { publicId, cookie } = await traderWithActivePass();
+    const { key } = await createAgentKey(cookie);
     const res = await app.inject({
       method: "GET",
       url: "/api/v1/agent/passes?limit=10",
+      headers: { authorization: `Bearer ${key}` },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json() as {
@@ -204,14 +221,18 @@ describe("Agent Execution API", () => {
     expect(pass).not.toHaveProperty("market");
   });
 
-  it("relays a pre-signed order without a session and records it", async () => {
-    const { publicId } = await traderWithActivePass();
+  it("relays a pre-signed order with a key and records it", async () => {
+    const { publicId, cookie } = await traderWithActivePass();
+    const { key } = await createAgentKey(cookie);
     const agentWallet = "0x9999999999999999999999999999999999999999";
     const clientRequestId = `agent_test_${Date.now()}`;
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/agent/execute",
-      headers: { "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${key}`,
+        "content-type": "application/json",
+      },
       payload: {
         passId: publicId,
         agentWalletAddress: agentWallet,
@@ -249,6 +270,93 @@ describe("Agent Execution API", () => {
       .limit(1);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.positionSize).toBe("0.02");
+  });
+});
+
+describe("Agent API keys", () => {
+  it("creates, lists, authenticates, and revokes a key", async () => {
+    const { cookie } = await traderWithActivePass();
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/v1/agent/keys",
+      headers: { cookie, "content-type": "application/json" },
+      payload: { name: "Python Bot" },
+    });
+    expect(created.statusCode).toBe(201);
+    const body = created.json() as {
+      id: string;
+      name: string;
+      prefix: string;
+      key: string;
+      createdAt: string;
+      lastUsedAt: string | null;
+    };
+    expect(body.name).toBe("Python Bot");
+    expect(body.key).toMatch(/^pass_agt_[0-9a-f]{64}$/);
+    expect(body.prefix).toMatch(/^pass_agt_[0-9a-f]{8}$/);
+    expect(body).not.toHaveProperty("keyHash");
+    expect(body).not.toHaveProperty("key_hash");
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/api/v1/agent/keys",
+      headers: { cookie },
+    });
+    expect(list.statusCode).toBe(200);
+    const listed = list.json() as {
+      keys: Array<{ id: string; name: string; prefix: string; lastUsedAt: string | null }>;
+    };
+    expect(listed.keys[0]).toMatchObject({
+      id: body.id,
+      name: "Python Bot",
+      prefix: body.prefix,
+      lastUsedAt: null,
+    });
+    expect(JSON.stringify(listed)).not.toContain(body.key);
+
+    const unauth = await app.inject({
+      method: "GET",
+      url: "/api/v1/agent/passes",
+    });
+    expect(unauth.statusCode).toBe(401);
+
+    const auth = await app.inject({
+      method: "GET",
+      url: "/api/v1/agent/passes",
+      headers: { authorization: `Bearer ${body.key}` },
+    });
+    expect(auth.statusCode).toBe(200);
+
+    const rows = await db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.id, body.id))
+      .limit(1);
+    expect(rows[0]?.keyHash).toHaveLength(64);
+    expect(rows[0]?.keyHash).not.toBe(body.key);
+    expect(rows[0]?.lastUsedAt).not.toBeNull();
+
+    const revoked = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/agent/keys/${body.id}`,
+      headers: { cookie },
+    });
+    expect(revoked.statusCode).toBe(200);
+
+    const after = await app.inject({
+      method: "GET",
+      url: "/api/v1/agent/passes",
+      headers: { authorization: `Bearer ${body.key}` },
+    });
+    expect(after.statusCode).toBe(401);
+  });
+
+  it("requires a session for key management", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/agent/keys",
+    });
+    expect(res.statusCode).toBe(401);
   });
 });
 

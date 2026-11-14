@@ -72,13 +72,21 @@ need to operate without exposing their treasury graph.
 ## Agent Economy
 
 The Agent Execution API lets a bot discover live Passes and submit a
-pre-signed Hyperliquid order. It requires no browser session and accepts no
-private key; the signature in the payload is the authorization.
+pre-signed Hyperliquid order. It requires an Agent API key and no browser
+session, and accepts no private key; the signature in the payload is the
+authorization.
 
 ```text
-GET  /api/v1/agent/passes?limit=20
-POST /api/v1/agent/execute
+GET    /api/v1/agent/passes?limit=20
+POST   /api/v1/agent/execute
+POST   /api/v1/agent/keys
+GET    /api/v1/agent/keys
+DELETE /api/v1/agent/keys/:id
 ```
+
+Agent requests authenticate with `Authorization: Bearer pass_agt_...`.
+Keys are generated in Settings → Developers, shown once, stored only as a
+SHA-256 hash, and can be revoked immediately.
 
 `GET /agent/passes` returns a clean execution-oriented payload: `passId`,
 asset, direction, entry, stop, target, leverage, status, and expiry. It omits
@@ -86,9 +94,8 @@ UI-only reputation and market decoration. `POST /agent/execute` accepts
 `passId`, `agentWalletAddress`, and `signedPayload`, then runs the same Pass
 version, idempotency, relay, and recording checks as the human Take flow.
 
-Settings includes an **Agent Access** section with live request examples and a
-hackathon-only mock API key generator. The generated key is browser-local, is
-never stored, and is not checked by the API.
+Settings includes an **Agent Access** section with live request examples, key
+creation, one-time plaintext display, and revocation.
 
 ## Non-Custodial Security
 

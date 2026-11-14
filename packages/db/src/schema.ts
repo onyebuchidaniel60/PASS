@@ -130,6 +130,33 @@ export const xConnections = pgTable(
 );
 
 /**
+ * Long-lived Agent API credentials. The plaintext key exists only in the
+ * creation response; only its SHA-256 hash is stored. `key_prefix` is the
+ * non-secret identifier shown in Settings.
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    keyHash: text("key_hash").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("api_keys_key_hash_idx").on(t.keyHash),
+    index("api_keys_user_idx").on(t.userId),
+  ],
+);
+
+/**
  * account_address is the query subject for all Info API reads.
  * agent_address is a signer only (D-018.3, docs/TECHNICAL_SPEC.md §8).
  */

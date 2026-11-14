@@ -5,5 +5,6 @@ export * from "./pass.js";
 export * from "./profile.js";
 export * from "./home.js";
 export * from "./search.js";
+export * from "./api-key.js";
 export * from "./integrations.js";
 export * from "./env.js";

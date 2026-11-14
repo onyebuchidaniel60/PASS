@@ -216,6 +216,26 @@ by Hyperliquid from the order action's `builder` field. Every surface reading
 this table (Take receipt, My Passes) must label its numbers simulated. Added
 by migration `0007_fee_ledger.sql`.
 
+### api_keys
+
+Agent API credentials. The plaintext key is shown once at creation and never
+stored; only its SHA-256 hash is persisted. `key_prefix` is the non-secret
+identifier shown in Settings.
+
+```text
+id UUID PK
+user_id UUID FK users.id ON DELETE CASCADE
+name text
+key_hash text NOT NULL UNIQUE
+key_prefix text NOT NULL
+created_at timestamptz
+last_used_at timestamptz nullable
+revoked_at timestamptz nullable
+```
+
+Revocation is a soft delete: `revoked_at` is set and bearer authentication
+refuses the key immediately. Added by migration `0010_api_keys.sql`.
+
 ### ethos_profiles
 
 Cached Ethos reputation snapshot, refreshed periodically. Read-only from the public API (see `docs/DECISIONS.md` D-018.6).

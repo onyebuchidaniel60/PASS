@@ -430,6 +430,21 @@ Creates a 1Click quote for cross-chain funding into a PASS trading account.
 request. The response contains `depositAddress`, `transactionPayload`, the
 quoted amounts, and `confidentiality`. The endpoint never moves funds.
 
+### Agent API keys
+
+Agent endpoints require `Authorization: Bearer pass_agt_...`. Keys are managed
+by a signed-in user:
+
+- `POST /agent/keys` with `{ "name": "Python Bot" }` returns the key summary
+  plus the plaintext `key` exactly once.
+- `GET /agent/keys` returns active keys as
+  `{ id, name, prefix, createdAt, lastUsedAt }`; it never returns a hash or the
+  plaintext key.
+- `DELETE /agent/keys/:id` soft-revokes an owned key.
+
+Only a SHA-256 hash of the key is stored. Every successful Agent request
+updates `lastUsedAt`; a revoked key returns 401 immediately.
+
 ### GET `/agent/passes`
 
 Returns active Passes in an execution-oriented shape. Fields: `passId`,
@@ -437,6 +452,11 @@ Returns active Passes in an execution-oriented shape. Fields: `passId`,
 `entryType`, `entryPrice`, `stopLoss`, `takeProfit`, `leverage`, `thesis`,
 `publishedAt`, `expiresAt`, `canonicalPath`, and `executeEndpoint`. No trader,
 reputation, or market decoration is included.
+
+```http
+GET /api/v1/agent/passes?limit=20
+Authorization: Bearer pass_agt_<your-key>
+```
 
 ### POST `/agent/execute`
 
@@ -452,10 +472,17 @@ reputation, or market decoration is included.
 }
 ```
 
-The signed Hyperliquid action is the authority. The endpoint applies the same
-Pass-version, idempotency, relay, and recording checks as the human Take path,
-without requiring a session. `clientRequestId` defaults to a generated value;
-retries should send the same one.
+The signed Hyperliquid action is the execution authority. The endpoint applies
+the same Pass-version, idempotency, relay, and recording checks as the human
+Take path. It requires an Agent API key but no browser session.
+`clientRequestId` defaults to a generated value; retries should send the same
+one.
+
+```http
+POST /api/v1/agent/execute
+Authorization: Bearer pass_agt_<your-key>
+Content-Type: application/json
+```
 
 ### POST `/trading-accounts/{address}/revoke-agent`
 

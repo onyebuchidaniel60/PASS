@@ -65,10 +65,13 @@ self-custodial.
 - `GET /api/v1/agent/passes` returns clean, execution-oriented Pass JSON.
 - `POST /api/v1/agent/execute` accepts `passId`, `agentWalletAddress`, and a
   pre-signed Hyperliquid `signedPayload`.
-- No browser session is required. The signed action is the authority.
+- Both endpoints require `Authorization: Bearer pass_agt_...`. No browser
+  session is required. The signed action is still the execution authority.
+- Keys are created, listed, and revoked through `/api/v1/agent/keys`; only a
+  SHA-256 hash is stored and the plaintext key is shown once.
 - Optional `clientRequestId` makes retries idempotent.
-- Settings includes an **Agent Access** section with request examples and a
-  hackathon-only mock API key generator.
+- Settings includes an **Agent Access** section with request examples, key
+  creation, one-time plaintext display, and revocation.
 
 ### NEW — Documentation & branding
 
@@ -135,6 +138,7 @@ Response highlights:
 
 ```http
 GET /api/v1/agent/passes?limit=20
+Authorization: Bearer pass_agt_<your-key>
 ```
 
 Each item carries `passId`, `version`, `asset`, `marketClass`, `direction`,
@@ -145,6 +149,7 @@ Each item carries `passId`, `version`, `asset`, `marketClass`, `direction`,
 
 ```http
 POST /api/v1/agent/execute
+Authorization: Bearer pass_agt_<your-key>
 Content-Type: application/json
 
 {
@@ -179,9 +184,12 @@ replacement address. PASS relays it and clears the local approval.
    permissions, and **Privacy Enabled**.
 5. Click **Revoke Agent Key**, confirm, and show the status flip to **Not
    Approved**.
-6. Open **Settings → Agent Access**. Generate a mock API key and show the
-   `GET /agent/passes` and `POST /agent/execute` examples.
-7. Optional: run `GET /api/v1/agent/passes` from a terminal against the live API.
+6. Open **Settings → Developers**. Generate a real Agent API key, copy the
+   one-time plaintext key, and show the `GET /agent/passes` and
+   `POST /agent/execute` examples.
+7. Run `GET /api/v1/agent/passes` from a terminal with
+   `Authorization: Bearer <key>`, then revoke the key in the UI and confirm the
+   same request returns 401.
 
 ## Configuration
 
