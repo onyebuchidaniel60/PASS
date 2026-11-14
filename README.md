@@ -16,9 +16,9 @@
 </p>
 
 PASS is a **social execution layer for Hyperliquid**. A trader publishes a
-trade plan as a shareable **Pass**. A taker reads the plan, sizes the trade
-themselves, and authorizes it with their own wallet. The plan is public. The
-execution stays self-custodial.
+trade plan as a shareable **Pass**. A taker reads the plan, chooses their own
+size, and authorizes it with their own wallet. The plan is public. The
+execution is self-custodial.
 
 ---
 
@@ -27,8 +27,7 @@ execution stays self-custodial.
 Trading alpha lives on Crypto Twitter, but the trade does not. By the time you
 leave the timeline, open an exchange, and rebuild the position, the price has
 moved. Copy-trading bots solve the speed problem by holding your funds and
-asking you to trust their custody. Manual execution is slow, fragmented, and
-easy to get wrong.
+asking you to trust their custody.
 
 There should be a way to turn a public trade idea into an executable plan
 without handing over a private key.
@@ -50,17 +49,32 @@ was live when it was taken.
 
 ## Screenshots
 
-### Homepage
+<p align="center">
+  <img src="public/readme/pass-card.png" width="720" alt="A PASS trade plan card in Discover" />
+</p>
 
-[![PASS homepage](public/readme/homepage.png)](https://pass-web-dun.vercel.app)
+**A Pass in Discover.** One plan, its levels, live status, and the taker's
+entry point.
 
-### Pass detail
+<p align="center">
+  <img src="public/readme/take-modal.png" width="720" alt="The PASS Take flow at position-size selection" />
+</p>
 
-[![PASS trade plan detail page](public/readme/pass-detail.png)](https://pass-web-dun.vercel.app/discover)
+**The Take flow.** The taker chooses the size; PASS previews the exact order
+and fees before anything is signed.
 
-### Mobile
+<p align="center">
+  <img src="public/readme/mobile.png" width="300" alt="The PASS homepage on a 375px mobile viewport" />
+</p>
 
-<img src="public/readme/mobile-mockup.png" width="360" alt="PASS mobile homepage" />
+**Mobile.** The hero and CTAs alone — the desktop phone mockup is hidden on
+phones.
+
+> **Screenshot brief for future updates:** keep these three images targeted.
+> `pass-card.png` is a single Discover card, not the full Discover page.
+> `take-modal.png` is the Take flow at size selection or preview.
+> `mobile.png` is the 375px hero with the phone mockup hidden. Replace the
+> files in `public/readme/` and keep the same paths.
 
 ---
 
@@ -89,21 +103,27 @@ USDH collateral.
 
 ---
 
-## Tech stack
+## For Traders
 
-| Layer | Choice |
-|---|---|
-| Web | Next.js 15, React 19, TypeScript |
-| API | Fastify, Zod, Drizzle ORM |
-| Database | Supabase Postgres; embedded PGlite locally |
-| Execution | Hyperliquid API, client-signed actions |
-| Funding | NEAR Intents / 1Click confidential cross-chain USDC |
-| Extension | Chrome MV3, X overlay |
-| Design | Custom stageshow system, tokens, editorial typography |
+No clone. No terminal. Just the live app.
+
+1. Open [pass-web-dun.vercel.app](https://pass-web-dun.vercel.app).
+2. **Connect X** — your PASS identity is X-only.
+3. Go to **Discover** and open a Pass. Read the thesis, levels, and expiry.
+4. Connect your wallet when you are ready to take the trade.
+5. Enter **your** position size. PASS previews the order and the 0.05% builder
+   fee.
+6. On your first take, approve a Hyperliquid agent key that can place and
+   cancel trades only. Then authorize the order.
+7. Your execution appears under **Executions**. If the account is empty,
+   PASS shows a deposit card instead of a raw venue error.
+
+You can also publish your own plan from **Create a Pass**. Publish stays
+disabled until the form is valid; the alert names what needs attention.
 
 ---
 
-## Quick start
+## For Developers
 
 ```bash
 git clone https://github.com/onyebuchidaniel60/PASS.git
@@ -126,6 +146,23 @@ pnpm -r typecheck
 pnpm lint
 ```
 
+The production web build uses `apps/web/.env.production`. The extension uses
+`apps/extension/.env.production`.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Web | Next.js 15, React 19, TypeScript |
+| API | Fastify, Zod, Drizzle ORM |
+| Database | Supabase Postgres; embedded PGlite locally |
+| Execution | Hyperliquid API, client-signed actions |
+| Funding | NEAR Intents / 1Click confidential cross-chain USDC |
+| Extension | Chrome MV3, X overlay |
+| Design | Custom stageshow system, tokens, editorial typography |
+
 ---
 
 ## Links
@@ -143,69 +180,43 @@ pnpm lint
 A pre-built copy is committed at **`apps/extension/dist/`**. Judges and new
 users can load it without Node or a build step.
 
-### Install instantly (pre-built)
-
 1. Download or clone this repository.
-2. Open Chrome and go to `chrome://extensions`.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select:
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select `apps/extension/dist`.
+5. Open x.com in a new tab.
 
-   ```text
-   apps/extension/dist
-   ```
-
-5. Open x.com in a new tab. The PASS overlay appears on supported profile
-   pages.
-
-### Build from source (developers)
+To build from source:
 
 ```bash
 pnpm install
 pnpm --filter @pass/extension build
 ```
 
-Then load `apps/extension/dist` with **Load unpacked**. After a rebuild, press
-**Reload** on the extension card in `chrome://extensions`.
-
-The extension targets the deployed API at
-`https://pass-pz7f.onrender.com` and the web app at
-`https://pass-web-dun.vercel.app`.
+Then reload the unpacked extension in `chrome://extensions`.
 
 ---
 
 ## Demo video
 
-The 3-minute demo script, voiceover copy, and shot-by-shot storyboard live in
+The 3-minute script, voiceover copy, and shot-by-shot storyboard live in
 [`docs/DEMO_VIDEO.md`](docs/DEMO_VIDEO.md).
-
-Generate the voiceover after adding your ElevenLabs credentials to
-`.env.local`:
 
 ```bash
 ELEVENLABS_API_KEY=...
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
 ELEVENLABS_VOICE_ID=...
 pnpm generate:voiceover
+pnpm video:record
+pnpm video:build
 ```
 
-The script writes `public/demo/voiceover.mp3`. Download a royalty-free lo-fi
-or ambient synth track from Pixabay or Bensound, save it as
-`public/demo/background.mp3`, and record the screen flow.
+`pnpm generate:voiceover` writes `public/demo/voiceover.mp3`.
+`pnpm video:record` writes the Playwright `.webm` to `public/demo/raw-video/`.
+`pnpm video:build` combines the recording, voiceover, and a locally supplied
+`public/demo/background.mp3` into `public/demo/demo.mp4`.
 
-Assemble the final video:
-
-```bash
-ffmpeg \
-  -i public/demo/screen-recording.mp4 \
-  -i public/demo/voiceover.mp3 \
-  -stream_loop -1 -i public/demo/background.mp3 \
-  -filter_complex "[2:a]volume=0.15[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=2[a]" \
-  -map 0:v -map "[a]" \
-  -c:v copy -c:a aac -b:a 192k \
-  -shortest public/demo/demo.mp4
-```
-
-The background music is intentionally not generated or committed; add a track
+The background music is not generated or committed. Add a royalty-free track
 you have the right to use.
 
 ---
@@ -220,7 +231,7 @@ packages/         Shared contracts, domain, db, integrations, ui
 docs/             Source-of-truth documentation
 design/           Visual blueprint and local-only reference media
 scripts/          Verification, seed, and demo tooling
-public/readme     README screenshots and logo
+public/readme     Targeted README screenshots and logo
 public/demo       Voiceover and video assembly assets
 ```
 

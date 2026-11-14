@@ -8,9 +8,9 @@ hype, no guarantees, no price predictions. The product is the proof.
 | Time | Visual | Voiceover |
 |---|---|---|
 | **0:00–0:20** | X timeline, a trade post, then a quick cut to an exchange loading screen. | You see a great trade on X. By the time you open your exchange, the price has moved. Copy-trading bots? They hold your funds. There has to be a better way. |
-| **0:20–0:50** | PASS homepage and the animated phone hero. | Meet PASS. The social execution layer for Hyperliquid. A trader publishes a trade plan as a Pass: thesis, entry, target, stop. You read it, size it yourself, and authorize with your own wallet. No custody. No copied position. No private key ever leaves your browser. |
-| **0:50–1:40** | Create Pass screen. Publish. Share on X. Taker opens the Pass. Take flow: size, preview, wallet, agent approval, authorize. Receipt. Then a prediction-market Pass. | Here's the flow. A trader opens Create a Pass, picks BTC Long, sets entry, take profit, stop loss, and leverage, then publishes. The Pass becomes a link. They share it on X. A taker clicks the link, reads the thesis, and chooses their own size. PASS previews the exact order and the 0.05% builder fee. They connect their wallet, approve a Hyperliquid agent key that can place and cancel trades only, and authorize. The order is signed in the browser and relayed to Hyperliquid Mainnet. The receipt records the fill against the exact Pass version. Prediction markets work the same way: pick a binary YES/NO market, set a probability, and take the outcome. Collateral is USDH. |
-| **1:40–2:20** | Architecture diagram, agent key permission list, NEAR Intents funding flow, Settings → Developers. | Under the hood, PASS is non-custodial by design. D-027: a wallet is an execution device, not an account. Executions reference the wallet address, never ownership. The agent key cannot withdraw, transfer, or change account settings. And funding runs through NEAR Intents confidential cross-chain USDC, so your deposit and your Hyperliquid account cannot be linked on-chain. Builders can plug in through the Agent API with a Bearer key, discover live Passes, and relay pre-signed orders. |
+| **0:20–0:50** | PASS homepage and the animated phone hero. | Meet PASS. The social execution layer for Hyperliquid. A trader publishes a trade plan as a Pass: thesis, entry, target, stop. The Pass carries the trader's identity and reputation context, so you know whose plan you're reading. You read it, size it yourself, and authorize with your own wallet. No custody. No copied position. No private key ever leaves your browser. |
+| **0:50–1:40** | Create Pass screen. Publish. Share on X. Taker opens the Pass. Take flow: size, preview, wallet, agent approval, authorize. Receipt. Then a prediction-market Pass. | Here's the flow. A trader opens Create a Pass, picks BTC Long, sets entry, take profit, stop loss, and leverage, then publishes. The Pass becomes a link. They share it on X. A taker clicks the link, reads the thesis, and chooses their own size. PASS previews the exact entry, target, stop, and the 0.05% builder fee before you sign. They connect their wallet, approve a Hyperliquid agent key that can place and cancel trades only, and authorize. The order is signed in the browser and relayed to Hyperliquid Mainnet. The receipt records the fill against the exact Pass version. Prediction markets work the same way: pick a binary YES/NO market, set a probability, and take the outcome. The market question, side, and probability are visible before you commit. Collateral is USDH. |
+| **1:40–2:20** | Architecture diagram, agent key permission list, NEAR Intents funding flow, Settings → Developers. | Under the hood, PASS is non-custodial by design. D-027: a wallet is an execution device, not an account. Executions reference the wallet address, never ownership. The agent key cannot withdraw, transfer, or change account settings. And funding runs through NEAR Intents confidential cross-chain USDC, so your deposit and your Hyperliquid account cannot be linked on-chain. Builders can plug in through the Agent API with a Bearer key, discover live Passes, and relay pre-signed orders. The same execution layer powers the Chrome extension, so PASS shows up where the trade is discovered. |
 | **2:20–2:50** | Homepage hero, then a clean end card with the URL and QR code. | PASS. See a trade. Know the trader. Take the trade. Live on Mainnet at pass-web-dun.vercel.app. Documentation at pass-web-dun.vercel.app/docs. |
 
 ## ElevenLabs voiceover
@@ -68,15 +68,28 @@ Save the raw recording as:
 public/demo/screen-recording.mp4
 ```
 
-## Assemble the final video
+## Automated pipeline
 
-This mixes the voiceover at full level and the music at 15%, loops the music
-if it is shorter than the narration, keeps the screen video untouched, and
+Record the browser flow and assemble the final cut:
+
+```bash
+DEMO_BASE_URL=http://localhost:3000 pnpm video:record
+pnpm video:build
+```
+
+`video:record` writes `public/demo/raw-video/raw-video.webm` using Playwright
+at 1280×720. `video:build` calls `scripts/build-video.sh`, mixes the voiceover
+at full level with the music at 15%, loops the music if needed, and writes
+`public/demo/demo.mp4`.
+
+## Manual FFmpeg fallback
+
+This is the same mix the script runs. It keeps the screen video untouched and
 ends on the shorter of the video/audio streams:
 
 ```bash
 ffmpeg \
-  -i public/demo/screen-recording.mp4 \
+  -i public/demo/raw-video/raw-video.webm \
   -i public/demo/voiceover.mp3 \
   -stream_loop -1 -i public/demo/background.mp3 \
   -filter_complex "[2:a]volume=0.15[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=2[a]" \

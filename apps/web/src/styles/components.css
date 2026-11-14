@@ -1500,7 +1500,7 @@
   padding: 0;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
   [data-testid="data-table"] {
     display: none;
   }
@@ -6537,7 +6537,7 @@ text-underline-offset: 0.2em;
   white-space: nowrap;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
   .pass-profile-table [data-testid="data-table"] {
     display: none;
   }
@@ -7375,7 +7375,7 @@ text-underline-offset: 0.2em;
   flex-wrap: nowrap;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
   .pass-my-passes-table [data-testid="data-table"] {
     display: none;
   }
@@ -7728,5 +7728,61 @@ text-underline-offset: 0.2em;
     position: sticky;
     inset-block-start: calc(var(--layout-topbar) + var(--space-5));
     margin-block-start: 0;
+  }
+}
+
+/* --- Mobile-first detail pass ------------------------------------------- */
+/* The phone is a desktop storytelling device. On a phone it is a second
+ * phone, and it consumed most of the first viewport for no extra meaning. */
+@media (max-width: 1023px) {
+  .pass-landing-phone {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Fluid hero: the token already clamps, but the landing page gets a
+   * tighter mobile range so the three authored lines stay the hero. */
+  .pass-landing .pass-display {
+    font-size: clamp(2.25rem, 1.2rem + 5vw, 3rem);
+    line-height: 1.02;
+  }
+
+  .pass-landing-lede {
+    margin-block-start: var(--space-4);
+  }
+
+  .pass-landing-ctas {
+    margin-block-start: var(--space-5);
+  }
+
+  .pass-landing-shell {
+    padding-block: var(--space-7);
+  }
+
+  .pass-landing-loop {
+    margin-block-start: var(--space-6);
+  }
+
+  .pass-section {
+    margin-block: var(--space-6);
+  }
+
+  .pass-create-form {
+    padding-block-start: var(--space-4);
+  }
+
+  .pass-take-size-field .pass-control {
+    max-inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .pass-docs-hero {
+    padding: var(--space-5);
+  }
+
+  .pass-docs-layout {
+    gap: var(--space-5);
+    padding-block: var(--space-5);
   }
 }
