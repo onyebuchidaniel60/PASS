@@ -171,7 +171,7 @@ export function Logo({ size = 40, className, title = "PASS" }: LogoProps) {
       focusable="false"
     >
       {title ? <title>{title}</title> : null}
-      <g fill="var(--color-accent)">
+      <g fill="var(--color-text-primary)">
         <WordmarkPaths />
       </g>
       {/* The signal line: full width, overshooting the final S by 6 units each

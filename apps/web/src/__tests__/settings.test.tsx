@@ -176,7 +176,9 @@ describe("§10.10 Profile and connections", () => {
     await screen.findByText("X");
     // Connections are plain identity text, not bordered chips.
     expect(screen.getAllByText("@turnttfup99").length).toBeGreaterThan(0);
-    expect(screen.getByText("reputation resolved")).toBeInTheDocument();
+    // The score above already implies resolution; no second "resolved" label.
+    expect(screen.queryByText("reputation resolved")).toBeNull();
+    expect(screen.getAllByText(/Ethos score/).length).toBeGreaterThan(0);
     // D-023: no wallet chip on the identity row — the execution wallet is
     // managed in the Wallet section below, not as a connection chip.
     expect(screen.queryByText("Hyperliquid")).toBeNull();
@@ -365,8 +367,10 @@ describe("§10.10 Profile and connections", () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("X");
     expect(screen.queryByRole("button", { name: "Disconnect X" })).toBeNull();
-    // Identity state still renders here as plain text.
-    expect(screen.getByText("reputation resolved")).toBeInTheDocument();
+    // Identity state still renders here as plain text; the score implies
+    // resolution, so the old "reputation resolved" line is gone.
+    expect(screen.getAllByText(/Ethos score/).length).toBeGreaterThan(0);
+    expect(screen.queryByText("reputation resolved")).toBeNull();
   });
 
   it("lays identity out as a header row: avatar beside the identity stack (ref 14)", async () => {

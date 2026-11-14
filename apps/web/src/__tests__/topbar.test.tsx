@@ -97,6 +97,44 @@ describe("Topbar — D-023 identity-only", () => {
     );
   });
 
+  it("renders the professional footer with the NEAR tagline", async () => {
+    mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
+    render(
+      <RootLayout>
+        <div>child</div>
+      </RootLayout>,
+    );
+    const footer = within(screen.getByRole("contentinfo"));
+    expect(footer.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      "/developers",
+    );
+    expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "href",
+      "https://github.com/onyebuchidaniel60/PASS",
+    );
+    expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
+    expect(footer.getByRole("link", { name: "Terms of Service" })).toHaveAttribute(
+      "href",
+      "/terms",
+    );
+    expect(footer.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    expect(footer.getByRole("link", { name: "Contact" })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
+    // The primary destinations live in the topbar, not in the footer.
+    expect(footer.queryByRole("link", { name: "Discover" })).toBeNull();
+    expect(footer.queryByRole("link", { name: "My Passes" })).toBeNull();
+    expect(footer.getByText(/powered by NEAR Intents/i)).toBeInTheDocument();
+  });
+
   it("shows @handle and no wallet element when connected", async () => {
     mockGet.mockResolvedValue(ME_ON);
     const { container } = render(

@@ -3,13 +3,15 @@
  *
  * It lives here rather than in `app/layout.tsx` because a Next.js App Router
  * layout may only export its own special exports; anything else is a type
- * error in the generated route types. Screens and the footer both need this
- * list, and neither should be able to drift from the topbar.
+ * error in the generated route types. Screens use NAV/INFO; the footer uses
+ * FOOTER_LINKS, so the primary navigation and the legal links cannot drift.
  */
 
 export interface NavLink {
   href: string;
   label: string;
+  /** External destinations open in a new tab and carry rel=noopener. */
+  external?: boolean;
 }
 
 /**
@@ -26,16 +28,31 @@ export const NAV: NavLink[] = [
   { href: "/settings", label: "Profile" },
 ];
 
-/** §14 informational pages. Not destinations of their own; reachable, but not
- *  in the four-item primary nav, which UX_SPEC §3 fixes. */
+/** §14 informational pages used by the landing chip bar and the contact page.
+ *  Not destinations of their own; not in the four-item primary nav. */
 export const INFO: NavLink[] = [
   { href: "/how-it-works", label: "How it works" },
   { href: "/faqs", label: "FAQs" },
   { href: "/help", label: "Help" },
   { href: "/contact", label: "Contact" },
-  // `/settings` is already the fourth item of NAV ("Profile"), so adding it
-  // here would render the same destination twice in the footer. `/onboarding`
-  // is deliberately NOT linked from the footer: it is the target of a redirect
-  // for users who have no profile, and a link would offer it as a place to
-  // browse, which it is not.
+  // `/settings` is already the fourth item of NAV ("Profile"). `/onboarding`
+  // is deliberately NOT linked from the informational pages: it is the target
+  // of a redirect for users who have no profile, not a place to browse.
+];
+
+/**
+ * Footer destinations. The primary nav is already in the topbar, so the footer
+ * carries the professional/legal set instead of repeating Discover, My Passes,
+ * Executions and Profile.
+ */
+export const FOOTER_LINKS: NavLink[] = [
+  { href: "/developers", label: "Docs" },
+  {
+    href: "https://github.com/onyebuchidaniel60/PASS",
+    label: "GitHub",
+    external: true,
+  },
+  { href: "/terms", label: "Terms of Service" },
+  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/contact", label: "Contact" },
 ];

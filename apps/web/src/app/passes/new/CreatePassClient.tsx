@@ -23,7 +23,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import {
   ChamferPanel,
@@ -85,6 +91,14 @@ interface PredictionOutcome {
   no?: Market;
 }
 
+interface MarketsResponse {
+  assets?: Market[];
+  hip4?: {
+    available: boolean;
+    reason: string | null;
+  } | null;
+}
+
 function groupPredictionOutcomes(markets: Market[]): PredictionOutcome[] {
   const byId = new Map<number, PredictionOutcome>();
   for (const market of markets) {
@@ -98,6 +112,159 @@ function groupPredictionOutcomes(markets: Market[]): PredictionOutcome[] {
     byId.set(current.id, current);
   }
   return Array.from(byId.values());
+}
+
+/**
+ * Searchable outcome combobox.
+ *
+ * A native `<select>` is not enough here: the live outcome list is a variable
+ * set of long questions, and on a venue with dozens of markets the user needs
+ * to type. This keeps the native input semantics (label, describedby,
+ * aria-invalid) while providing a listbox that filters as the user types.
+ */
+function OutcomeMarketPicker({
+  id,
+  outcomes,
+  value,
+  onChange,
+  describedBy,
+  invalid = false,
+  disabled = false,
+}: {
+  id: string;
+  outcomes: PredictionOutcome[];
+  value: number | null;
+  onChange: (id: number) => void;
+  describedBy?: string;
+  invalid?: boolean;
+  disabled?: boolean;
+}) {
+  const selected = outcomes.find((outcome) => outcome.id === value) ?? null;
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return outcomes;
+    return outcomes.filter((outcome) =>
+      outcome.name.toLowerCase().includes(q),
+    );
+  }, [outcomes, query]);
+
+  const activeOutcome =
+    filtered[Math.min(activeIndex, Math.max(filtered.length - 1, 0))] ?? null;
+
+  function choose(outcome: PredictionOutcome) {
+    onChange(outcome.id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setOpen(true);
+      setActiveIndex((index) =>
+        Math.min(index + 1, Math.max(filtered.length - 1, 0)),
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setOpen(true);
+      setActiveIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (open && activeOutcome) choose(activeOutcome);
+      else setOpen(true);
+    } else if (event.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className="pass-outcome-picker">
+      <input
+        id={id}
+        type="text"
+        role="combobox"
+        className="pass-control pass-outcome-picker-input"
+        value={open ? query : selected?.name ?? ""}
+        placeholder={
+          disabled ? "No prediction markets available" : "Search outcome markets…"
+        }
+        autoComplete="off"
+        disabled={disabled}
+        aria-expanded={open}
+        aria-controls={`${id}-listbox`}
+        aria-autocomplete="list"
+        aria-activedescendant={
+          open && activeOutcome
+            ? `${id}-option-${activeOutcome.id}`
+            : undefined
+        }
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+          const selectedIndex = outcomes.findIndex(
+            (outcome) => outcome.id === value,
+          );
+          setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+        }}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+          setActiveIndex(0);
+        }}
+        onKeyDown={handleKeyDown}
+        onBlur={(event) => {
+          const next = event.relatedTarget as Node | null;
+          if (!next || !event.currentTarget.parentElement?.contains(next)) {
+            setOpen(false);
+          }
+        }}
+      />
+      <span className="pass-outcome-picker-caret" aria-hidden="true">
+        {"\u25BE"}
+      </span>
+      {open ? (
+        <ul
+          id={`${id}-listbox`}
+          className="pass-outcome-listbox"
+          role="listbox"
+        >
+          {filtered.length === 0 ? (
+            <li className="pass-outcome-empty" role="presentation">
+              No markets match “{query}”.
+            </li>
+          ) : (
+            filtered.map((outcome) => (
+              <li
+                key={outcome.id}
+                id={`${id}-option-${outcome.id}`}
+                role="option"
+                tabIndex={-1}
+                aria-selected={outcome.id === value}
+                data-active={outcome === activeOutcome ? "true" : undefined}
+                className="pass-outcome-option"
+                onMouseEnter={() =>
+                  setActiveIndex(filtered.indexOf(outcome))
+                }
+                onClick={() => choose(outcome)}
+              >
+                <span className="pass-outcome-option-name">{outcome.name}</span>
+                <span className="pass-outcome-option-meta">
+                  {outcome.yes ? "YES" : "NO"} ·{" "}
+                  {outcome.yes?.asset ?? outcome.no?.asset ?? ""}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 const PREDICTION_REFERENCE =
@@ -149,7 +316,14 @@ const CREATE_FIELDS = [
 /** One validation result per field. Absent key means the field is valid. */
 type Errors = Partial<
   Record<
-    "entry" | "sl" | "tp" | "leverage" | "expiry" | "predictionLimit" | "predictionSize",
+    | "entry"
+    | "sl"
+    | "tp"
+    | "leverage"
+    | "expiry"
+    | "predictionOutcome"
+    | "predictionLimit"
+    | "predictionSize",
     string
   >
 >;
@@ -185,7 +359,11 @@ export function validate(p: {
   const isHip4 = market?.marketClass === "hip4";
 
   if (!market) {
-    e.entry = "That market is not supported.";
+    if (p.marketMode === "prediction") {
+      e.predictionOutcome = "Choose an outcome market.";
+    } else {
+      e.entry = "That market is not supported.";
+    }
   } else if (isHip4) {
     // HIP-4 is market-entry only: no authored price, TP, SL or leverage.
     if (p.entryType !== "market") {
@@ -296,6 +474,8 @@ export function CreatePassClient() {
   const editId = search?.get("edit") ?? null;
 
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState(true);
+  const [hip4Reason, setHip4Reason] = useState<string | null>(null);
   const [auth, setAuth] = useState<"checking" | "in" | "out">("checking");
   const [booting, setBooting] = useState(true);
 
@@ -327,6 +507,35 @@ export function CreatePassClient() {
   const [editBlocked, setEditBlocked] = useState<string | null>(null);
   const [savedVersion, setSavedVersion] = useState<number | null>(null);
 
+  /**
+   * The outcome list is live venue data, not a build-time fixture. Re-reading
+   * it is what makes the selector recover when `outcomeMeta` was temporarily
+   * unavailable or the venue enabled a new market after the page loaded.
+   */
+  const loadMarkets = useCallback(async (initial: boolean): Promise<Market[]> => {
+    setMarketsLoading(true);
+    setFailed(null);
+    try {
+      const response = await clientGet<MarketsResponse>("/api/v1/markets");
+      const list = response.assets ?? [];
+      setMarkets(list);
+      setHip4Reason(
+        response.hip4 && !response.hip4.available
+          ? response.hip4.reason
+          : null,
+      );
+      if (initial && list[0]) setAsset(list[0].asset);
+      return list;
+    } catch {
+      // Markets are needed for validation. Without them the form cannot be
+      // validated, so this is an error state rather than a silent empty list.
+      setFailed("Could not load supported markets.");
+      return [];
+    } finally {
+      setMarketsLoading(false);
+    }
+  }, []);
+
   const boot = useCallback(async () => {
     setBooting(true);
     // Authoring requires a CONNECTED X identity (PRODUCT_PRD.md §4), not
@@ -340,18 +549,7 @@ export function CreatePassClient() {
     } catch {
       setAuth("out");
     }
-    let loadedMarkets: Market[] = [];
-    try {
-      const m = await clientGet<{ assets?: Market[] }>("/api/v1/markets");
-      const list = m.assets ?? [];
-      loadedMarkets = list;
-      setMarkets(list);
-      if (list[0] && !editId) setAsset(list[0].asset);
-    } catch {
-      // Markets are needed for validation. Without them the form cannot be
-      // validated, so this is an error state rather than a silent empty list.
-      setFailed("Could not load supported markets.");
-    }
+    const loadedMarkets = await loadMarkets(!editId);
     if (editId) {
       // Prefill from the author's own pass. Non-authors get the server's
       // 403 here (SECURITY_SPEC §11); the form stays empty and the error
@@ -390,7 +588,7 @@ export function CreatePassClient() {
       }
     }
     setBooting(false);
-  }, [editId]);
+  }, [editId, loadMarkets]);
 
   useEffect(() => {
     void boot();
@@ -788,27 +986,50 @@ export function CreatePassClient() {
                 label="Market type"
               />
               {marketMode === "prediction" ? (
-                <p className="pass-note">
-                  {predictionOutcomes.length === 0
-                    ? "Prediction markets are not enabled on this venue."
-                    : "Binary YES/NO markets. No leverage, take profit, stop loss or perp entry price."}
-                </p>
+                predictionOutcomes.length > 0 ? (
+                  <p className="pass-note">
+                    Binary YES/NO markets. No leverage, take profit, stop loss or
+                    perp entry price.
+                  </p>
+                ) : (
+                  <div className="pass-market-unavailable">
+                    <p className="pass-note" role="status">
+                      {marketsLoading
+                        ? "Loading live prediction markets…"
+                        : hip4Reason ??
+                          "No prediction markets are open right now."}
+                    </p>
+                    {!marketsLoading ? (
+                      <button
+                        type="button"
+                        className="pass-link-btn"
+                        onClick={() => void loadMarkets(false)}
+                      >
+                        Retry
+                      </button>
+                    ) : null}
+                  </div>
+                )
               ) : null}
             </div>
 
             <div className="pass-form-grid pass-form-grid--two">
               {isHip4 ? (
-                <Field label="Outcome Market" required className="pass-terminal-field">
-                  {({ controlId }) => (
-                    <Select
+                <Field
+                  label="Outcome Market"
+                  required
+                  error={errors.predictionOutcome}
+                  className="pass-terminal-field"
+                >
+                  {({ controlId, describedBy }) => (
+                    <OutcomeMarketPicker
                       id={controlId}
-                      value={String(predictionOutcomeId ?? "")}
-                      onChange={(value) => choosePredictionOutcome(Number(value))}
-                      className="pass-terminal-select"
-                      options={predictionOutcomes.map((outcome) => ({
-                        value: String(outcome.id),
-                        label: outcome.name,
-                      }))}
+                      outcomes={predictionOutcomes}
+                      value={predictionOutcomeId}
+                      onChange={choosePredictionOutcome}
+                      describedBy={describedBy}
+                      invalid={Boolean(errors.predictionOutcome)}
+                      disabled={marketsLoading || predictionOutcomes.length === 0}
                     />
                   )}
                 </Field>

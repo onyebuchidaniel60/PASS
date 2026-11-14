@@ -47,10 +47,7 @@ import { AgentAccess } from "@/components/AgentAccess";
 import { FundWithAnyChain } from "@/components/FundWithAnyChain";
 import { SecuritySection } from "@/components/SecuritySection";
 import { notifyMeChanged, onMeChanged } from "@/lib/me-events";
-import {
-  connectionByName,
-  isEthosVisible,
-} from "@/lib/me";
+import { connectionByName } from "@/lib/me";
 import { clientDelete, clientGet, clientPatch, clientPost } from "@/lib/client";
 import { fmtSize, formatRelative, statusLabel, truncateAddress } from "@/lib/format";
 import { PERIODS, inWindow, periodWindow, type PeriodId } from "@/lib/period";
@@ -759,8 +756,6 @@ function SettingsReady({
   // never on the public profile or topbar).
   const xEntry = connectionByName(me.connections, "x");
   const xLive = xEntry?.connected === true;
-  const ethosEntry = connectionByName(me.connections, "ethos");
-  const ethosOn = isEthosVisible(me);
   const goX = () => {
     if (onNavigate) onNavigate("/api/v1/auth/x/start");
     else if (typeof window !== "undefined") {
@@ -923,14 +918,6 @@ function SettingsReady({
                             @{me.handle ?? xEntry?.handle ?? "connected"}
                           </span>
                         </span>
-                        {ethosOn && ethosEntry ? (
-                          <span>
-                            Ethos{" "}
-                            <span className="pass-value">
-                              reputation resolved
-                            </span>
-                          </span>
-                        ) : null}
                       </div>
                     )}
                   </div>

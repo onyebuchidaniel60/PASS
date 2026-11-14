@@ -5,10 +5,10 @@ import { currentVenue, type Venue } from "./venue.js";
 /**
  * One market configuration, read by both `/health` and `GET /api/v1/markets`.
  *
- * HIP-4 is additive. Mainnet keeps only the historical perp class until the
- * outcome venue is explicitly enabled there; the checkout never infers a class
- * from a coin string alone, so a `#N` Pass cannot quietly become executable on
- * a venue that does not list outcome markets.
+ * HIP-4 is additive. The outcome venue is live on Mainnet, so the selector and
+ * the server share the same enabled classes everywhere. The checkout still
+ * never infers a class from a coin string alone: `listOutcomeAssets` must
+ * return the market from `outcomeMeta` before it can be authored.
  */
 export interface MarketServiceConfig {
   venue: Venue;
@@ -19,8 +19,7 @@ export function marketServiceConfig(ctx: AppContext): MarketServiceConfig {
   const venue = currentVenue(ctx);
   return {
     venue,
-    enabledMarketClasses:
-      venue === "mainnet" ? ["perp"] : ["perp", "hip4"],
+    enabledMarketClasses: ["perp", "hip4"],
   };
 }
 

@@ -379,30 +379,111 @@ export function LandingView({ home }: { home: HomeDto }) {
               </div>
 
               <aside
-                className="pass-landing-specimen"
-                aria-label="Sample Pass anatomy"
+                className="pass-landing-phone"
+                aria-label="Animated preview of the PASS mobile flow: discover on X, take a BTC Long, execution confirmed on Hyperliquid Mainnet"
               >
-                <p className="pass-landing-specimen-kicker">Sample plan</p>
-                <p className="pass-landing-specimen-id">
-                  BTC <span className="pass-landing-specimen-side">LONG</span>
-                </p>
-                <dl className="pass-landing-specimen-levels">
-                  <div className="pass-landing-specimen-level">
-                    <dt>Entry</dt>
-                    <dd>$113.4K</dd>
+                <div className="pass-phone" aria-hidden="true">
+                  <div className="pass-phone-notch" />
+                  <div className="pass-phone-screen">
+                    <div className="pass-phone-statusbar">
+                      <span>9:41</span>
+                      <span className="pass-phone-status-icons">
+                        <span>5G</span>
+                        <span className="pass-phone-battery" />
+                      </span>
+                    </div>
+                    <div className="pass-phone-states">
+                      <div className="pass-phone-state" data-state="discover">
+                        <span className="pass-phone-eyebrow">On X</span>
+                        <div className="pass-phone-x-post">
+                          <div className="pass-phone-x-head">
+                            <span className="pass-phone-avatar">T</span>
+                            <span className="pass-phone-x-name">
+                              <strong>@traderx</strong>
+                              <small>· now</small>
+                            </span>
+                          </div>
+                          <p className="pass-phone-x-copy">
+                            Just published a BTC Long on{" "}
+                            <span>@PASS</span>
+                          </p>
+                          <div className="pass-phone-x-plan">
+                            <span>BTC LONG</span>
+                            <span>5x</span>
+                          </div>
+                          <span className="pass-phone-link">
+                            View Pass <span aria-hidden="true">{"\u2192"}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pass-phone-state" data-state="take">
+                        <span className="pass-phone-eyebrow">Take the Pass</span>
+                        <div className="pass-phone-asset">
+                          BTC <span>LONG</span>
+                        </div>
+                        <div className="pass-phone-levels">
+                          <div>
+                            <span>Entry</span>
+                            <strong>$113.4K</strong>
+                          </div>
+                          <div>
+                            <span>Stop</span>
+                            <strong>$111.9K</strong>
+                          </div>
+                          <div>
+                            <span>Target</span>
+                            <strong>$116.0K</strong>
+                          </div>
+                        </div>
+                        <div className="pass-phone-size">
+                          <span>Position size</span>
+                          <strong>$50</strong>
+                        </div>
+                        <span className="pass-phone-action">
+                          Authorize Trade
+                        </span>
+                      </div>
+
+                      <div className="pass-phone-state" data-state="success">
+                        <span className="pass-phone-check" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m5 12 4 4 9-9" />
+                          </svg>
+                        </span>
+                        <div className="pass-phone-success">
+                          <strong>Execution Confirmed.</strong>
+                          <span>Filled on Hyperliquid Mainnet.</span>
+                        </div>
+                        <div className="pass-phone-receipt">
+                          <div>
+                            <span>Plan</span>
+                            <strong>BTC LONG</strong>
+                          </div>
+                          <div>
+                            <span>Size</span>
+                            <strong>$50</strong>
+                          </div>
+                          <div>
+                            <span>Trader</span>
+                            <strong>@traderx</strong>
+                          </div>
+                        </div>
+                        <span className="pass-phone-link">
+                          View receipt <span aria-hidden="true">{"\u2192"}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pass-phone-homebar" />
                   </div>
-                  <div className="pass-landing-specimen-level">
-                    <dt>Stop</dt>
-                    <dd>$111.9K</dd>
-                  </div>
-                  <div className="pass-landing-specimen-level">
-                    <dt>Target</dt>
-                    <dd>$116.0K</dd>
-                  </div>
-                </dl>
-                <p className="pass-landing-specimen-note">
-                  The plan is the trader's. The size is yours.
-                </p>
+                </div>
               </aside>
 
               <SignalLine

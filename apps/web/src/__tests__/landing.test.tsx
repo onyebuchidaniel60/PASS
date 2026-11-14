@@ -180,6 +180,18 @@ describe("Landing hero (§10.1 item 1)", () => {
     expect(screen.getByRole("img", { name: "Signal line origin" })).toBeInTheDocument();
   });
 
+  it("replaces the static specimen with the three-state phone demo", () => {
+    const { container } = render(<LandingView home={HOME} />);
+    expect(container.querySelectorAll(".pass-phone-state")).toHaveLength(3);
+    expect(
+      container.querySelector(".pass-landing-phone")?.getAttribute("aria-label"),
+    ).toMatch(/Animated preview of the PASS mobile flow/);
+    expect(screen.getByText(/Just published a BTC Long/)).toBeInTheDocument();
+    expect(screen.getByText("Authorize Trade")).toBeInTheDocument();
+    expect(screen.getByText("Execution Confirmed.")).toBeInTheDocument();
+    expect(screen.getByText("Filled on Hyperliquid Mainnet.")).toBeInTheDocument();
+  });
+
   it("reveals the signal line once, as the hero device", () => {
     const { container } = render(<LandingView home={HOME} />);
     expect(container.querySelector(".pass-signal-line")).toHaveAttribute(

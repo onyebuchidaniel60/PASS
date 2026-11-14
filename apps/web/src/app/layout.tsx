@@ -9,7 +9,7 @@ import { TopbarNav } from "@/components/TopbarNav";
 import { TourGate } from "@/components/TourGate";
 import { XIdentityControl } from "@/components/XIdentityControl";
 import { Logo, LogoMark } from "@/components/reference/logo";
-import { INFO, NAV } from "@/lib/nav";
+import { FOOTER_LINKS } from "@/lib/nav";
 
 export const metadata: Metadata = {
   title: "PASS — See a trade. Know the trader. Take the trade.",
@@ -83,14 +83,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="pass-footer-grid">
               <div className="pass-footer-brand">
                 <Logo size={22} title={null} />
-                <p className="pass-stale">Social execution for Hyperliquid.</p>
+                <p className="pass-stale">
+                  Social execution for Hyperliquid, powered by NEAR Intents.
+                </p>
               </div>
               <ul className="pass-footer-links">
-                {NAV.concat(INFO).map((n) => (
+                {FOOTER_LINKS.map((n) => (
                   <li key={n.href}>
-                    <Link href={n.href} className="pass-nav-link">
-                      {n.label}
-                    </Link>
+                    {n.external ? (
+                      <a
+                        href={n.href}
+                        className="pass-nav-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {n.label}
+                      </a>
+                    ) : (
+                      <Link href={n.href} className="pass-nav-link">
+                        {n.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -230,6 +230,27 @@ describe("Create Pass states (§10.5)", () => {
     expect(screen.queryByLabelText(/Entry price/)).toBeNull();
   });
 
+  it("searches and selects a live outcome from the picker", async () => {
+    await renderForm({ markets: [...MARKETS, HIP4_MARKET] });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    const picker = screen.getByLabelText(/Outcome Market/);
+    expect(picker).toHaveAttribute("role", "combobox");
+    await user.click(picker);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    await user.clear(picker);
+    await user.type(picker, "will btc");
+    expect(
+      screen.getByRole("option", { name: /Will BTC close above 120k/ }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("option", { name: /Will BTC close above 120k/ }),
+    );
+    expect(picker).toHaveValue("Will BTC close above 120k by Friday?");
+  });
+
   it("withholds the form from a session without an X identity (Bug 1)", async () => {
     // Disconnecting X keeps the PASS session: /me answers 200 with the x
     // entry disconnected. Authoring needs the identity, not the session.
