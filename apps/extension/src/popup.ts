@@ -138,7 +138,7 @@ function renderCard(p: Profile, queried: NormalisedHandle): void {
 
   card.appendChild(dl);
 
-  const link = el("a", "cta", "View on PASS");
+  const link = el("a", "cta", "View full profile");
   link.href = profileUrl(queried.slug);
   link.target = "_blank";
   link.rel = "noopener noreferrer";

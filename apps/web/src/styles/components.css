@@ -5897,3 +5897,342 @@ text-underline-offset: 0.2em;
     padding-inline-end: var(--space-4);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 2026-11-14 — Global search / command palette.
+ *
+ * The trigger lives in the topbar actions track. The palette reuses the
+ * existing Dialog primitive for focus trapping, Escape and focus restore, and
+ * adds only its own composition: a mono query field, two result sections, and
+ * a full-screen mobile form.
+ * ------------------------------------------------------------------------- */
+
+.pass-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-inline-size: var(--size-target-min);
+  min-block-size: var(--size-target-min);
+  padding-inline: var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.pass-search-trigger:hover {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-line-strong);
+  color: var(--color-text-primary);
+}
+
+.pass-search-trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pass-search-icon {
+  inline-size: var(--size-icon-grid);
+  block-size: var(--size-icon-grid);
+  flex: 0 0 auto;
+}
+
+.pass-search-trigger-hint {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  line-height: var(--type-data-xs-line);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.pass-search-scrim {
+  padding: var(--space-6);
+}
+
+.pass-search-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-inline-size: var(--measure-body);
+  max-block-size: 80vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pass-search-dialog .pass-dialog-title {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border-block-end: var(--border-hairline);
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-search-dialog .pass-dialog-body {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
+.pass-search-close {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--size-target-min);
+  min-block-size: var(--size-target-min);
+  padding-inline: var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pass-search-close:hover {
+  color: var(--color-text-primary);
+}
+
+.pass-search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-block-end: var(--border-hairline);
+  background-color: var(--color-surface);
+  color: var(--color-text-tertiary);
+}
+
+.pass-search-field:focus-within {
+  border-block-end-color: var(--color-accent);
+}
+
+.pass-search-input {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+  letter-spacing: var(--type-data-l-track);
+  outline: none;
+}
+
+.pass-search-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.pass-search-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.pass-search-kbd {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hairline);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+}
+
+.pass-search-results {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  max-block-size: 60vh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.pass-search-section + .pass-search-section {
+  margin-block-start: var(--space-5);
+}
+
+.pass-search-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block-end: var(--space-2);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-search-section-head h3 {
+  margin: 0;
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-search-section-head span {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  color: var(--color-text-tertiary);
+}
+
+.pass-search-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pass-search-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--size-target-min);
+  padding-block: var(--space-2);
+  border-block-end: var(--border-hairline);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.pass-search-result:hover {
+  background-color: var(--color-surface-raised);
+}
+
+.pass-search-result:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pass-search-result-copy {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.pass-search-result-title {
+  font-family: var(--font-display);
+  font-size: var(--type-title-s-size);
+  line-height: var(--type-title-s-line);
+  letter-spacing: var(--type-title-s-track);
+  overflow-wrap: anywhere;
+}
+
+.pass-search-result-meta {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  line-height: var(--type-data-xs-line);
+  color: var(--color-text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.pass-search-result-action {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.pass-search-result:hover .pass-search-result-action {
+  color: var(--color-accent-text);
+}
+
+.pass-search-pass-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-target-min);
+  block-size: var(--size-target-min);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  color: var(--color-accent-text);
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+  text-transform: uppercase;
+}
+
+.pass-search-empty {
+  margin: 0;
+  padding-block: var(--space-6);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  line-height: var(--type-body-m-line);
+  text-align: center;
+}
+
+@media (max-width: 1023px) {
+  .pass-search-trigger-hint {
+    display: none;
+  }
+
+  .pass-search-trigger {
+    padding-inline: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .pass-search-scrim {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .pass-search-dialog {
+    inline-size: 100%;
+    max-inline-size: none;
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pass-search-dialog .pass-dialog-title {
+    padding-inline: var(--space-4);
+  }
+
+  .pass-search-close {
+    inset-inline-end: var(--space-1);
+  }
+
+  .pass-search-field {
+    padding-inline: var(--space-4);
+  }
+
+  .pass-search-kbd {
+    display: none;
+  }
+
+  .pass-search-results {
+    max-block-size: none;
+    padding-inline: var(--space-4);
+  }
+}
+
+/* The query field's focus signal is the field's own rule and surface, not the
+ * global 2px outline around the bare input. The outline would draw a second,
+ * inner box inside the hairline field and read as a form error. */
+.pass-search-input:focus-visible {
+  outline: none;
+}
+
+.pass-search-field:focus-within {
+  background-color: var(--color-surface-raised);
+}

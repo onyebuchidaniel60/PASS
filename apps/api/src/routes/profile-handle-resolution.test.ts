@@ -3,7 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { identities, profiles, users, createDb, runMigrations, type DbHandle } from "@pass/db";
+import {
+  identities,
+  passes,
+  profiles,
+  users,
+  createDb,
+  runMigrations,
+  type DbHandle,
+} from "@pass/db";
 import { MockEthos, MockHyperliquid, type XPort } from "@pass/integrations";
 import type { ApiEnv } from "@pass/contracts";
 import { buildApp } from "../app.js";
@@ -38,7 +46,7 @@ let app: FastifyInstance;
 let handle: DbHandle;
 let db: DbHandle["db"];
 
-async function mkTrader(slug: string, xHandle: string): Promise<void> {
+async function mkTrader(slug: string, xHandle: string): Promise<string> {
   const [user] = await db.insert(users).values({}).returning();
   if (!user) throw new Error("fixture setup failed");
   await db.insert(profiles).values({
@@ -56,6 +64,7 @@ async function mkTrader(slug: string, xHandle: string): Promise<void> {
     displayName: `Trader ${slug}`,
     avatarUrl: null,
   });
+  return user.id;
 }
 
 beforeAll(async () => {
@@ -68,9 +77,26 @@ beforeAll(async () => {
   db = handle.db;
 
   // Handle differs from slug, in both letter case directions.
-  await mkTrader("alexcarbon", "TurnTTFup99");
+  const alexId = await mkTrader("alexcarbon", "TurnTTFup99");
   // Owns an X handle that collides with the first trader's slug.
   await mkTrader("someoneelse", "alexcarbon");
+
+  await db.insert(passes).values({
+    publicId: "EXTCTX01",
+    traderId: alexId,
+    slug: "extension-context-btc",
+    version: 1,
+    asset: "BTC",
+    direction: "long",
+    entryType: "limit",
+    entryPrice: "113400",
+    stopLoss: "111900",
+    takeProfit: "116000",
+    leverage: "5",
+    thesis: "Extension context fixture.",
+    status: "active",
+    publishedAt: new Date(),
+  });
 
   const ctx: AppContext = {
     env,
@@ -136,6 +162,23 @@ describe("X handle resolves to the owning PASS profile", () => {
       found: true,
       displayName: "Trader alexcarbon",
       xHandle: "TurnTTFup99",
+      latestPassId: "EXTCTX01",
+      activePassCount: 1,
+      passes: [{ publicId: "EXTCTX01", asset: "BTC", status: "active" }],
+    });
+  });
+
+  it("returns latestPassId null when the trader has no active Pass", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/extension/context?handle=someoneelse",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      found: true,
+      latestPassId: null,
+      activePassCount: 0,
+      passes: [],
     });
   });
 

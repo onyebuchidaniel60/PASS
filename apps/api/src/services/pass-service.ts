@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { AppError } from "../errors.js";
 import {
@@ -488,6 +488,32 @@ export async function listPublicPasses(
     .limit(opts.limit);
 
   return query;
+}
+
+/**
+ * Active Passes for the extension overlay, newest published first.
+ *
+ * The overlay's primary action is a latest-Pass handoff, so it must use the
+ * same definition of "active" as the public profile: `active` or
+ * `entry_pending`. A closed Pass remains public history, but it is not a
+ * destination the overlay should offer as the trader's current plan.
+ */
+export async function listActivePasses(
+  ctx: AppContext,
+  traderId: string,
+  limit = 5,
+): Promise<PassRow[]> {
+  return ctx.db
+    .select()
+    .from(passes)
+    .where(
+      and(
+        eq(passes.traderId, traderId),
+        inArray(passes.status, ["active", "entry_pending"]),
+      ),
+    )
+    .orderBy(desc(passes.publishedAt), desc(passes.createdAt))
+    .limit(limit);
 }
 
 export async function listPassEvents(ctx: AppContext, passId: string) {

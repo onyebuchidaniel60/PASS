@@ -3,6 +3,7 @@ import type { AppContext } from "../context.js";
 import {
   getPassByPublicId,
   getPassById,
+  listActivePasses,
   listPassEvents,
   listPublicPasses,
   passOutcome,
@@ -230,12 +231,16 @@ export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext
     }
 
     const p = await buildPublicProfile(ctx, profile.slug);
-    const active = await listPublicPasses(ctx, { limit: 5, traderId: profile.userId });
+    const active = await listActivePasses(ctx, profile.userId, 5);
+    const latest = active[0] ?? null;
     return {
       found: true,
       displayName: p.profile.name,
       xHandle: p.xHandle,
       activePassCount: p.counts.active,
+      // The overlay's primary action is the trader's newest active plan.
+      // `latestPassId` is the public URL id, never the internal UUID.
+      latestPassId: latest?.publicId ?? null,
       // Public Ethos context for the overlay card (docs/EXTENSION_SPEC.md §3).
       // credibilityScore is null until a trader has connected and synced
       // Ethos; the card hides the row when it is null.

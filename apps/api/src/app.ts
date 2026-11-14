@@ -7,6 +7,7 @@ import { createLogger } from "./logger.js";
 import { isAppError, toErrorResponse } from "./errors.js";
 import { loadSession } from "./plugins/session.js";
 import { registerPublicRoutes } from "./routes/public.js";
+import { registerSearchRoutes } from "./routes/search.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerPassRoutes } from "./routes/pass.js";
 import { registerExecutionRoutes } from "./routes/pass.js";
@@ -143,6 +144,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   });
 
   await registerPublicRoutes(app, ctx);
+  await registerSearchRoutes(app, ctx);
   await registerAuthRoutes(app, ctx);
   await registerPassRoutes(app, ctx);
   await registerExecutionRoutes(app, ctx);

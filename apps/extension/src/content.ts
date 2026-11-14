@@ -2,8 +2,8 @@
  * PASS content script.
  *
  * Runs on X, detects the profile handle from the URL, and shows a small PASS
- * card with a single explicit handoff action ("View Pass",
- * docs/UX_SPEC.md §13).
+ * card. The primary handoff is the trader's latest active Pass; the profile is
+ * a secondary action so the full record stays reachable (docs/UX_SPEC.md §13).
  *
  * Design notes:
  *  - The handle comes from `window.location.pathname`, never from the DOM.
@@ -23,7 +23,7 @@
  *    (docs/DECISIONS.md D-009).
  */
 
-import { BUILD_STAMP, profileUrl } from "./config.js";
+import { BUILD_STAMP, passUrl, profileUrl } from "./config.js";
 
 const CARD_ID = "pass-overlay-card";
 
@@ -60,6 +60,7 @@ interface PassContext {
   displayName?: string;
   xHandle?: string | null;
   activePassCount?: number;
+  latestPassId?: string | null;
   profileUrl?: string;
   reputation?: { credibilityScore?: number | null } | null;
 }
@@ -101,7 +102,7 @@ export function getHandleFromUrl(pathname?: string): string | null {
  *   @handle
  *   PASS   Ethos 1,742
  *   1 Active Pass
- *   [View Pass]
+ *   [View Pass] [View Profile]
  *
  * Every value comes from the resolved PASS context and is written with
  * textContent. innerHTML is never used, because X page content and API
@@ -151,13 +152,37 @@ function buildCard(ctx: PassContext, handle: string): HTMLElement {
       : "No active Passes";
   card.appendChild(passes);
 
-  const link = document.createElement("a");
-  link.className = "pass-action";
-  link.textContent = "View Pass";
-  link.href = ctx.profileUrl ?? profileUrl(handle);
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  card.appendChild(link);
+  const actions = document.createElement("div");
+  actions.className = "pass-actions";
+
+  if (ctx.latestPassId) {
+    const passLink = document.createElement("a");
+    passLink.className = "pass-action";
+    passLink.textContent = "View Pass";
+    passLink.href = passUrl(ctx.latestPassId);
+    passLink.target = "_blank";
+    passLink.rel = "noopener noreferrer";
+    actions.appendChild(passLink);
+  } else {
+    const noPass = document.createElement("button");
+    noPass.className = "pass-action";
+    noPass.type = "button";
+    noPass.textContent = "No active Pass";
+    noPass.disabled = true;
+    actions.appendChild(noPass);
+  }
+
+  // Profile is the secondary action, always available. The primary handoff is
+  // the latest active Pass; the profile is where the trader's full record lives.
+  const profileLink = document.createElement("a");
+  profileLink.className = "pass-action pass-action-secondary";
+  profileLink.textContent = "View Profile";
+  profileLink.href = ctx.profileUrl ?? profileUrl(handle);
+  profileLink.target = "_blank";
+  profileLink.rel = "noopener noreferrer";
+  actions.appendChild(profileLink);
+
+  card.appendChild(actions);
 
   root.appendChild(card);
   return root;
@@ -199,7 +224,7 @@ async function resolveAndInject(handle: string): Promise<void> {
   }
 
   log(
-    `resolved ${handle}: found=${ctx.found} activePasses=${ctx.activePassCount ?? 0}`,
+    `resolved ${handle}: found=${ctx.found} activePasses=${ctx.activePassCount ?? 0} latestPass=${ctx.latestPassId ?? "(none)"}`,
   );
 
   if (!ctx.found) {
@@ -213,16 +238,10 @@ async function resolveAndInject(handle: string): Promise<void> {
     return;
   }
 
-  // Only ever one card on the page.
-  const existing = document.getElementById(CARD_ID);
-  if (existing) {
-    // Already present: refresh its href in case the profile URL changed.
-    const link = existing.querySelector("a.pass-action");
-    if (link instanceof HTMLAnchorElement) {
-      link.href = ctx.profileUrl ?? profileUrl(handle);
-    }
-    return;
-  }
+  // Only ever one card on the page. Rebuild rather than patching one href:
+  // the latest Pass can appear or disappear between resolves, and the primary
+  // action changes between an anchor and a disabled button.
+  document.getElementById(CARD_ID)?.remove();
 
   const card = buildCard(ctx, handle);
 

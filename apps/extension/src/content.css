@@ -138,3 +138,35 @@
   outline: 2px solid #f03a1c; /* --color-accent */
   outline-offset: 2px;
 }
+
+#pass-overlay-card .pass-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px; /* --space-2 */
+}
+
+#pass-overlay-card .pass-action-secondary {
+  background: transparent;
+  border-color: #656577; /* --color-line-strong */
+  color: #f5f1ea; /* --color-text-primary */
+}
+
+#pass-overlay-card .pass-action-secondary:hover {
+  background: #16161a; /* --color-surface-raised */
+  border-color: #b4aea4; /* --color-text-secondary */
+  text-decoration: underline;
+}
+
+#pass-overlay-card .pass-action:disabled {
+  background: transparent;
+  border-color: #1f1f25; /* --color-line-hairline */
+  color: #8a857c; /* --color-text-tertiary */
+  cursor: not-allowed;
+}
+
+#pass-overlay-card .pass-action:disabled:hover {
+  background: transparent;
+  border-color: #1f1f25; /* --color-line-hairline */
+  text-decoration: none;
+}

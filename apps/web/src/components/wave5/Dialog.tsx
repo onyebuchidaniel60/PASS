@@ -20,12 +20,24 @@ export interface DialogProps {
   /** Rendered in the overlay tier's accent position, bottom-right (§10.6). */
   action?: ReactNode;
   labelledBy?: string;
+  /** Additional class for the panel, e.g. the command palette's full-screen form. */
+  panelClassName?: string;
+  /** Additional class for the scrim, so a surface can change its placement. */
+  scrimClassName?: string;
 }
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
-export function Dialog({ open, onClose, title, children, action }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  action,
+  panelClassName,
+  scrimClassName,
+}: DialogProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const returnFocusTo = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -80,13 +92,13 @@ export function Dialog({ open, onClose, title, children, action }: DialogProps) 
 
   return (
     <div
-      className="pass-scrim"
+      className={["pass-scrim", scrimClassName].filter(Boolean).join(" ")}
       onKeyDown={onKeyDown}
       data-pass-overlay="dialog"
     >
       <div
         ref={panelRef}
-        className="pass-dialog"
+        className={["pass-dialog", panelClassName].filter(Boolean).join(" ")}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

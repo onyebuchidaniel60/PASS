@@ -73,6 +73,7 @@ describe("Topbar — D-023 identity-only", () => {
       </RootLayout>,
     );
     expect(await screen.findByRole("button", { name: "Sign in with X" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search PASS" })).toBeInTheDocument();
     expect(container.querySelector(".pass-wallet")).toBeNull();
     expect(screen.queryByText(/wallet/i)).toBeNull();
   });

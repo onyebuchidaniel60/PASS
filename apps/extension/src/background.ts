@@ -26,6 +26,7 @@ interface ExtensionContext {
   displayName?: string;
   xHandle?: string | null;
   activePassCount?: number;
+  latestPassId?: string | null;
   profileUrl?: string;
   passes?: { publicId: string; asset: string; direction: string; status: string }[];
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@/components/DemoBanner";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { NetworkBadge } from "@/components/NetworkBadge";
 import { Providers } from "@/components/Providers";
 import { OnboardingGate } from "@/components/OnboardingGate";
@@ -78,11 +79,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   first thing a trader should be able to verify before signing. */}
               <NetworkBadge />
 
-              {/* §8.4 the actions track holds ONE control: X identity. D-023:
-                  PASS identity is X-only — the handle is who a Trader IS.
-                  The wallet is execution-only and connects lazily at Take
-                  time, so it has no topbar presence. */}
+              {/* §8.4 the actions track holds the global search and the X
+                  identity. D-023: PASS identity is X-only — the handle is who
+                  a Trader IS. The wallet is execution-only and connects lazily
+                  at Take time, so it has no topbar presence. */}
               <div className="pass-topbar-actions">
+                <GlobalSearch />
                 <XIdentityControl />
               </div>
             </nav>
