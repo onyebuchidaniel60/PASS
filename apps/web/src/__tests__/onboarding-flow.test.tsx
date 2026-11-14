@@ -114,8 +114,8 @@ describe("OnboardingFlow — profile step", () => {
   it("submits slug, display name and bio, then advances", async () => {
     render(<OnboardingFlow onNavigate={() => {}} />);
     await screen.findByText("Create your PASS profile.");
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "turnttfup99" } });
-    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Turntt" } });
+    fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "turnttfup99" } });
+    fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Turntt" } });
     fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "BTC swings." } });
     me = ME_PROFILE;
     fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
@@ -133,8 +133,8 @@ describe("OnboardingFlow — profile step", () => {
   it("rejects an invalid slug locally without posting", async () => {
     render(<OnboardingFlow onNavigate={() => {}} />);
     await screen.findByText("Create your PASS profile.");
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "AB" } });
-    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Turntt" } });
+    fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "AB" } });
+    fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Turntt" } });
     fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/3–32|lowercase/);
     expect(mockPost).not.toHaveBeenCalled();
@@ -144,8 +144,8 @@ describe("OnboardingFlow — profile step", () => {
     mockPost.mockRejectedValue(new Error("That handle is already taken."));
     render(<OnboardingFlow onNavigate={() => {}} />);
     await screen.findByText("Create your PASS profile.");
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "takenname" } });
-    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Taken" } });
+    fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "takenname" } });
+    fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Taken" } });
     fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That handle is already taken.");
   });
@@ -157,8 +157,8 @@ describe("OnboardingFlow — D-023, no wallet step", () => {
     // Profile step (X already connected in the default fixture).
     await screen.findByText("Create your PASS profile.");
     expect(screen.queryByText("Associate your Hyperliquid account.")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "turnttfup99" } });
-    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Turntt" } });
+    fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "turnttfup99" } });
+    fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Turntt" } });
     me = ME_PROFILE;
     fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
     await screen.findByText("Resolve your Ethos reputation.");

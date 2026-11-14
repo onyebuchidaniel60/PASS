@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import type {
@@ -294,61 +295,22 @@ export function AgentAccess({
           )}
         </Stack>
 
-        <Stack gap="4">
+        <Stack gap="3" className="pass-agent-quickstart">
           <div>
-            <span className="pass-settings-kicker">Documentation</span>
-            <h3 className="pass-agent-key-title">Authenticate requests</h3>
+            <span className="pass-settings-kicker">Quick start</span>
+            <h3 className="pass-agent-key-title">Use the key</h3>
             <p className="pass-note">
-              Send the key in the <code>Authorization</code> header on every
+              Send it as <code>Authorization: Bearer pass_agt_…</code> on every
               Agent request. Keep it out of URLs, logs, and screenshots.
             </p>
-          </div>
-
-          <Stack gap="2">
-            <strong>1. Discover active Passes</strong>
-            <pre className="pass-agent-code">
-{`GET /api/v1/agent/passes?limit=20
-Authorization: Bearer pass_agt_<your-key>
-
-{
-  "passes": [{
-    "passId": "8xK29",
-    "asset": "BTC",
-    "direction": "long",
-    "entryType": "limit",
-    "entryPrice": "113400",
-    "stopLoss": "111900",
-    "takeProfit": "116000",
-    "leverage": "5",
-    "status": "active"
-  }]
-}`}
-            </pre>
-          </Stack>
-
-          <Stack gap="2">
-            <strong>2. Relay a pre-signed order</strong>
-            <pre className="pass-agent-code">
-{`POST /api/v1/agent/execute
-Authorization: Bearer pass_agt_<your-key>
-Content-Type: application/json
-
-{
-  "passId": "8xK29",
-  "agentWalletAddress": "0xYourHyperliquidAccount",
-  "signedPayload": {
-    "exchangeRequest": { "...": "signed Hyperliquid order" },
-    "signature": { "r": "0x…", "s": "0x…", "v": 27 }
-  }
-}`}
-            </pre>
             <p className="pass-note">
-              Sign the order with your own Hyperliquid agent wallet. PASS checks
-              the Pass version, relays the payload, and records the execution.
-              Add an optional <code>clientRequestId</code> to make retries
-              idempotent.
+              Discovery and execution examples live in the full developer
+              documentation.
             </p>
-          </Stack>
+          </div>
+          <Link href="/developers" className="pass-btn" data-variant="secondary">
+            View Full Developer Documentation <span aria-hidden="true">→</span>
+          </Link>
         </Stack>
       </Stack>
     </Panel>

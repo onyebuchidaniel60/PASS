@@ -201,9 +201,9 @@ const TRADERS: TraderSpec[] = [
       },
     ],
     executionCount: 26,
-    lossIndices: [4, 7, 11, 15, 18, 20, 23, 25],
-    targetPnlUsd: 8450,
-    lossTotalUsd: 2350,
+    lossIndices: [2, 5, 8, 10, 13, 15, 17, 19, 21, 23, 24, 25],
+    targetPnlUsd: -3250,
+    lossTotalUsd: 6750,
   },
   {
     slug: "solacedoteth",
@@ -598,7 +598,7 @@ async function main(): Promise<void> {
           100,
       );
       console.log(
-        `${trader.slug}: ${trader.executionCount} closed · ${winRate.toFixed(1)}% win · +${pnlPct.toFixed(1)}% PnL · /u/${trader.slug}`,
+        `${trader.slug}: ${trader.executionCount} closed · ${winRate.toFixed(1)}% win · ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(1)}% PnL · /u/${trader.slug}`,
       );
     }
 

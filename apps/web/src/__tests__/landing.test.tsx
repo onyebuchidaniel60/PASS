@@ -265,17 +265,6 @@ describe("Landing loop strip (§10.1 item 3)", () => {
   });
 });
 
-describe("Landing support line (§10.1 item 4)", () => {
-  it("renders the support line verbatim", () => {
-    render(<LandingView home={HOME} />);
-    expect(
-      screen.getByText(
-        "PASS turns Hyperliquid trade plans into shareable, executable links.",
-      ),
-    ).toBeInTheDocument();
-  });
-});
-
 describe("Landing Top Traders (homepage expansion)", () => {
   it("renders the seeded trader record with win rate, PnL and a sparkline", () => {
     const { container } = render(<LandingView home={HOME} />);

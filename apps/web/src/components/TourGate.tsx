@@ -11,7 +11,10 @@
  * hides on the re-read, so a refresh never re-shows.
  */
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+
+import { onMeChanged } from "@/lib/me-events";
 
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
 import type { MePayload } from "@/lib/me";
@@ -25,6 +28,11 @@ export function TourGate() {
       return clientGet<MePayload>("/api/v1/me");
     },
   });
+
+  // Settings' "Replay the tour" clears tourCompletedAt and announces the
+  // mutation on the shared identity bus. Re-read here so the tour opens
+  // immediately instead of waiting for a full page refresh.
+  useEffect(() => onMeChanged(reload), [reload]);
 
   if (state.status !== "ready") return null;
   if (!state.data.profileSlug) return null;

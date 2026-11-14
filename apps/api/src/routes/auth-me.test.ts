@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import {
   createDb,
   identities,
+  profiles,
   runMigrations,
   users,
   xConnections,
@@ -156,6 +157,35 @@ describe("GET /api/v1/me x-entry handle", () => {
     const x = body.connections.find((c) => c.provider === "x");
     expect(x).toMatchObject({ connected: true, displayOnly: false, handle: "newhandle" });
   }, 300_000);
+
+  it("returns the profile bio and handle, not just the display name", async () => {
+    harness = await boot();
+    const { app, handle } = harness;
+    const [user] = await handle.db.insert(users).values({}).returning();
+    if (!user) throw new Error("fixture setup failed");
+    await handle.db.insert(profiles).values({
+      userId: user.id,
+      slug: "biotrader",
+      handle: "biotrader",
+      name: "Bio Trader",
+      bio: "BTC swings only.",
+    });
+    const sessionId = await createSession(
+      { db: handle.db } as unknown as AppContext,
+      user.id,
+    );
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/me",
+      headers: { cookie: `${SESSION_COOKIE}=${sessionId}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      displayName: "Bio Trader",
+      handle: "biotrader",
+      bio: "BTC swings only.",
+    });
+  }, 120_000);
 
   it("exposes the identity username when display-only, null when unconnected", async () => {
     harness = await boot();

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * First-time tour (docs/DECISIONS.md D-022) — five overlay cards introducing
- * the four primary surfaces and the Take flow.
+ * First-time tour (docs/DECISIONS.md D-022) — six overlay cards introducing
+ * the shared topbar, the four primary surfaces, Settings and authoring.
  *
  * Deliberately spare: text plus Next/Back/Skip. No video, no entrance
  * animation (so the reduced-motion path is the only path), no hotspots.
@@ -23,24 +23,28 @@ export interface TourStep {
 
 export const TOUR_STEPS: TourStep[] = [
   {
+    heading: "The topbar.",
+    body: "Search traders and Passes from the topbar, and open your X identity from the right. Network status lives on the home hero, where you can check it before you sign.",
+  },
+  {
     heading: "Discover Passes.",
-    body: "Browse trader-authored trade plans — asset, direction, entry, profit target and stop — before you commit to anything.",
+    body: "Browse perps and prediction markets. Read the plan, the thesis and the invalidation before you commit to anything.",
   },
   {
-    heading: "Take a Pass.",
-    body: "You choose your own position size and authorize your own Hyperliquid order. Nothing is copied automatically.",
+    heading: "My Passes.",
+    body: "Everything you authored lives here, with its live lifecycle state and the controls that are valid for that state.",
   },
   {
-    heading: "Track your Passes.",
-    body: "My Passes holds everything you authored, with its live lifecycle state.",
+    heading: "Executions.",
+    body: "Every fill is recorded against the exact Pass version that was live when you took it — your own record, not a copied position.",
   },
   {
-    heading: "Audit every fill.",
-    body: "Executions records each fill against the exact Pass version that was live when you took it.",
+    heading: "Settings.",
+    body: "Funding, agent security, venue status and developer API keys are separated into focused tabs.",
   },
   {
-    heading: "Your Trader profile.",
-    body: "Your thesis, your track record and your reputation context live here. You can re-open this tour from settings any time.",
+    heading: "Create a Pass.",
+    body: "Author a perp plan or a prediction-market plan. You set the thesis and the terms; the Taker chooses their own size.",
   },
 ];
 

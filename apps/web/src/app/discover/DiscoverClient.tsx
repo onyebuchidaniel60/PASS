@@ -84,6 +84,7 @@ interface DiscoverPass {
 type PassLifecycle = "draft" | "published" | "active" | "entry_pending" | "open" | "closed" | "cancelled" | "expired";
 
 type StatusFilter = "all" | "active" | "open";
+type MarketFilter = "all" | "perp" | "prediction";
 
 /** §14.6 maps a lifecycle state onto a badge tone. */
 const TONE: Record<PassLifecycle, StatusTone> = {
@@ -154,24 +155,35 @@ function riskReward(p: DiscoverPass): string {
  * a second source of truth for a number the page already has.
  */
 function tickerFrom(passes: DiscoverPass[]): TickerEntry[] {
-  return passes.slice(0, 6).map((p) => {
-    const entry = Number(p.entryPrice);
-    const tp = Number(p.takeProfit);
-    const change = Number.isFinite(entry) && Number.isFinite(tp) && entry !== 0
-      ? ((tp - entry) / entry) * 100
-      : Number.NaN;
-    return {
-      symbol: p.asset,
-      price: fmt(p.entryPrice),
-      change: Number.isFinite(change) ? `${change >= 0 ? "+" : "\u2212"}${Math.abs(change).toFixed(2)}%` : undefined,
-      tone: !Number.isFinite(change) ? ("neutral" as const) : change >= 0 ? ("positive" as const) : ("negative" as const),
-    };
-  });
+  return passes
+    .filter((p) => (p.marketClass ?? "perp") !== "hip4")
+    .slice(0, 6)
+    .map((p) => {
+      const entry = Number(p.entryPrice);
+      const tp = Number(p.takeProfit);
+      const change =
+        Number.isFinite(entry) && Number.isFinite(tp) && entry !== 0
+          ? ((tp - entry) / entry) * 100
+          : Number.NaN;
+      return {
+        symbol: p.asset,
+        price: fmt(p.entryPrice),
+        change: Number.isFinite(change)
+          ? `${change >= 0 ? "+" : "\u2212"}${Math.abs(change).toFixed(2)}%`
+          : undefined,
+        tone: !Number.isFinite(change)
+          ? ("neutral" as const)
+          : change >= 0
+            ? ("positive" as const)
+            : ("negative" as const),
+      };
+    });
 }
 
 export function DiscoverClient() {
   const [passes, setPasses] = useState<DiscoverPass[]>([]);
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [marketFilter, setMarketFilter] = useState<MarketFilter>("all");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | undefined>();
 
@@ -198,8 +210,15 @@ export function DiscoverClient() {
   // The row filter is applied client-side too, so changing status does not
   // blank the list before the request resolves.
   const visible = useMemo(
-    () => (status === "all" ? passes : passes.filter((p) => p.status === status)),
-    [passes, status],
+    () =>
+      passes.filter((p) => {
+        if (status !== "all" && p.status !== status) return false;
+        const marketClass = p.marketClass ?? "perp";
+        if (marketFilter === "prediction") return marketClass === "hip4";
+        if (marketFilter === "perp") return marketClass !== "hip4";
+        return true;
+      }),
+    [passes, status, marketFilter],
   );
 
   const ticker = useMemo(() => tickerFrom(passes), [passes]);
@@ -239,6 +258,23 @@ export function DiscoverClient() {
                   {/* §10.2 item 2 — filters always visible, never behind a menu.
                       §14.9 renders them as chamfered chips with exactly one
                       selected, which is §2.5's accent ration applied to a bar. */}
+                  <ChipBar label="Filter by market type">
+                    {[
+                      { value: "all", label: "All markets" },
+                      { value: "perp", label: "Perps" },
+                      { value: "prediction", label: "Predictions" },
+                    ].map((o) => (
+                      <ChipButton
+                        key={o.value}
+                        toggle
+                        selected={marketFilter === o.value}
+                        onClick={() => setMarketFilter(o.value as MarketFilter)}
+                      >
+                        {o.label}
+                      </ChipButton>
+                    ))}
+                  </ChipBar>
+
                   <ChipBar label="Filter by status">
                     {STATUS_OPTIONS.map((o) => (
                       <ChipButton
@@ -286,11 +322,12 @@ export function DiscoverClient() {
                   Nothing is published under this status right now.
                 </EmptyBlock>
               ) : (
-                /* §14.5 the card field. The newest Pass is the feature; the rest
-                   are satellites at a smaller span, so the eye has somewhere to
-                   land instead of a uniform deck of equal tiles. */
+                /* §14.5 the card field, one full-width card per Pass. The
+                   operator's regression report was that a multi-column deck
+                   made the plan data cramped; a single column keeps every
+                   coordinate legible at every width. */
                 <div className="pass-discover-grid">
-                  {visible.map((p, index) => {
+                  {visible.map((p) => {
                     const href = p.canonicalPath || `/p/${p.publicId}`;
                     const series = p.sparkline;
                     const tone: StatusTone = TONE[p.status] ?? "draft";
@@ -304,10 +341,10 @@ export function DiscoverClient() {
                     return (
                       <DataCard
                         key={p.publicId}
-                        className={index === 0 ? "pass-discover-feature" : undefined}
+                        className={isHip4 ? "pass-card--prediction" : undefined}
                         id={
                           isHip4
-                            ? `${outcomeLabel} ${outcomeSide}`
+                            ? `Prediction ${outcomeSide}`
                             : `${p.asset} ${p.direction === "long" ? "LONG" : "SHORT"}`
                         }
                         sub={relative(p.publishedAt) ? `Published ${relative(p.publishedAt)}` : undefined}
@@ -318,12 +355,11 @@ export function DiscoverClient() {
                           // pass-chip style, the existing spacing token, no new
                           // component. The value is the Pass's own entryType.
                           <span className="pass-inline" style={{ gap: "var(--space-2)" }}>
-                            {isHip4 ? (
-                              <span className="pass-chip">HIP-4</span>
-                            ) : null}
-                            <span className="pass-chip">
-                              {p.entryType === "market" ? "Market" : "Limit"}
-                            </span>
+                            {isHip4 ? null : (
+                              <span className="pass-chip">
+                                {p.entryType === "market" ? "Market" : "Limit"}
+                              </span>
+                            )}
                             {tone === "active" || tone === "open" ? (
                               <LiveDot label="Live" />
                             ) : (
@@ -363,7 +399,7 @@ export function DiscoverClient() {
                         {/* The whole card is a hit target as well as the action, so
                             §14.5's hover state is reachable from anywhere on it. */}
                         <Link href={href} className="visually-hidden">
-                          Open {isHip4 ? `${outcomeLabel} ${outcomeSide}` : `${p.asset} ${p.direction}`} Pass
+                          Open {isHip4 ? `Prediction ${outcomeSide}: ${outcomeLabel}` : `${p.asset} ${p.direction}`} Pass
                         </Link>
                       </DataCard>
                     );

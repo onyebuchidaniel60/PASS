@@ -247,21 +247,23 @@ describe("Create Pass states (§10.5)", () => {
     expect(screen.getByLabelText(/Expiry/)).toBeInTheDocument();
   });
 
-  it("switches to an outcome market and hides TP, SL, leverage and entry", async () => {
+  it("switches to Prediction Markets and exposes only the outcome fields", async () => {
     await renderForm({ markets: [...MARKETS, HIP4_MARKET] });
     await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup({ delay: null });
-    await user.selectOptions(screen.getByLabelText(/Asset/), "#20");
-    // HIP-4 has no authored entry, venue exits, or leverage. The controls must
-    // be absent, not disabled or filled with a meaningless value.
-    await waitFor(() => expect(screen.queryByLabelText(/Entry price/)).toBeNull());
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    await waitFor(() => expect(screen.getByLabelText(/Outcome Market/)).toBeInTheDocument());
+    expect(screen.queryByLabelText(/^Entry price/)).toBeNull();
     expect(screen.queryByLabelText(/Stop loss/)).toBeNull();
     expect(screen.queryByLabelText(/Take profit/)).toBeNull();
     expect(screen.queryByLabelText(/Leverage/)).toBeNull();
-    // The decision the author actually makes is the outcome side.
     expect(screen.getByLabelText(/Side/)).toBeInTheDocument();
-    expect(screen.getByText(/no limit price, take profit, stop loss or leverage/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Limit Price/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Reference Size/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Collateral for predictions is USDH/i),
+    ).toBeInTheDocument();
   });
 });
 
@@ -371,6 +373,36 @@ describe("Create Pass publish path (create then publish)", () => {
     );
   });
 
+  it("publishes a Prediction Market with the HIP-4 payload", async () => {
+    mockPost
+      .mockResolvedValueOnce({ id: "uuid-h4", publicId: "HIP4X", version: 1, status: "draft" })
+      .mockResolvedValueOnce({ id: "uuid-h4", publicId: "HIP4X", status: "active", version: 1 });
+    await renderForm({ markets: [...MARKETS, HIP4_MARKET] });
+    await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+
+    await user.click(screen.getByRole("button", { name: "Prediction Markets" }));
+    await user.type(screen.getByLabelText(/Thesis/), "The market is mispricing the outcome.");
+    await user.type(screen.getByLabelText(/Expiry/), "2099-01-01T00:00");
+    await user.click(screen.getByRole("button", { name: /^Publish$/ }));
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(2));
+    const payload = mockPost.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      asset: "#20",
+      marketClass: "hip4",
+      outcomeName: "Will BTC close above 120k by Friday?",
+      direction: "long",
+      entryType: "market",
+      entryPrice: null,
+      stopLoss: null,
+      takeProfit: null,
+      leverage: null,
+    });
+    expect(String(payload.thesis)).toContain("Prediction reference: limit 0.50, size 100 USDH.");
+  });
+
   it("on publish failure stays on the form and never says published", async () => {
     mockPost
       .mockResolvedValueOnce({ id: "uuid-1", publicId: "UvvuxpWPZ4", version: 1, status: "draft" })
@@ -471,7 +503,7 @@ async function renderEditForm(detail: unknown = EDIT_DETAIL) {
         tradingAccounts: [],
       });
     }
-    return Promise.resolve({ assets: MARKETS });
+    return Promise.resolve({ assets: [...MARKETS, HIP4_MARKET] });
   });
   let out!: ReturnType<typeof render>;
   await act(async () => {
@@ -492,6 +524,25 @@ describe("Edit Pass (same form, ?edit={id})", () => {
       "href",
       "/p/UvvuxpWPZ4",
     );
+  });
+
+  it("round-trips a prediction reference instead of duplicating it", async () => {
+    await renderEditForm({
+      ...EDIT_DETAIL,
+      asset: "#20",
+      marketClass: "hip4",
+      entryType: "market",
+      entryPrice: null,
+      stopLoss: null,
+      takeProfit: null,
+      leverage: null,
+      thesis:
+        "The market is mispriced.\n\nPrediction reference: limit 0.62, size 250 USDH.",
+    });
+    await waitFor(() => expect(screen.getByText("Edit Pass")).toBeInTheDocument());
+    expect(screen.getByLabelText(/Limit Price/)).toHaveValue("0.62");
+    expect(screen.getByLabelText(/Reference Size/)).toHaveValue("250");
+    expect(screen.getByLabelText(/Thesis/)).toHaveValue("The market is mispriced.");
   });
 
   it("PATCHes the id with the current version and shows the new version", async () => {

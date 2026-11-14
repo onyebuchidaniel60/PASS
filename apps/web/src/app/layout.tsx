@@ -3,9 +3,9 @@ import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@/components/DemoBanner";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import { NetworkBadge } from "@/components/NetworkBadge";
 import { Providers } from "@/components/Providers";
 import { OnboardingGate } from "@/components/OnboardingGate";
+import { TopbarNav } from "@/components/TopbarNav";
 import { TourGate } from "@/components/TourGate";
 import { XIdentityControl } from "@/components/XIdentityControl";
 import { Logo, LogoMark } from "@/components/reference/logo";
@@ -14,7 +14,7 @@ import { INFO, NAV } from "@/lib/nav";
 export const metadata: Metadata = {
   title: "PASS — See a trade. Know the trader. Take the trade.",
   description:
-    "PASS turns Hyperliquid trade plans into shareable, executable links.",
+    "PASS turns Hyperliquid perp and prediction-market trade plans into shareable, executable links.",
   icons: {
     // Next.js also picks up app/icon.svg on its own; naming it here makes the
     // browser-tab mark explicit rather than incidental.
@@ -64,20 +64,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
 
               <div className="pass-topbar-nav">
-                <ul className="pass-nav">
-                  {NAV.map((n) => (
-                    <li key={n.href}>
-                      <Link href={n.href} className="pass-nav-link">
-                        {n.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <TopbarNav />
               </div>
-
-              {/* Network status is deliberately persistent: the venue is the
-                  first thing a trader should be able to verify before signing. */}
-              <NetworkBadge />
 
               {/* §8.4 the actions track holds the global search and the X
                   identity. D-023: PASS identity is X-only — the handle is who

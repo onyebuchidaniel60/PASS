@@ -95,6 +95,8 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext) 
       userId,
       profileSlug: profile?.slug ?? null,
       displayName: profile?.name ?? null,
+      bio: profile?.bio ?? null,
+      handle: profile?.handle ?? null,
       // First-time tour state (D-022). Null means never completed.
       tourCompletedAt: profile?.tourCompletedAt
         ? profile.tourCompletedAt.toISOString()

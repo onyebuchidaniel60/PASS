@@ -10,9 +10,8 @@ import { TourGate } from "@/components/TourGate";
  * the reduced-motion path is the only path.
  */
 describe("Tour", () => {
-  it("declares four to six steps, each one heading plus one paragraph", () => {
-    expect(TOUR_STEPS.length).toBeGreaterThanOrEqual(4);
-    expect(TOUR_STEPS.length).toBeLessThanOrEqual(6);
+  it("declares six steps, each one heading plus one paragraph", () => {
+    expect(TOUR_STEPS).toHaveLength(6);
     for (const step of TOUR_STEPS) {
       expect(step.heading.length).toBeGreaterThan(0);
       expect(step.body.length).toBeGreaterThan(0);

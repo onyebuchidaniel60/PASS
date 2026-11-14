@@ -12,7 +12,6 @@ import { useEffect, useState } from "react";
  * that matters — order execution.
  *
  * Rules encoded here:
- *  - the persistent venue badge lives in the topbar (NetworkBadge);
  *  - ALL live            -> this warning strip renders nothing;
  *  - ANY not-live        -> name the surfaces that are not live;
  *  - execution is always named explicitly when it is not live;
@@ -102,8 +101,7 @@ export function DemoBanner() {
   const surfaces = surfacesFrom(health?.modes ?? {});
   const notLive = surfaces.filter((s) => s.mode !== "live");
 
-  // Everything live: the persistent NetworkBadge in the topbar is the status
-  // surface, so there is nothing left for this warning strip to say.
+  // Everything live: there is nothing left for this warning strip to say.
   if (notLive.length === 0) return null;
 
   return (

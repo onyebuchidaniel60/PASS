@@ -45,7 +45,6 @@ import { ConnectKitButton } from "connectkit";
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { AgentAccess } from "@/components/AgentAccess";
 import { FundWithAnyChain } from "@/components/FundWithAnyChain";
-import { NetworkBadge } from "@/components/NetworkBadge";
 import { SecuritySection } from "@/components/SecuritySection";
 import { notifyMeChanged, onMeChanged } from "@/lib/me-events";
 import {
@@ -56,8 +55,15 @@ import { clientDelete, clientGet, clientPatch, clientPost } from "@/lib/client";
 import { fmtSize, formatRelative, statusLabel, truncateAddress } from "@/lib/format";
 import { PERIODS, inWindow, periodWindow, type PeriodId } from "@/lib/period";
 import { SignInXButton } from "@/components/SignInX";
-import { Field, SegmentedControl, Textarea, TextInput, ValidationMessage } from "@/components/wave2/controls";
-import { Avatar, ConnectionChip } from "@/components/wave3/identity";
+import {
+  Field,
+  IconButton,
+  SegmentedControl,
+  Textarea,
+  TextInput,
+  ValidationMessage,
+} from "@/components/wave2/controls";
+import { Avatar } from "@/components/wave3/identity";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Pnl, Timestamp } from "@/components/wave3/data";
 import { DataCell, PnlCell, PriceCell } from "@/components/wave3/cells";
 import {
@@ -80,6 +86,7 @@ export interface Connection {
   connected: boolean;
   label: string;
   displayOnly: boolean;
+  handle?: string | null;
 }
 
 export interface Me {
@@ -197,6 +204,41 @@ async function fetchSettingsExtra(slug: string | null): Promise<SettingsExtra> {
     ethos,
     performance,
   };
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      className="pass-settings-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" />
+      <path d="m14.5 7.5 2 2" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="8" y="8" width="11" height="12" rx="1" />
+      <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h3" />
+    </svg>
+  );
 }
 
 export interface LinkedWallet {
@@ -374,40 +416,27 @@ function WalletSection({
             >
               {truncateAddress(row.accountAddress)}
             </span>
-            <button
-              type="button"
-              className="pass-btn"
-              data-variant="secondary"
-              disabled={busy}
+            <IconButton
+              label={copied ? "Wallet address copied" : "Copy wallet address"}
               onClick={copy}
-            >
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </Inline>
-          <Inline gap="3">
-            <ConnectKitButton.Custom>
-              {({ show }) => (
-                <button
-                  type="button"
-                  className="pass-btn"
-                  data-variant="secondary"
-                  disabled={busy}
-                  onClick={show}
-                >
-                  Reconnect
-                </button>
-              )}
-            </ConnectKitButton.Custom>
-            <button
-              type="button"
-              className="pass-btn"
-              data-variant="secondary"
               disabled={busy}
-              onClick={() => setConfirmUnlink(true)}
             >
-              Unlink
-            </button>
+              <CopyIcon />
+            </IconButton>
           </Inline>
+          {!confirmUnlink && !pendingReplace ? (
+            <Inline gap="3">
+              <button
+                type="button"
+                className="pass-btn"
+                data-variant="secondary"
+                disabled={busy}
+                onClick={() => setConfirmUnlink(true)}
+              >
+                Unlink
+              </button>
+            </Inline>
+          ) : null}
 
           {pendingReplace ? (
             <Stack gap="3">
@@ -887,25 +916,22 @@ function SettingsReady({
                         </Inline>
                       </Stack>
                     ) : (
-                      <Stack gap="3">
-                        <span className="pass-settings-kicker">Connections</span>
-                        <Inline gap="3">
-                          {xEntry ? (
-                            <ConnectionChip
-                              provider="X"
-                              tone="connected"
-                              label={xEntry.label}
-                            />
-                          ) : null}
-                          {ethosOn && ethosEntry ? (
-                            <ConnectionChip
-                              provider="Ethos"
-                              tone="displayOnly"
-                              label={ethosEntry.label}
-                            />
-                          ) : null}
-                        </Inline>
-                      </Stack>
+                      <div className="pass-settings-connection-line">
+                        <span>
+                          X{" "}
+                          <span className="pass-value">
+                            @{me.handle ?? xEntry?.handle ?? "connected"}
+                          </span>
+                        </span>
+                        {ethosOn && ethosEntry ? (
+                          <span>
+                            Ethos{" "}
+                            <span className="pass-value">
+                              reputation resolved
+                            </span>
+                          </span>
+                        ) : null}
+                      </div>
                     )}
                   </div>
 
@@ -975,10 +1001,7 @@ function SettingsReady({
                     </Stack>
                   ) : null}
 
-                  <Panel>
-                    <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
-                      Identity
-                    </h2>
+                  <div className="pass-settings-bio">
                     {editing ? (
                       <Stack gap="4">
                         <Field label="Display name">
@@ -1025,24 +1048,32 @@ function SettingsReady({
                           ) : null}
                         </Inline>
                       </Stack>
-                    ) : (
-                      <Inline gap="4">
+                    ) : me.bio ? (
+                      <div className="pass-settings-bio-view">
+                        <p className="pass-thesis">{me.bio}</p>
                         <button
                           type="button"
-                          className="pass-bio-edit pass-btn"
+                          className="pass-btn"
                           data-variant="secondary"
-                          aria-label="Edit bio"
+                          aria-label="Edit Bio"
                           onClick={startEdit}
                         >
-                          {me.bio ? (
-                            <span className="pass-stale">{me.bio}</span>
-                          ) : (
-                            <span className="pass-stale">No bio yet.</span>
-                          )}
+                          <PencilIcon />
+                          Edit Bio
                         </button>
-                      </Inline>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="pass-btn"
+                        data-variant="secondary"
+                        onClick={startEdit}
+                      >
+                        <PencilIcon />
+                        Add Bio
+                      </button>
                     )}
-                  </Panel>
+                  </div>
 
                   <Panel>
                     <Inline gap="3" align="center">
@@ -1065,6 +1096,7 @@ function SettingsReady({
                             )
                             .then(() => {
                               setTourState("done");
+                              notifyMeChanged();
                               reload();
                             })
                             .catch(() => setTourState("error"));
@@ -1171,10 +1203,6 @@ function SettingsReady({
                 <Stack gap="6">
                   <Panel className="pass-trading-venue">
                     <Stack gap="5">
-                      <NetworkBadge
-                        variant="large"
-                        detail="Live execution venue"
-                      />
                       <div>
                         <span className="pass-settings-kicker">Venue</span>
                         <h2 style={{ fontSize: "var(--type-display-m-size)" }}>

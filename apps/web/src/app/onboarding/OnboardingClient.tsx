@@ -183,13 +183,13 @@ export function OnboardingClient({
               ) : null}
             </Stack>
           ) : (
-            <Panel>
-              <h1>{current.question}</h1>
-              <p className="pass-stale">{current.why}</p>
+            <Panel className="pass-onboarding-panel">
+              <h1 className="pass-onboarding-question">{current.question}</h1>
+              <p className="pass-onboarding-why">{current.why}</p>
 
               {stepBody ?? null}
 
-              <Inline gap="3">
+              <Inline gap="3" className="pass-onboarding-actions">
                 <button
                   type="button"
                   className="pass-btn"

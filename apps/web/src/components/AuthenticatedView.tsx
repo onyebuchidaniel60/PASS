@@ -51,10 +51,10 @@ export function AuthenticatedView<T>({
       return <LoadingBlock label={loadingLabel} rows={4} />;
     case "unauthorized":
       return (
-        <>
-          <PermissionBlock reason={unauthorizedReason} />
-          {unauthorizedAction ?? null}
-        </>
+        <PermissionBlock
+          reason={unauthorizedReason}
+          action={unauthorizedAction}
+        />
       );
     case "error":
       return <ErrorBlock detail={errorDetail ?? state.error} onRetry={onRetry} />;

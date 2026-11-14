@@ -10,6 +10,23 @@ import { StatusBadge } from "@/components/reference";
 import { Toggle, ValidationMessage } from "@/components/wave2/controls";
 import { truncateAddress } from "@/lib/format";
 
+function RestrictionIcon() {
+  return (
+    <span className="pass-security-restriction" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      >
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M8 12h8" />
+      </svg>
+    </span>
+  );
+}
+
 export interface SecurityAccount {
   id: string;
   accountAddress: string;
@@ -139,9 +156,18 @@ export function SecuritySection({
         <Stack gap="2">
           <strong>What the Agent Key cannot do</strong>
           <ul className="pass-security-list">
-            <li>Cannot withdraw funds</li>
-            <li>Cannot transfer tokens</li>
-            <li>Cannot change account settings</li>
+            <li>
+              <RestrictionIcon />
+              <span>Cannot withdraw funds</span>
+            </li>
+            <li>
+              <RestrictionIcon />
+              <span>Cannot transfer tokens</span>
+            </li>
+            <li>
+              <RestrictionIcon />
+              <span>Cannot change account settings</span>
+            </li>
           </ul>
           <p className="pass-stale">
             Withdrawals, transfers, and account changes require your master

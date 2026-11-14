@@ -155,7 +155,7 @@ describe("§10.10 Profile and connections", () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     expect(await screen.findByText("BTC swings only.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Edit bio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bio" }));
     expect(screen.getByLabelText("Bio")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute(
       "data-variant",
@@ -164,12 +164,19 @@ describe("§10.10 Profile and connections", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
+  it("shows Add Bio when the profile has no bio, and opens the editor", async () => {
+    render(<SettingsClient probe={authed} load={withMe({ bio: null })} />);
+    const add = await screen.findByRole("button", { name: "Add Bio" });
+    fireEvent.click(add);
+    expect(screen.getByLabelText("Bio")).toBeInTheDocument();
+  });
+
   it("renders chips only for connected accounts (§10.10.1, single-state)", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("X");
-    // X is connected: its chip states Connected. Ethos is read-only: Read only.
-    expect(screen.getByText("Connected")).toBeInTheDocument();
-    expect(screen.getByText("Read only")).toBeInTheDocument();
+    // Connections are plain identity text, not bordered chips.
+    expect(screen.getAllByText("@turnttfup99").length).toBeGreaterThan(0);
+    expect(screen.getByText("reputation resolved")).toBeInTheDocument();
     // D-023: no wallet chip on the identity row — the execution wallet is
     // managed in the Wallet section below, not as a connection chip.
     expect(screen.queryByText("Hyperliquid")).toBeNull();
@@ -226,7 +233,7 @@ describe("§10.10 Profile and connections", () => {
   it("edits the display name and bio, then saves", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<SettingsClient probe={authed} load={withMe()} onSave={onSave} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Bio" }));
 
     const name = screen.getByLabelText("Display name");
     fireEvent.change(name, { target: { value: "new name" } });
@@ -244,7 +251,7 @@ describe("§10.10 Profile and connections", () => {
     mockPatch.mockResolvedValue({});
     let current: Me = ME;
     render(<SettingsClient probe={authed} load={async () => current} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Bio" }));
     fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "fresh bio" } });
     current = { ...ME, bio: "fresh bio" };
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -262,7 +269,7 @@ describe("§10.10 Profile and connections", () => {
   it("keeps edit mode and shows the error when saving fails", async () => {
     const onSave = vi.fn().mockRejectedValue(new Error("down"));
     render(<SettingsClient probe={authed} load={withMe()} onSave={onSave} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Bio" }));
     fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "lost?" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Could not save the profile.")).toBeInTheDocument();
@@ -273,7 +280,7 @@ describe("§10.10 Profile and connections", () => {
 
   it("focuses the bio field when edit mode opens", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit bio" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Bio" }));
     const bio = screen.getByLabelText("Bio");
     expect(document.activeElement).toBe(bio);
   });
@@ -284,8 +291,10 @@ describe("§10.10 Profile and connections", () => {
     openTab("Funding");
     // The linked row renders truncated with management actions…
     expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Copy wallet address" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reconnect" })).toBeNull();
     expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
     // …but never as an identity chip, and never with key material.
     expect(screen.queryByText("Hyperliquid")).toBeNull();
@@ -297,7 +306,7 @@ describe("§10.10 Profile and connections", () => {
   it("contains no field that would accept key material", async () => {
     const { container } = render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("turnttfup99");
-    fireEvent.click(screen.getByRole("button", { name: "Edit bio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bio" }));
     expect(container.querySelector('input[type="password"]')).toBeNull();
     const html = container.innerHTML.toLowerCase();
     for (const forbidden of ["private key", "seed phrase", "mnemonic", "secret key"]) {
@@ -356,8 +365,8 @@ describe("§10.10 Profile and connections", () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("X");
     expect(screen.queryByRole("button", { name: "Disconnect X" })).toBeNull();
-    // Identity state still renders here.
-    expect(screen.getByText("Connected")).toBeInTheDocument();
+    // Identity state still renders here as plain text.
+    expect(screen.getByText("reputation resolved")).toBeInTheDocument();
   });
 
   it("lays identity out as a header row: avatar beside the identity stack (ref 14)", async () => {
@@ -425,8 +434,10 @@ describe("Wallet section — connect / unlink / replace", () => {
     );
     await waitFor(() => expect(linkAccount).toHaveBeenCalledWith(ADDR_B));
     expect(await screen.findByText("0xab…abcd")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Copy wallet address" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reconnect" })).toBeNull();
     expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
   });
 
@@ -489,11 +500,13 @@ describe("Wallet section — connect / unlink / replace", () => {
     await screen.findByText("turnttfup99");
     openTab("Funding");
     expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy wallet address" }));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678"),
     );
-    expect(await screen.findByText("Copied")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Wallet address copied" }),
+    ).toBeInTheDocument();
   });
 });
 

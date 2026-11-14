@@ -254,30 +254,52 @@ function FlowInner({
         onBack={display > 0 ? () => setManual(display - 1) : undefined}
         stepBody={
           display === 1 ? (
-            <Stack gap="5">
-              <Field label="Slug">
-                {({ controlId }) => (
+            <Stack gap="5" className="pass-onboarding-form">
+              <Field
+                label="Slug"
+                required
+                className="pass-terminal-field"
+                helper="Your public profile URL: pass.to/slug."
+              >
+                {({ controlId, describedBy }) => (
                   <TextInput
                     id={controlId}
                     value={slug}
                     onChange={setSlug}
+                    describedBy={describedBy}
                     placeholder="traderx"
+                    className="pass-terminal-input"
                   />
                 )}
               </Field>
-              <Field label="Display name">
+              <Field
+                label="Display name"
+                required
+                className="pass-terminal-field"
+              >
                 {({ controlId }) => (
                   <TextInput
                     id={controlId}
                     value={displayName}
                     onChange={setDisplayName}
                     placeholder="Trader X"
+                    className="pass-terminal-input"
                   />
                 )}
               </Field>
-              <Field label="Bio">
+              <Field
+                label="Bio"
+                className="pass-terminal-field"
+                helper="One or two lines. The thesis comes later."
+              >
                 {({ controlId }) => (
-                  <Textarea id={controlId} value={bio} onChange={setBio} />
+                  <Textarea
+                    id={controlId}
+                    value={bio}
+                    onChange={setBio}
+                    rows={4}
+                    className="pass-terminal-input"
+                  />
                 )}
               </Field>
             </Stack>

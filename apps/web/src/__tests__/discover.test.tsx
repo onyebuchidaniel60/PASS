@@ -150,8 +150,45 @@ describe("Discover filters (§10.2 item 2)", () => {
   it("offers a visible status filter, never behind a menu", async () => {
     await renderDiscover();
     await waitFor(() => expect(screen.getByText("BTC")).toBeInTheDocument());
+    expect(screen.getByRole("group", { name: "Filter by market type" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Filter by status" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(3);
+    expect(screen.getAllByRole("button")).toHaveLength(6);
+  });
+
+  it("separates predictions from perps and labels the outcome side", async () => {
+    const prediction = {
+      publicId: "HIP4X",
+      asset: "#20",
+      marketClass: "hip4",
+      outcome: {
+        outcomeId: 20,
+        side: "yes",
+        name: "Will BTC close above $120,000?",
+        orderCoin: "#20",
+        balanceCoin: "+20",
+        assetId: 100000020,
+      },
+      direction: "long",
+      status: "active",
+      entryType: "market",
+      entryPrice: null,
+      takeProfit: null,
+      stopLoss: null,
+      publishedAt: new Date().toISOString(),
+      canonicalPath: "/p/HIP4X",
+    };
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup({ delay: null });
+    await renderDiscover([...PASSES, prediction]);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Will BTC close above/).length).toBeGreaterThan(0),
+    );
+    expect(screen.getAllByText(/Prediction YES/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("YES")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Predictions" }));
+    await waitFor(() => expect(screen.queryByText("BTC LONG")).toBeNull());
+    expect(screen.getAllByText(/Will BTC close above/).length).toBeGreaterThan(0);
   });
 
   it("filters client-side without blanking the list", async () => {
@@ -221,14 +258,17 @@ describe("Discover reference language (§14)", () => {
     expect(lines[1].querySelectorAll(".pass-display-accent")).toHaveLength(0);
   });
 
-  it("marks exactly one filter chip as pressed (§2.5 one accent fill per region)", async () => {
+  it("marks one filter chip as pressed per filter region (§2.5)", async () => {
     await renderDiscover();
     await waitFor(() => expect(screen.getByText(/BTC LONG/)).toBeInTheDocument());
-    const pressed = screen
-      .getAllByRole("button")
-      .filter((b) => b.getAttribute("aria-pressed") === "true");
-    expect(pressed).toHaveLength(1);
-    expect(pressed[0]).toHaveTextContent("All");
+    const groups = screen.getAllByRole("group");
+    for (const group of groups) {
+      const pressed = Array.from(group.querySelectorAll("button")).filter(
+        (button) => button.getAttribute("aria-pressed") === "true",
+      );
+      expect(pressed).toHaveLength(1);
+      expect(pressed[0]).toHaveTextContent("All");
+    }
   });
 
   it("renders no sparkline when the payload carries no series (§11.2)", async () => {

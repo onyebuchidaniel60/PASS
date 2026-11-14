@@ -6341,3 +6341,400 @@ text-underline-offset: 0.2em;
 .pass-agent-access .pass-note {
   margin: 0;
 }
+
+/* --- Detail pass 2026-11-14 --------------------------------------------- */
+/* The topbar no longer carries a network badge. Three tracks: brand, nav,
+ * actions. The old four-track rule left an empty max-content column. */
+@media (min-width: 768px) {
+  .pass-topbar-inner {
+    grid-template-columns: auto minmax(0, 1fr) max-content;
+  }
+}
+
+@media (max-width: 767px) {
+  .pass-topbar-inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "brand actions"
+      "nav nav";
+  }
+
+  .pass-topbar-nav {
+    grid-area: nav;
+  }
+
+  .pass-topbar-actions {
+    grid-area: actions;
+  }
+}
+
+.pass-topbar .pass-nav-link {
+  border-block-end: var(--border-width-selected) solid transparent;
+}
+
+.pass-topbar .pass-nav-link[data-active="true"] {
+  color: var(--color-text-primary);
+  border-block-end-color: var(--color-accent);
+}
+
+.pass-topbar .pass-nav-link[data-active="true"]:hover {
+  border-block-end-color: var(--color-accent);
+  text-decoration: none;
+}
+
+.pass-topbar .pass-nav-link:hover {
+  border-block-end-color: var(--color-line-strong);
+}
+
+/* Empty-state CTA: the PermissionBlock already provides the reason; the
+ * action now sits inside it with the block's own gap instead of as a bare
+ * sibling pressed against the border. */
+.pass-empty > .pass-btn,
+.pass-empty > .pass-inline {
+  margin-block-start: var(--space-2);
+}
+
+/* --- Detail pass: Settings profile, wallet, security --------------------- */
+.pass-settings-connection-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-block: var(--space-1);
+  color: var(--color-text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+}
+
+.pass-settings-connection-line > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.pass-settings-bio {
+  display: grid;
+  gap: var(--space-4);
+  padding-block-start: var(--space-5);
+  border-block-start: var(--border-hairline);
+}
+
+.pass-settings-bio-view {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+}
+
+.pass-settings-bio-view .pass-thesis {
+  margin: 0;
+}
+
+.pass-settings-bio > .pass-btn {
+  justify-self: start;
+}
+
+.pass-settings-icon {
+  inline-size: var(--size-icon);
+  block-size: var(--size-icon);
+  flex: 0 0 auto;
+}
+
+.pass-security-list {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.pass-security-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.pass-security-restriction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-icon-grid);
+  block-size: var(--size-icon-grid);
+  flex: 0 0 auto;
+  color: var(--color-data-negative);
+}
+
+.pass-security-restriction svg {
+  inline-size: var(--size-icon);
+  block-size: var(--size-icon);
+}
+
+/* --- Detail pass: Onboarding editorial form ----------------------------- */
+.pass-onboarding-panel {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.pass-onboarding-question {
+  margin: 0;
+  font-family: var(--type-display-section-font);
+  font-size: var(--type-display-section-size);
+  line-height: var(--type-display-section-line);
+  letter-spacing: var(--type-display-section-track);
+  color: var(--color-text-primary);
+}
+
+.pass-onboarding-why {
+  margin: 0;
+  max-inline-size: var(--measure-body);
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+}
+
+.pass-onboarding-form {
+  padding-block-start: var(--space-2);
+}
+
+.pass-onboarding-form .pass-terminal-field .pass-control,
+.pass-onboarding-form .pass-terminal-field .pass-textarea {
+  background-color: transparent;
+  border: 0;
+  border-block-end: var(--border-strong);
+  border-radius: 0;
+  padding-inline: 0;
+  font-family: var(--font-data);
+}
+
+.pass-onboarding-form .pass-terminal-field .pass-control:focus-visible,
+.pass-onboarding-form .pass-terminal-field .pass-textarea:focus-visible {
+  outline: none;
+  border-block-end-color: var(--color-accent);
+}
+
+.pass-onboarding-actions {
+  padding-block-start: var(--space-2);
+  border-block-start: var(--border-hairline);
+}
+
+.pass-onboarding-actions .pass-btn {
+  min-width: var(--size-target-min);
+}
+
+/* --- Detail pass: homepage alignment and trader card bounds -------------- */
+.pass-activity-row {
+  grid-template-columns: 5.5rem var(--space-4) minmax(0, 1fr) var(--size-target-min);
+}
+
+.pass-activity-time {
+  text-align: end;
+}
+
+.pass-trader-stats dd {
+  font-size: var(--type-data-m-size);
+  line-height: var(--type-data-m-line);
+  letter-spacing: var(--type-data-m-track);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  .pass-activity-row {
+    grid-template-columns: 5.5rem minmax(0, 1fr) var(--size-target-min);
+  }
+}
+
+/* --- Detail pass: Discover returns to a legible one-column field -------- */
+.pass-discover-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+
+.pass-discover-rail {
+  position: static;
+}
+
+.pass-discover-rail .pass-section {
+  padding-inline-end: 0;
+  border-inline-end: 0;
+}
+
+.pass-discover-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pass-discover-grid > .pass-card,
+.pass-discover-grid > .pass-discover-feature {
+  grid-column: auto;
+  padding: var(--card-pad);
+  border-inline-start: var(--border-hairline);
+}
+
+.pass-discover-feature .pass-card-id,
+.pass-discover-feature .pass-card-sub,
+.pass-discover-feature .pass-card-metric dd {
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  opacity: inherit;
+}
+
+.pass-discover-rail .pass-chip-bar + .pass-chip-bar {
+  margin-block-start: var(--space-3);
+}
+
+/* --- Detail pass: public profile pass history ---------------------------- */
+.pass-profile-table {
+  padding-block-start: var(--space-2);
+}
+
+.pass-profile-table [data-testid="data-table"] {
+  display: table;
+  inline-size: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+.pass-profile-table [data-testid="data-table"] thead th {
+  padding: var(--space-3) var(--space-4);
+  border-block-end: var(--border-strong);
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-profile-table [data-testid="data-table"] tbody td {
+  padding: var(--space-4);
+  border-block-end: var(--border-hairline);
+  vertical-align: baseline;
+}
+
+.pass-profile-table [data-testid="data-table"] tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.pass-profile-table [data-testid="data-table"] tbody tr:hover {
+  background-color: var(--color-surface);
+}
+
+.pass-profile-table [data-testid="data-table-stacked"] {
+  padding-block: var(--space-2);
+}
+
+.pass-profile-pass-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.pass-profile-pass-name {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 48ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .pass-profile-table [data-testid="data-table"] {
+    display: none;
+  }
+
+  .pass-profile-table [data-testid="data-table-stacked"] {
+    display: block;
+  }
+
+  .pass-profile-pass-name {
+    max-inline-size: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* --- Detail pass: prediction market authoring --------------------------- */
+.pass-market-mode {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-hairline);
+  border-inline-start: var(--border-width-selected) solid var(--color-accent);
+  background-color: var(--color-surface);
+}
+
+.pass-market-mode .pass-note {
+  margin: 0;
+  max-inline-size: var(--measure-body);
+}
+
+.pass-icon-btn svg {
+  inline-size: var(--size-icon);
+  block-size: var(--size-icon);
+}
+
+/* --- Detail pass: developer documentation page -------------------------- */
+.pass-developers-head {
+  padding: var(--space-7);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-developers-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--type-title-l-size);
+  line-height: var(--type-title-l-line);
+  letter-spacing: var(--type-title-l-track);
+  color: var(--color-text-primary);
+}
+
+@media (min-width: 1024px) {
+  .pass-developers-head {
+    padding: var(--space-8);
+  }
+}
+
+/* Prediction preview: the outcome is a sentence, not a coordinate. Give it a
+ * full row so the market question is readable instead of ellipsised. */
+.pass-coordinate-grid--prediction {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pass-coordinate-pair--wide {
+  grid-column: 1 / -1;
+}
+
+.pass-coordinate-grid--prediction
+  .pass-coordinate-pair--wide
+  .pass-coordinate-pair-value {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+/* Prediction cards: the identifier is a state pair, and the market question
+ * is a sentence. Let both wrap instead of ellipsising the only copy of the
+ * question on a 375px card. */
+.pass-card--prediction .pass-card-header {
+  align-items: flex-start;
+}
+
+.pass-card--prediction .pass-card-id {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.pass-card--prediction .pass-card-metric dd {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+/* Developer docs are one continuous manual, not a sequence of editorial
+ * sections: section margins would put a screen of air between each step. */
+.pass-developers .pass-section {
+  margin-block: 0;
+}

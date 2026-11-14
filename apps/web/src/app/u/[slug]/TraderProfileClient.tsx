@@ -81,6 +81,11 @@ export interface Profile {
 interface PassSummary {
   publicId: string;
   asset: string;
+  marketClass?: "perp" | "spot" | "hip4";
+  outcome?: {
+    side: "yes" | "no";
+    name: string;
+  } | null;
   direction: "long" | "short";
   status: string;
   entryType?: "limit" | "market";
@@ -154,11 +159,31 @@ const passTableColumns: DataTableColumn<PassSummary>[] = [
   {
     key: "pass",
     label: "Pass",
-    render: (p) => (
-      <Link href={`/p/${p.publicId}`} className="pass-link-btn">
-        {p.asset} {p.direction === "long" ? "Long" : "Short"}
-      </Link>
-    ),
+    render: (p) => {
+      if (p.marketClass === "hip4") {
+        const side = p.outcome?.side?.toUpperCase() ?? (p.direction === "long" ? "YES" : "NO");
+        const name = p.outcome?.name ?? p.asset;
+        return (
+          <span className="pass-profile-pass-cell">
+            <Link
+              href={`/p/${p.publicId}`}
+              className="pass-link-btn pass-profile-pass-name"
+              title={name}
+            >
+              {name}
+            </Link>
+            <span className="pass-chip" data-state="active">
+              {side}
+            </span>
+          </span>
+        );
+      }
+      return (
+        <Link href={`/p/${p.publicId}`} className="pass-link-btn">
+          {p.asset} {p.direction === "long" ? "Long" : "Short"}
+        </Link>
+      );
+    },
   },
   {
     key: "status",
@@ -170,10 +195,11 @@ const passTableColumns: DataTableColumn<PassSummary>[] = [
     label: "Entry",
     numeric: true,
     inStack: false,
-    // Market Passes store no entry: an empty cell, never a "—" placeholder.
-    // (A table row cannot drop a cell without breaking the grid.)
+    // Market and prediction Passes store no entry: an empty cell, never a
+    // "—" placeholder. (A table row cannot drop a cell without breaking the
+    // grid.)
     render: (p) =>
-      p.entryType === "market" ? null : (
+      p.entryType === "market" || p.marketClass === "hip4" ? null : (
         <span className="pass-num">{fmt(p.entryPrice)}</span>
       ),
   },
@@ -182,14 +208,20 @@ const passTableColumns: DataTableColumn<PassSummary>[] = [
     label: "Take profit",
     numeric: true,
     inStack: false,
-    render: (p) => <span className="pass-num">{fmt(p.takeProfit)}</span>,
+    render: (p) =>
+      p.marketClass === "hip4" ? null : (
+        <span className="pass-num">{fmt(p.takeProfit)}</span>
+      ),
   },
   {
     key: "sl",
     label: "Stop loss",
     numeric: true,
     inStack: false,
-    render: (p) => <span className="pass-num">{fmt(p.stopLoss)}</span>,
+    render: (p) =>
+      p.marketClass === "hip4" ? null : (
+        <span className="pass-num">{fmt(p.stopLoss)}</span>
+      ),
   },
 ];
 
@@ -472,7 +504,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
           <section className="pass-section" aria-labelledby="passes-h">
             <span className="pass-numbered-eyebrow" id="passes-h">
               <span className="pass-numbered-eyebrow-number">{"//"}</span>
-              Passes
+              Pass history
             </span>
             {passes.length === 0 ? (
               <EmptyBlock
@@ -488,9 +520,9 @@ export function TraderProfileClient({ slug }: { slug: string }) {
                 {profile.displayName} has nothing live right now.
               </EmptyBlock>
             ) : (
-              <Panel className="pass-borderless-panel">
+              <Panel className="pass-borderless-panel pass-profile-table">
                 <DataTable
-                  caption={`Passes by ${profile.displayName}`}
+                  caption={`Pass history for ${profile.displayName}`}
                   columns={passTableColumns}
                   rows={passes}
                   rowKey={(p) => p.publicId}

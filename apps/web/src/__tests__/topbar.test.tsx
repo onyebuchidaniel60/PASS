@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import RootLayout from "@/app/layout";
@@ -11,6 +11,7 @@ import RootLayout from "@/app/layout";
  */
 
 const { mockGet } = vi.hoisted(() => ({ mockGet: vi.fn() }));
+let currentPath = "/";
 
 vi.mock("@/lib/client", () => ({
   clientGet: (...a: unknown[]) => mockGet(...a),
@@ -28,7 +29,7 @@ vi.mock("wagmi", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
-  usePathname: () => "/",
+  usePathname: () => currentPath,
 }));
 
 vi.mock("connectkit", () => ({
@@ -61,6 +62,7 @@ const ME_ON = {
 };
 
 beforeEach(() => {
+  currentPath = "/";
   mockGet.mockReset();
 });
 
@@ -76,6 +78,23 @@ describe("Topbar — D-023 identity-only", () => {
     expect(screen.getByRole("button", { name: "Search PASS" })).toBeInTheDocument();
     expect(container.querySelector(".pass-wallet")).toBeNull();
     expect(screen.queryByText(/wallet/i)).toBeNull();
+  });
+
+  it("marks the active destination with aria-current and the ember state", async () => {
+    currentPath = "/discover";
+    mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
+    render(
+      <RootLayout>
+        <div>child</div>
+      </RootLayout>,
+    );
+    const primary = within(screen.getByRole("navigation", { name: "Primary" }));
+    const discover = primary.getByRole("link", { name: "Discover" });
+    expect(discover).toHaveAttribute("aria-current", "page");
+    expect(discover).toHaveAttribute("data-active", "true");
+    expect(primary.getByRole("link", { name: "Executions" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("shows @handle and no wallet element when connected", async () => {

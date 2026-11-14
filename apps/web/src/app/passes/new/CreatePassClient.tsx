@@ -78,6 +78,46 @@ interface Market {
   } | null;
 }
 
+interface PredictionOutcome {
+  id: number;
+  name: string;
+  yes?: Market;
+  no?: Market;
+}
+
+function groupPredictionOutcomes(markets: Market[]): PredictionOutcome[] {
+  const byId = new Map<number, PredictionOutcome>();
+  for (const market of markets) {
+    if (market.marketClass !== "hip4" || !market.outcome) continue;
+    const current = byId.get(market.outcome.outcomeId) ?? {
+      id: market.outcome.outcomeId,
+      name: market.outcome.name?.trim() || market.asset,
+    };
+    if (market.outcome.side === "yes") current.yes = market;
+    else current.no = market;
+    byId.set(current.id, current);
+  }
+  return Array.from(byId.values());
+}
+
+const PREDICTION_REFERENCE =
+  /\n\nPrediction reference: limit ([0-9.]+), size ([0-9.]+) USDH\./;
+
+/** Round-trip the reference line so editing never appends a second copy. */
+function splitPredictionReference(value: string): {
+  body: string;
+  limit: string;
+  size: string;
+} {
+  const match = value.match(PREDICTION_REFERENCE);
+  if (!match) return { body: value, limit: "0.50", size: "100" };
+  return {
+    body: value.slice(0, match.index).trimEnd(),
+    limit: match[1] ?? "0.50",
+    size: match[2] ?? "100",
+  };
+}
+
 const DIRECTIONS: readonly SegmentedOption<"long" | "short">[] = [
   { value: "long", label: "Long" },
   { value: "short", label: "Short" },
@@ -108,7 +148,10 @@ const CREATE_FIELDS = [
 
 /** One validation result per field. Absent key means the field is valid. */
 type Errors = Partial<
-  Record<"entry" | "sl" | "tp" | "leverage" | "expiry", string>
+  Record<
+    "entry" | "sl" | "tp" | "leverage" | "expiry" | "predictionLimit" | "predictionSize",
+    string
+  >
 >;
 
 function num(v: string): number | null {
@@ -130,6 +173,9 @@ export function validate(p: {
   leverage: number;
   expiry: string;
   markets: Market[];
+  marketMode?: "perp" | "prediction";
+  predictionLimit?: string;
+  predictionSize?: string;
 }): Errors {
   const e: Errors = {};
   const entry = num(p.entry);
@@ -179,6 +225,17 @@ export function validate(p: {
     const cap = Math.min(market?.maxLeverage ?? MAX_LEVERAGE, MAX_LEVERAGE);
     if (p.leverage > cap) {
       e.leverage = `Maximum leverage for ${p.asset} is ${cap}x.`;
+    }
+  }
+
+  if (p.marketMode === "prediction") {
+    const limit = num(p.predictionLimit ?? "");
+    if (limit === null || limit < 0.01 || limit > 0.99) {
+      e.predictionLimit = "Enter a limit probability between 0.01 and 0.99.";
+    }
+    const size = num(p.predictionSize ?? "");
+    if (size === null || size <= 0) {
+      e.predictionSize = "Enter a reference size greater than zero.";
     }
   }
 
@@ -243,6 +300,10 @@ export function CreatePassClient() {
   const [booting, setBooting] = useState(true);
 
   const [asset, setAsset] = useState("");
+  const [marketMode, setMarketMode] = useState<"perp" | "prediction">("perp");
+  const [predictionOutcomeId, setPredictionOutcomeId] = useState<number | null>(null);
+  const [predictionLimit, setPredictionLimit] = useState("0.50");
+  const [predictionSize, setPredictionSize] = useState("100");
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [entryType, setEntryType] = useState<"limit" | "market">("limit");
   const [entry, setEntry] = useState("");
@@ -279,9 +340,11 @@ export function CreatePassClient() {
     } catch {
       setAuth("out");
     }
+    let loadedMarkets: Market[] = [];
     try {
       const m = await clientGet<{ assets?: Market[] }>("/api/v1/markets");
       const list = m.assets ?? [];
+      loadedMarkets = list;
       setMarkets(list);
       if (list[0] && !editId) setAsset(list[0].asset);
     } catch {
@@ -300,13 +363,24 @@ export function CreatePassClient() {
         } else {
           setAsset(d.asset);
           setEditMarketClass(d.marketClass ?? "perp");
+          const reference = splitPredictionReference(d.thesis ?? "");
+          if (d.marketClass === "hip4") {
+            const outcomes = groupPredictionOutcomes(loadedMarkets);
+            const outcome = outcomes.find(
+              (o) => o.yes?.asset === d.asset || o.no?.asset === d.asset,
+            );
+            setMarketMode("prediction");
+            setPredictionOutcomeId(outcome?.id ?? null);
+            setPredictionLimit(reference.limit);
+            setPredictionSize(reference.size);
+          }
           setDirection(d.direction);
           setEntryType(d.entryType);
           setEntry(d.entryPrice ?? "");
           setSl(d.stopLoss ?? "");
           setTp(d.takeProfit ?? "");
           setLeverage(Number(d.leverage ?? "5") || 5);
-          setThesis(d.thesis);
+          setThesis(d.marketClass === "hip4" ? reference.body : (d.thesis ?? ""));
           setExpiry(toLocalInput(d.expiresAt));
           setEditVersion(d.version);
           setEditPublicId(d.publicId);
@@ -322,51 +396,114 @@ export function CreatePassClient() {
     void boot();
   }, [boot]);
 
+  const perpMarkets = markets.filter((m) => (m.marketClass ?? "perp") === "perp");
+  const predictionOutcomes = groupPredictionOutcomes(markets);
   const selectedMarket = markets.find((m) => m.asset === asset) ?? null;
-  const isHip4 =
-    selectedMarket?.marketClass === "hip4" || editMarketClass === "hip4";
-  const outcomeName =
-    selectedMarket?.outcome?.name?.trim() || selectedMarket?.asset || asset;
+  const predictionOutcome =
+    predictionOutcomes.find((o) => o.id === predictionOutcomeId) ?? null;
+  const isHip4 = marketMode === "prediction";
+  const outcomeName = isHip4
+    ? predictionOutcome?.name ?? ""
+    : selectedMarket?.outcome?.name?.trim() || selectedMarket?.asset || asset;
 
   function chooseAsset(next: string) {
     setAsset(next);
-    const chosen = markets.find((m) => m.asset === next);
-    if (chosen?.marketClass === "hip4") {
-      // Outcome markets are market-entry only and carry no venue exits.
+  }
+
+  function choosePredictionOutcome(nextId: number) {
+    const outcome = predictionOutcomes.find((o) => o.id === nextId) ?? null;
+    setPredictionOutcomeId(nextId);
+    setAsset(
+      direction === "long"
+        ? outcome?.yes?.asset ?? outcome?.no?.asset ?? ""
+        : outcome?.no?.asset ?? outcome?.yes?.asset ?? "",
+    );
+  }
+
+  function chooseDirection(next: "long" | "short") {
+    setDirection(next);
+    if (marketMode === "prediction" && predictionOutcome) {
+      setAsset(
+        next === "long"
+          ? predictionOutcome.yes?.asset ?? predictionOutcome.no?.asset ?? ""
+          : predictionOutcome.no?.asset ?? predictionOutcome.yes?.asset ?? "",
+      );
+    }
+  }
+
+  function switchMarketMode(next: "perp" | "prediction") {
+    if (next === marketMode) return;
+    setMarketMode(next);
+    setDirection("long");
+    setEntry("");
+    setSl("");
+    setTp("");
+    if (next === "prediction") {
+      const first = predictionOutcomes[0] ?? null;
+      setPredictionOutcomeId(first?.id ?? null);
+      setAsset(first?.yes?.asset ?? first?.no?.asset ?? "");
       setEntryType("market");
-      setEntry("");
-      setSl("");
-      setTp("");
+    } else {
+      setAsset(perpMarkets[0]?.asset ?? "");
+      setEntryType("limit");
+      setLeverage(5);
     }
   }
 
   const errors = useMemo(
     () =>
-      validate({ asset, direction, entryType, entry, sl, tp, leverage, expiry, markets }),
-    [asset, direction, entryType, entry, sl, tp, leverage, expiry, markets],
+      validate({
+        asset,
+        direction,
+        entryType,
+        entry,
+        sl,
+        tp,
+        leverage,
+        expiry,
+        markets,
+        marketMode,
+        predictionLimit,
+        predictionSize,
+      }),
+    [
+      asset,
+      direction,
+      entryType,
+      entry,
+      sl,
+      tp,
+      leverage,
+      expiry,
+      markets,
+      marketMode,
+      predictionLimit,
+      predictionSize,
+    ],
   );
 
   const blocking = Object.keys(errors).length > 0 || !thesis.trim() || !asset;
   const valid = !blocking;
 
   function planBody() {
+    const predictionReference =
+      isHip4 && predictionLimit && predictionSize
+        ? `\n\nPrediction reference: limit ${predictionLimit}, size ${predictionSize} USDH.`
+        : "";
     return {
       asset,
       // Explicit class: a `#N` coin is never allowed to be inferred as a perp.
-      marketClass: selectedMarket?.marketClass ?? editMarketClass ?? "perp",
-      outcomeName: isHip4 ? (selectedMarket?.outcome?.name ?? null) : null,
+      marketClass: isHip4 ? "hip4" : selectedMarket?.marketClass ?? editMarketClass ?? "perp",
+      outcomeName: isHip4 ? predictionOutcome?.name ?? null : null,
       direction,
-      entryType,
-      // A market Pass must not carry an entry price, and "" is not a decimal
-      // string at the API boundary — empty inputs cross as null. A market
-      // entry is derived from the live market at execution time (D-025.1),
-      // never typed by the author, so a stale typed value must not leak
-      // through when the author switches limit -> market.
+      entryType: isHip4 ? "market" : entryType,
+      // HIP-4 Passes execute at the live probability; the reference limit and
+      // size are recorded in the thesis, never sent as a perp entry price.
       entryPrice: isHip4 || entryType === "market" ? null : emptyToNull(entry),
       stopLoss: isHip4 ? null : emptyToNull(sl),
       takeProfit: isHip4 ? null : emptyToNull(tp),
       leverage: isHip4 ? null : String(leverage),
-      thesis,
+      thesis: `${thesis.trim()}${predictionReference}`.trim(),
       expiresAt: new Date(expiry).toISOString(),
     };
   }
@@ -604,21 +741,30 @@ export function CreatePassClient() {
 
           {/* §10.5 — the live preview, the same primitives as the Pass page. */}
           <ChamferPanel label="Pass preview" className="pass-create-preview">
-            <CoordinateGrid>
+            <CoordinateGrid
+              className={isHip4 ? "pass-coordinate-grid--prediction" : undefined}
+            >
               <CoordinatePair
-                label={isHip4 ? "Market" : "Asset"}
-                value={isHip4 ? `HIP-4 · ${asset}` : asset || "—"}
+                label="Market type"
+                value={isHip4 ? "Prediction" : "Perps"}
               />
               {isHip4 ? (
                 <>
-                  <CoordinatePair label="Outcome" value={outcomeName} />
                   <CoordinatePair
                     label="Side"
                     value={direction === "long" ? "Yes" : "No"}
                   />
+                  <CoordinatePair
+                    label="Outcome"
+                    value={outcomeName || "—"}
+                    className="pass-coordinate-pair--wide"
+                  />
+                  <CoordinatePair label="Limit" value={predictionLimit || "—"} />
+                  <CoordinatePair label="Size" value={`${predictionSize || "—"} USDH`} />
                 </>
               ) : (
                 <>
+                  <CoordinatePair label="Asset" value={asset || "—"} />
                   <CoordinatePair label="Direction" value={direction === "long" ? "Long" : "Short"} />
                   <CoordinatePair label="Entry" value={entry || "—"} />
                   <CoordinatePair label="TP" value={tp || "—"} />
@@ -630,25 +776,58 @@ export function CreatePassClient() {
           </ChamferPanel>
 
           <Stack gap="5" className="pass-create-form">
+            <div className="pass-market-mode">
+              <span className="pass-settings-kicker">Market type</span>
+              <SegmentedControl
+                options={[
+                  { value: "perp", label: "Perps" },
+                  { value: "prediction", label: "Prediction Markets" },
+                ]}
+                value={marketMode}
+                onChange={switchMarketMode}
+                label="Market type"
+              />
+              {marketMode === "prediction" ? (
+                <p className="pass-note">
+                  {predictionOutcomes.length === 0
+                    ? "Prediction markets are not enabled on this venue."
+                    : "Binary YES/NO markets. No leverage, take profit, stop loss or perp entry price."}
+                </p>
+              ) : null}
+            </div>
+
             <div className="pass-form-grid pass-form-grid--two">
-              <Field label="Asset" required className="pass-terminal-field">
-                {({ controlId }) => (
-                  <Select
-                    id={controlId}
-                    value={asset}
-                    onChange={chooseAsset}
-                    className="pass-terminal-select"
-                    options={markets.map((m) => ({
-                      value: m.asset,
-                      label:
-                        m.label ??
-                        (m.marketClass === "hip4"
-                          ? `${m.asset} · ${m.outcome?.side === "no" ? "No" : "Yes"}`
-                          : `${m.asset}-${m.dex.toUpperCase()}`),
-                    }))}
-                  />
-                )}
-              </Field>
+              {isHip4 ? (
+                <Field label="Outcome Market" required className="pass-terminal-field">
+                  {({ controlId }) => (
+                    <Select
+                      id={controlId}
+                      value={String(predictionOutcomeId ?? "")}
+                      onChange={(value) => choosePredictionOutcome(Number(value))}
+                      className="pass-terminal-select"
+                      options={predictionOutcomes.map((outcome) => ({
+                        value: String(outcome.id),
+                        label: outcome.name,
+                      }))}
+                    />
+                  )}
+                </Field>
+              ) : (
+                <Field label="Asset" required className="pass-terminal-field">
+                  {({ controlId }) => (
+                    <Select
+                      id={controlId}
+                      value={asset}
+                      onChange={chooseAsset}
+                      className="pass-terminal-select"
+                      options={perpMarkets.map((m) => ({
+                        value: m.asset,
+                        label: m.label ?? `${m.asset}-${m.dex.toUpperCase()}`,
+                      }))}
+                    />
+                  )}
+                </Field>
+              )}
 
               <Field
                 label={isHip4 ? "Side" : "Direction"}
@@ -660,7 +839,7 @@ export function CreatePassClient() {
                   <SegmentedControl
                     options={isHip4 ? OUTCOME_DIRECTIONS : DIRECTIONS}
                     value={direction}
-                    onChange={setDirection}
+                    onChange={chooseDirection}
                     label={isHip4 ? "Side" : "Direction"}
                   />
                 )}
@@ -668,10 +847,54 @@ export function CreatePassClient() {
             </div>
 
             {isHip4 ? (
-              <p className="pass-stale" role="note">
-                Outcome Passes use a market entry at the live probability. They
-                have no limit price, take profit, stop loss or leverage.
-              </p>
+              <>
+                <div className="pass-form-grid pass-form-grid--two">
+                  <Field
+                    label="Limit Price"
+                    required
+                    error={errors.predictionLimit}
+                    helper="Probability between 0.01 and 0.99."
+                    className="pass-terminal-field"
+                  >
+                    {({ controlId, describedBy }) => (
+                      <NumericInput
+                        id={controlId}
+                        value={predictionLimit}
+                        onChange={setPredictionLimit}
+                        describedBy={describedBy}
+                        invalid={Boolean(errors.predictionLimit)}
+                        placeholder="0.50"
+                        className="pass-terminal-number"
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    label="Reference Size"
+                    required
+                    error={errors.predictionSize}
+                    helper="USDH. The Taker still chooses their own size."
+                    className="pass-terminal-field"
+                  >
+                    {({ controlId, describedBy }) => (
+                      <NumericInput
+                        id={controlId}
+                        value={predictionSize}
+                        onChange={setPredictionSize}
+                        describedBy={describedBy}
+                        invalid={Boolean(errors.predictionSize)}
+                        placeholder="100"
+                        suffix="USDH"
+                        className="pass-terminal-number"
+                      />
+                    )}
+                  </Field>
+                </div>
+                <p className="pass-note" role="note">
+                  Collateral for predictions is USDH. The Pass executes at the
+                  live probability; the limit and size are recorded as reference
+                  values.
+                </p>
+              </>
             ) : (
               <>
                 <div className="pass-entry-mode">

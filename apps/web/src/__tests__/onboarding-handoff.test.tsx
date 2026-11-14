@@ -77,8 +77,8 @@ beforeEach(() => {
 async function walkToHandoff() {
   const { unmount } = render(<OnboardingFlow onNavigate={() => {}} />);
   await screen.findByText("Create your PASS profile.");
-  fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "freshuser" } });
-  fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Fresh" } });
+  fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "freshuser" } });
+  fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Fresh" } });
   me = ME_PROFILED;
   // Two clicks in the same tick (no render between them): one user gesture
   // must still submit exactly once. Raw dispatches, not fireEvent — fireEvent
@@ -125,8 +125,8 @@ describe("onboarding completion", () => {
     try {
       render(<OnboardingFlow onNavigate={() => {}} />);
       await screen.findByText("Create your PASS profile.");
-      fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "freshuser" } });
-      fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Fresh" } });
+      fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "freshuser" } });
+      fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Fresh" } });
       me = ME_PROFILED;
       fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
       await screen.findByText("Resolve your Ethos reputation.");
@@ -169,8 +169,8 @@ describe("onboarding completion", () => {
   it("a validation failure surfaces inline: no post, no navigation", async () => {
     render(<OnboardingFlow onNavigate={() => {}} />);
     await screen.findByText("Create your PASS profile.");
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "AB" } });
-    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Fresh" } });
+    fireEvent.change(screen.getByLabelText(/Slug/), { target: { value: "AB" } });
+    fireEvent.change(screen.getByLabelText(/Display name/), { target: { value: "Fresh" } });
     fireEvent.click(screen.getByRole("button", { name: "Create profile" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/3–32|lowercase/);
     expect(mockPost).not.toHaveBeenCalled();

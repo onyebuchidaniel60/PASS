@@ -121,7 +121,7 @@ describe("topbar identity restoration", () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("turnttfup99");
     // Open edit mode so Save/Cancel render too.
-    fireEvent.click(screen.getByRole("button", { name: "Edit bio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bio" }));
     await screen.findByRole("button", { name: "Save" });
     const clickables = Array.from(document.querySelectorAll("button, a[href]"));
     expect(clickables.length).toBeGreaterThan(0);

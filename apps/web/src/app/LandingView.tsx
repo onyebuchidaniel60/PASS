@@ -358,9 +358,10 @@ export function LandingView({ home }: { home: HomeDto }) {
 
                 <DisplayHeadline lines={heroLines("landing")} />
                 <p className="pass-landing-lede" id="landing-hero">
-                  A trader publishes a Hyperliquid plan. You read it, size it
-                  yourself, and authorize it with your own wallet. Nothing is
-                  copied and no key ever leaves your browser.
+                  A trader publishes a Hyperliquid perps or prediction-market
+                  plan. You read it, size it yourself, and authorize it with
+                  your own wallet. Nothing is copied and no key ever leaves your
+                  browser.
                 </p>
 
                 <Inline gap="3" className="pass-landing-ctas">
@@ -677,10 +678,6 @@ export function LandingView({ home }: { home: HomeDto }) {
                     </ChipButton>
                   ))}
                 </ChipBar>
-                <p className="pass-landing-support">
-                  PASS turns Hyperliquid trade plans into shareable, executable
-                  links.
-                </p>
               </Stack>
             </Surface>
           </Section>
