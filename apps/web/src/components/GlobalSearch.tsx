@@ -139,13 +139,10 @@ export function GlobalSearch() {
         className="pass-search-trigger"
         aria-label="Search PASS"
         aria-keyshortcuts="Meta+K Control+K"
-        title="Search PASS (⌘K)"
+        title="Search PASS"
         onClick={() => setOpen(true)}
       >
         <SearchGlyph />
-        <span className="pass-search-trigger-hint" aria-hidden="true">
-          ⌘K
-        </span>
       </button>
 
       <Dialog

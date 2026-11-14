@@ -17,8 +17,8 @@
  * D-015: there is NO Taker-size field here. A Trader publishes a plan, not a
  * size instruction. Adding one would be a product-behaviour change.
  *
- * Publish is disabled WITH AN INLINE REASON until the form is valid, which is
- * why Button carries `disabledReason`.
+ * Publish is disabled until the form is valid. The reason lives in the
+ * aggregate alert below the actions, not inside the button.
  */
 
 import Link from "next/link";
@@ -45,6 +45,7 @@ import {
   CoordinatePair,
 } from "@/components/wave1/signature";
 import {
+  Alert,
   Button,
   Field,
   LeverageStepper,
@@ -53,7 +54,6 @@ import {
   Select,
   Textarea,
   TextInput,
-  ValidationMessage,
   type SegmentedOption,
 } from "@/components/wave2/controls";
 import {
@@ -804,7 +804,6 @@ export function CreatePassClient() {
                     onClick={() =>
                       void copyUrl(`${window.location.origin}${path}`)
                     }
-                    disabledReason={undefined}
                   >
                     {copied ? "Copied" : "Copy"}
                   </Button>
@@ -923,16 +922,14 @@ export function CreatePassClient() {
           </Section>
 
           {savedVersion !== null ? (
-            <div role="status" aria-live="polite">
-              <ValidationMessage>
-                Saved — now version {savedVersion}.
-                {editPublicId ? (
-                  <>
-                    {" "}The public page shows the new version.
-                  </>
-                ) : null}
-              </ValidationMessage>
-            </div>
+            <Alert tone="success">
+              Saved — now version {savedVersion}.
+              {editPublicId ? (
+                <>
+                  {" "}The public page shows the new version.
+                </>
+              ) : null}
+            </Alert>
           ) : null}
 
           {failed ? <ErrorBlock detail={failed} onRetry={boot} /> : null}
@@ -1287,15 +1284,7 @@ export function CreatePassClient() {
                 size="lg"
                 className="pass-execute-btn"
                 onClick={saveEdit}
-                disabledReason={
-                  busy
-                    ? "Saving…"
-                    : editVersion === null
-                      ? "Loading this Pass."
-                      : valid
-                        ? undefined
-                        : "Complete the required fields and clear the messages above."
-                }
+                disabled={busy || editVersion === null || !valid}
               >
                 Save changes
               </Button>
@@ -1305,13 +1294,7 @@ export function CreatePassClient() {
                 size="lg"
                 className="pass-execute-btn"
                 onClick={publish}
-                disabledReason={
-                  busy
-                    ? "Publishing…"
-                    : valid
-                      ? undefined
-                      : "Complete the required fields and clear the messages above."
-                }
+                disabled={busy || !valid}
               >
                 Publish
               </Button>
@@ -1323,13 +1306,11 @@ export function CreatePassClient() {
 
           {/* Aggregate, announced, so the reason is reachable without hunting. */}
           {Object.keys(errors).length ? (
-            <div role="status" aria-live="polite">
-              <ValidationMessage>
-                {Object.keys(errors).length} field
-                {Object.keys(errors).length === 1 ? "" : "s"} need attention before
-                this Pass can be published.
-              </ValidationMessage>
-            </div>
+            <Alert tone="error" title="Cannot publish yet">
+              {Object.keys(errors).length} field
+              {Object.keys(errors).length === 1 ? "" : "s"} need attention before
+              this Pass can be published.
+            </Alert>
           ) : null}
         </Stack>
       </ShellContent>

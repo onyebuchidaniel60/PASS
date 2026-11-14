@@ -602,6 +602,31 @@ describe("Take flow step 4 — confirmation (§10.6)", () => {
     expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument();
   });
 
+  it("turns a deposit rejection into the funding action card", async () => {
+    mockPost
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce(
+        rejected("Must deposit before performing actions"),
+      );
+    await renderReady();
+    const user = await typeSize("1250");
+    await user.click(screen.getByRole("button", { name: "Review order" }));
+    await waitFor(() => screen.getByRole("button", { name: "Authorize" }));
+    await user.click(screen.getByRole("button", { name: "Authorize" }));
+    await waitFor(() => expect(screen.getByText("STEP 3 / 4")).toBeInTheDocument());
+    await user.click(document.getElementById("consent") as HTMLInputElement);
+    await user.click(screen.getByRole("button", { name: /Authorize order/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByText("Action Required: Deposit Funds on Hyperliquid"),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("link", { name: "Go to Hyperliquid to Deposit" }),
+    ).toHaveAttribute("href", "https://app.hyperliquid.xyz");
+    expect(screen.queryByText(/Must deposit before performing actions/i)).toBeNull();
+  });
+
   it("shows the relayed order id with no simulation label", async () => {
     mockPost
       .mockResolvedValueOnce(PREVIEW)

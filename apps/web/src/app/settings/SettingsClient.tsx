@@ -417,6 +417,7 @@ function WalletSection({
               label={copied ? "Wallet address copied" : "Copy wallet address"}
               onClick={copy}
               disabled={busy}
+              className="pass-wallet-copy"
             >
               <CopyIcon />
             </IconButton>

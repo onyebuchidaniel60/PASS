@@ -346,6 +346,24 @@ export function EmptyBlock({
   );
 }
 
+/** Shared warning glyph for the failure blocks. */
+function WarningIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3 2.5 20h19L12 3Z" />
+      <path d="M12 9v5M12 17h.01" />
+    </svg>
+  );
+}
+
 /** §9.7 Plain statement of failure plus Retry. */
 export function ErrorBlock({
   title = "Something failed.",
@@ -358,15 +376,20 @@ export function ErrorBlock({
 }) {
   return (
     <div className="pass-error" data-pass-state="error" role="alert">
-      <span style={{ fontFamily: "var(--type-title-s-font)", fontSize: "var(--type-title-s-size)" }}>
-        {title}
+      <span className="pass-error-icon" aria-hidden="true">
+        <WarningIcon />
       </span>
-      {detail ? <span className="pass-stale">{detail}</span> : null}
-      {onRetry ? (
-        <button type="button" className="pass-btn" data-variant="primary" onClick={onRetry}>
-          Retry
-        </button>
-      ) : null}
+      <div className="pass-error-body">
+        <span style={{ fontFamily: "var(--type-title-s-font)", fontSize: "var(--type-title-s-size)" }}>
+          {title}
+        </span>
+        {detail ? <span className="pass-stale">{detail}</span> : null}
+        {onRetry ? (
+          <button type="button" className="pass-btn" data-variant="primary" onClick={onRetry}>
+            Retry
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -387,8 +410,13 @@ export function UnavailableBlock({ provider, detail }: { provider: string; detai
 export function RejectedBlock({ reason }: { reason: string }) {
   return (
     <div className="pass-error" data-pass-state="rejected" role="alert">
-      <span className="pass-block-heading">Order rejected</span>
-      <span className="pass-stale">{reason}</span>
+      <span className="pass-error-icon" aria-hidden="true">
+        <WarningIcon />
+      </span>
+      <div className="pass-error-body">
+        <span className="pass-block-heading">Order rejected</span>
+        <span className="pass-stale">{reason}</span>
+      </div>
     </div>
   );
 }

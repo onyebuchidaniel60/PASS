@@ -59,6 +59,10 @@ import {
   RejectedBlock,
   StatusChip,
 } from "@/components/wave3/data";
+import {
+  DepositRequiredCard,
+  isDepositRequiredError,
+} from "@/components/DepositRequiredCard";
 
 import { NumberedEyebrow, Surface } from "@/components/reference";
 import {
@@ -825,6 +829,11 @@ export function TakeFlowClient({
     Number.isFinite(estimatedNotional) && estimatedNotional > 0
       ? estimatedNotional * (BUILDER_FEE_BPS / 10_000)
       : null;
+  // A provider rejection for an unfunded account is a funding step, not a
+  // retryable form error. Detect it once and let every step render the same
+  // action card instead of the raw venue string.
+  const depositRequired =
+    isDepositRequiredError(failed) || isDepositRequiredError(rejected);
 
   // Lazy-wallet gate (D-023): ConnectKit's own modal, opened through its
   // documented `show()` render prop (the same pattern as WalletControl and
@@ -1000,7 +1009,11 @@ export function TakeFlowClient({
                 </CoordinateGrid>
               </ChamferPanel>
 
-              {failed ? <ErrorBlock detail={failed} onRetry={submitPreview} /> : null}
+              {depositRequired ? (
+                <DepositRequiredCard onRetry={submitPreview} />
+              ) : failed ? (
+                <ErrorBlock detail={failed} onRetry={submitPreview} />
+              ) : null}
 
               <div className="pass-take-cta">
                 {needWallet ? (
@@ -1214,8 +1227,15 @@ export function TakeFlowClient({
                 </div>
               </Stack>
 
-              {failed ? <ErrorBlock detail={failed} onRetry={authorize} /> : null}
-              {rejected ? <RejectedBlock reason={rejected} /> : null}
+              {depositRequired ? (
+                <DepositRequiredCard onRetry={authorize} />
+              ) : null}
+              {failed && !depositRequired ? (
+                <ErrorBlock detail={failed} onRetry={authorize} />
+              ) : null}
+              {rejected && !depositRequired ? (
+                <RejectedBlock reason={rejected} />
+              ) : null}
               {agentNote && !failed ? (
                 <p role="status" className="pass-note pass-note-status">
                   {agentNote}
@@ -1300,8 +1320,15 @@ export function TakeFlowClient({
                     <StatusChip state={(receipt?.status as never) ?? initialPass.status} />
                   </Inline>
 
-                  {rejected ? <RejectedBlock reason={rejected} /> : null}
-                  {failed ? <ErrorBlock detail={failed} onRetry={authorize} /> : null}
+                  {depositRequired ? (
+                    <DepositRequiredCard onRetry={authorize} />
+                  ) : null}
+                  {rejected && !depositRequired ? (
+                    <RejectedBlock reason={rejected} />
+                  ) : null}
+                  {failed && !depositRequired ? (
+                    <ErrorBlock detail={failed} onRetry={authorize} />
+                  ) : null}
 
                   {/* §10.6 Step 4 item 3 — next actions, never accent. The
                       accent retires once the action has succeeded. */}

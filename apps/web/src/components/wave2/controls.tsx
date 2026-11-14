@@ -204,9 +204,110 @@ export interface ValidationMessageProps {
 export function ValidationMessage({ children, id }: ValidationMessageProps) {
   return (
     <p className="pass-validation" id={id} aria-live="polite">
-      <span aria-hidden="true">!</span>
+      <span className="pass-validation-icon" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3 2.5 20h19L12 3Z" />
+          <path d="M12 9v5M12 17h.01" />
+        </svg>
+      </span>
       <span>{children}</span>
     </p>
+  );
+}
+
+export type AlertTone = "error" | "warning" | "success" | "info";
+
+export interface AlertProps {
+  tone?: AlertTone;
+  title?: ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
+  id?: string;
+}
+
+function AlertGlyph({ tone }: { tone: AlertTone }) {
+  if (tone === "success") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8 12 2.8 2.8L16.5 9" />
+      </svg>
+    );
+  }
+  if (tone === "info") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 11v5M12 8h.01" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3 2.5 20h19L12 3Z" />
+      <path d="M12 9v5M12 17h.01" />
+    </svg>
+  );
+}
+
+/**
+ * Shared technical alert. Error/warning messages are text plus an icon and a
+ * tone rule, never colour alone (§2.8). The same shell carries success and
+ * informational notices so every message in the product reads as one system.
+ */
+export function Alert({
+  tone = "error",
+  title,
+  children,
+  action,
+  id,
+}: AlertProps) {
+  return (
+    <div
+      className="pass-alert"
+      data-tone={tone}
+      id={id}
+      role={tone === "error" || tone === "warning" ? "alert" : "status"}
+    >
+      <span className="pass-alert-icon" aria-hidden="true">
+        <AlertGlyph tone={tone} />
+      </span>
+      <div className="pass-alert-body">
+        {title ? <strong className="pass-alert-title">{title}</strong> : null}
+        <div className="pass-alert-copy">{children}</div>
+        {action ? <div className="pass-alert-actions">{action}</div> : null}
+      </div>
+    </div>
   );
 }
 

@@ -149,7 +149,7 @@ function passColumns(onCancel: (id: string) => void): DataTableColumn<MyPass>[] 
     label: "FEES",
     numeric: true,
     render: (p) => (
-      <span className="pass-num">Fees earned: ${fmtUsd(p.feesEarnedUsd ?? "0")}</span>
+      <span className="pass-num">${fmtUsd(p.feesEarnedUsd ?? "0")}</span>
     ),
   },
   {
@@ -241,7 +241,7 @@ function PassInventory({ passes, onCancel }: { passes: MyPass[]; onCancel: (id: 
             : "Author one and it appears here with its live state."}
         </EmptyBlock>
       ) : (
-        <Panel>
+        <Panel className="pass-my-passes-table">
           <DataTable
             caption="Passes you have authored"
             columns={passColumns(onCancel)}

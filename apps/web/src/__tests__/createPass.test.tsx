@@ -297,16 +297,20 @@ describe("Create Pass preview and publish (§10.5)", () => {
     expect(screen.getByLabelText("Pass preview")).toBeInTheDocument();
   });
 
-  it("keeps Publish disabled WITH AN INLINE REASON until valid", async () => {
+  it("disables Publish without printing the reason inside the button", async () => {
     await renderForm();
     await waitFor(() => expect(screen.getByText("Create a Pass")).toBeInTheDocument());
-    const publish = screen.getByRole("button", { name: /Publish/ });
-    expect(publish).toHaveAttribute("aria-disabled", "true");
+    const publish = screen.getByRole("button", { name: /^Publish$/ });
+    expect(publish).toBeDisabled();
     expect(
-      screen.getAllByText(
+      screen.queryByText(
         "Complete the required fields and clear the messages above.",
-      ).length,
-    ).toBeGreaterThan(0);
+      ),
+    ).toBeNull();
+    // The aggregate alert is the visible reason instead.
+    expect(
+      screen.getByText(/need attention before this Pass can be published/),
+    ).toBeInTheDocument();
   });
 
   it("surfaces validation as text under the field, not as border colour", async () => {

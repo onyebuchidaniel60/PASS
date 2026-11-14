@@ -5856,14 +5856,6 @@ text-underline-offset: 0.2em;
   flex: 0 0 auto;
 }
 
-.pass-search-trigger-hint {
-  font-family: var(--font-data);
-  font-size: var(--type-data-xs-size);
-  line-height: var(--type-data-xs-line);
-  color: var(--color-text-tertiary);
-  white-space: nowrap;
-}
-
 .pass-search-scrim {
   padding: var(--space-6);
 }
@@ -6093,10 +6085,6 @@ text-underline-offset: 0.2em;
 }
 
 @media (max-width: 1023px) {
-  .pass-search-trigger-hint {
-    display: none;
-  }
-
   .pass-search-trigger {
     padding-inline: 0;
   }
@@ -7143,4 +7131,257 @@ text-underline-offset: 0.2em;
 
 .pass-phone-state[data-state="success"] {
   justify-content: center;
+}
+
+/* Funding copy control: the glyph is the affordance, not a framed button. */
+.pass-wallet-copy {
+  border: 0;
+  border-radius: 0;
+  color: var(--color-text-secondary);
+}
+
+.pass-wallet-copy:hover:not(:disabled) {
+  background-color: transparent;
+  color: var(--color-text-primary);
+}
+
+/* --- Shared technical alerts and validation ----------------------------- */
+.pass-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-4);
+  border: var(--border-hairline);
+  border-inline-start: var(--border-width-selected) solid
+    var(--color-data-negative);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pass-alert[data-tone="warning"] {
+  border-inline-start-color: var(--color-accent);
+}
+
+.pass-alert[data-tone="success"] {
+  border-inline-start-color: var(--color-data-positive);
+}
+
+.pass-alert[data-tone="info"] {
+  border-inline-start-color: var(--color-line-strong);
+}
+
+.pass-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: var(--size-icon-grid);
+  block-size: var(--size-icon-grid);
+  color: var(--color-data-negative);
+}
+
+.pass-alert[data-tone="warning"] .pass-alert-icon {
+  color: var(--color-accent-text);
+}
+
+.pass-alert[data-tone="success"] .pass-alert-icon {
+  color: var(--color-data-positive);
+}
+
+.pass-alert[data-tone="info"] .pass-alert-icon {
+  color: var(--color-text-secondary);
+}
+
+.pass-alert-icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.pass-alert-body {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.pass-alert-title {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+.pass-alert-copy {
+  display: grid;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  color: var(--color-text-secondary);
+}
+
+.pass-alert-copy p {
+  margin: 0;
+}
+
+.pass-alert-copy .pass-note {
+  color: var(--color-text-tertiary);
+}
+
+.pass-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-1);
+}
+
+.pass-validation {
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-2);
+  border-inline-start: var(--border-width-selected) solid
+    var(--color-data-negative);
+}
+
+.pass-validation-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  inline-size: var(--size-icon-grid);
+  block-size: var(--size-icon-grid);
+  color: var(--color-data-negative);
+}
+
+.pass-validation-icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.pass-error[data-pass-state="error"],
+.pass-error[data-pass-state="rejected"] {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-hairline);
+  border-inline-start: var(--border-width-selected) solid
+    var(--color-data-negative);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.pass-error-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  inline-size: var(--size-icon-grid);
+  block-size: var(--size-icon-grid);
+  color: var(--color-data-negative);
+}
+
+.pass-error-icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.pass-error-body {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+/* --- My Passes inventory table ------------------------------------------ */
+/* The shared table is block-level by default. Eight inventory columns need a
+ * real fixed table box so every header and cell shares one vertical edge. */
+.pass-my-passes-table [data-testid="data-table"] {
+  display: table;
+  inline-size: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.pass-my-passes-table [data-testid="data-table"] thead th,
+.pass-my-passes-table [data-testid="data-table"] tbody td {
+  padding: var(--space-3) var(--space-4);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.pass-my-passes-table [data-testid="data-table"] thead th {
+  border-block-end: var(--border-strong);
+}
+
+.pass-my-passes-table [data-testid="data-table"] tbody td {
+  border-block-end: var(--border-hairline);
+}
+
+.pass-my-passes-table [data-testid="data-table"] tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.pass-my-passes-table [data-testid="data-table"] tbody tr:hover {
+  background-color: var(--color-surface-raised);
+}
+
+/* Column widths: PASS takes the remaining space; the numeric/status columns
+ * stay narrow and aligned; ACTIONS keeps its two controls on one line. */
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(1),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(1) {
+  inline-size: 22%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(2),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(2) {
+  inline-size: 11%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(3),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(3) {
+  inline-size: 11%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(4),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(4) {
+  inline-size: 8%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(5),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(5) {
+  inline-size: 9%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(6),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(6) {
+  inline-size: 10%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(7),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(7) {
+  inline-size: 9%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] th:nth-child(8),
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(8) {
+  inline-size: 20%;
+}
+
+.pass-my-passes-table [data-testid="data-table"] td:nth-child(8) .pass-inline {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 720px) {
+  .pass-my-passes-table [data-testid="data-table"] {
+    display: none;
+  }
+
+  .pass-my-passes-table [data-testid="data-table-stacked"] {
+    display: block;
+  }
+}
+
+.pass-alert-actions .pass-btn {
+  flex: 0 0 auto;
 }

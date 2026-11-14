@@ -193,9 +193,10 @@ describe("My Passes (§10.8)", () => {
 
   it("renders the fees earned line per row", async () => {
     renderWith({});
-    // Wide table + narrow stacked list both render the line.
-    expect((await screen.findAllByText(/Fees earned: \$0\.15/)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Fees earned: \$0\.00/).length).toBeGreaterThan(0);
+    // Wide table + narrow stacked list both render the amount under the
+    // FEES header, without repeating the header text in every cell.
+    expect((await screen.findAllByText(/\$0\.15/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/\$0\.00/).length).toBeGreaterThan(0);
   });
 });
 
