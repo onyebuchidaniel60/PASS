@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="PASS">
+  <!--
+    The PASS app mark — design/DESIGN.md 14.14.
+
+    The same geometry as apps/web/src/components/reference/logo.tsx `LogoMark`,
+    with the CSS custom properties resolved to their token values, because a
+    favicon is rasterised outside the document and cannot read them.
+
+    An ember radial inside a rounded square (reference image 11), with the
+    mark knocked out in the canvas colour: a ring crossed by the signal line,
+    and a filled ember dot on the ring at 45 degrees.
+  -->
+  <defs>
+    <radialGradient id="w" cx="38%" cy="62%" r="78%">
+      <stop offset="0%" stop-color="#ff6b33"/>
+      <stop offset="55%" stop-color="#f4552e"/>
+      <stop offset="100%" stop-color="#7a2410"/>
+    </radialGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#w)"/>
+  <circle cx="12" cy="12" r="5.4" fill="#0a0a0a"/>
+  <circle cx="12" cy="12" r="5.4" fill="none" stroke="#0a0a0a" stroke-width="1.6" opacity="0.35"/>
+  <circle cx="12" cy="12" r="3" fill="none" stroke="#0a0a0a" stroke-width="1.4"/>
+  <path d="M0 12h24" stroke="#0a0a0a" stroke-width="1.4"/>
+  <circle cx="14.12" cy="9.88" r="1.6" fill="#ff6b33"/>
+</svg>

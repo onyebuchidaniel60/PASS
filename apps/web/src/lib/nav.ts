@@ -46,7 +46,8 @@ export const INFO: NavLink[] = [
  * Executions and Profile.
  */
 export const FOOTER_LINKS: NavLink[] = [
-  { href: "/developers", label: "Docs" },
+  { href: "/docs", label: "Docs" },
+  { href: "/developers", label: "Developers" },
   {
     href: "https://github.com/onyebuchidaniel60/PASS",
     label: "GitHub",

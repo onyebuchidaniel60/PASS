@@ -1,157 +1,154 @@
-# PASS
+<p align="center">
+  <img src="public/readme/logo.svg" width="72" height="72" alt="PASS logo" />
+</p>
 
-Social execution for Hyperliquid: a trader's trade plan becomes a shareable Pass that another trader can take with their own wallet. See a trade. Know the trader. Take the trade.
+<h1 align="center">PASS</h1>
 
-## What it does
+<p align="center">
+  <strong>See a trade. Know the trader. Take the trade.</strong>
+</p>
 
-A trader authors a structured trade plan — entry, take-profit, stop-loss, size, leverage, thesis — and publishes it as a Pass link. Anyone can discover the Pass, evaluate the trader through their X identity and Ethos reputation, then take the trade: choose their own position size, review the order, and authorize execution on Hyperliquid with their own wallet. Nothing is copied automatically and no key ever leaves the taker's browser.
+<p align="center">
+  <a href="https://pass-web-dun.vercel.app"><img src="https://img.shields.io/badge/Live%20on-Mainnet-ff4d2e?style=flat-square" alt="Live on Mainnet" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Stack-Next.js%20%7C%20Fastify%20%7C%20Hyperliquid-6b7280?style=flat-square" alt="Tech stack: Next.js, Fastify, Hyperliquid" />
+  <img src="https://img.shields.io/badge/Powered%20by-NEAR%20Intents-00c1a2?style=flat-square" alt="Powered by NEAR Intents" />
+</p>
+
+PASS is a **social execution layer for Hyperliquid**. A trader publishes a
+trade plan as a shareable **Pass**. A taker reads the plan, sizes the trade
+themselves, and authorizes it with their own wallet. The plan is public. The
+execution stays self-custodial.
+
+---
+
+## The problem
+
+Trading alpha lives on Crypto Twitter, but the trade does not. By the time you
+leave the timeline, open an exchange, and rebuild the position, the price has
+moved. Copy-trading bots solve the speed problem by holding your funds and
+asking you to trust their custody. Manual execution is slow, fragmented, and
+easy to get wrong.
+
+There should be a way to turn a public trade idea into an executable plan
+without handing over a private key.
+
+## The solution
+
+**PASS turns a trade plan into a shareable, executable link.** The trader
+publishes the thesis, levels, expiry, and risk. The taker chooses their own
+size and signs the order from their own wallet. PASS relays the signed action
+to Hyperliquid and records the execution against the exact Pass version that
+was live when it was taken.
+
+- **Non-custodial.** PASS never holds funds, seed phrases, or private keys.
+- **Trader-led.** The plan is the public object; the size is the taker's call.
+- **Auditable.** Every execution names the Pass version and provider order id.
+- **Social.** Share the Pass on X and let the timeline execute with context.
+
+---
+
+## Screenshots
+
+### Homepage
+
+[![PASS homepage](public/readme/homepage.png)](https://pass-web-dun.vercel.app)
+
+### Pass detail
+
+[![PASS trade plan detail page](public/readme/pass-detail.png)](https://pass-web-dun.vercel.app/discover)
+
+### Mobile
+
+<img src="public/readme/mobile-mockup.png" width="360" alt="PASS mobile homepage" />
+
+---
 
 ## How it works
 
-1. A trader creates a Pass with entry, take-profit, stop-loss, size, leverage, and thesis, then publishes and shares it.
-2. Anyone can discover the Pass on Discover, on the trader's profile, or from an X link — signed in or not.
-3. The taker evaluates the trader (X identity, Ethos reputation context, PASS history) and the plan.
-4. The taker chooses their own position size and reviews the live order preview.
-5. The taker authorizes with their own wallet; PASS relays the signed order to Hyperliquid. Non-custodial throughout.
+```mermaid
+flowchart LR
+  T[Trader] --> P[Creates a Pass]
+  P --> X[X / Twitter]
+  X --> K[Taker clicks]
+  K --> PASS[PASS]
+  PASS --> W[Wallet signs]
+  W --> HL[Hyperliquid]
+  HL --> R[Execution receipt]
+```
 
-## NEAR Intents Integration
+1. The **Trader** connects X and publishes a Pass: asset, direction, entry,
+   take profit, stop loss, leverage, thesis, and expiry.
+2. The Pass is shared on **X** as a public link.
+3. The **Taker** opens the Pass, reads the thesis, and chooses their own size.
+4. PASS previews the exact order and fees. The taker's **wallet signs**.
+5. **Hyperliquid** executes. PASS records the receipt against the Pass version.
 
-PASS can fund a trading account from another chain without asking the user to
-bridge manually. The web app's **Fund with Any Chain** flow requests a quote
-from the PASS API; the API calls NEAR's 1Click service and returns a deposit
-address plus the transaction payload. The user pays that address from their own
-funding wallet, and 1Click settles USDC into their HyperCore account.
+Prediction markets use the same flow with binary HIP-4 YES/NO outcomes and
+USDH collateral.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Web | Next.js 15, React 19, TypeScript |
+| API | Fastify, Zod, Drizzle ORM |
+| Database | Supabase Postgres; embedded PGlite locally |
+| Execution | Hyperliquid API, client-signed actions |
+| Funding | NEAR Intents / 1Click confidential cross-chain USDC |
+| Extension | Chrome MV3, X overlay |
+| Design | Custom stageshow system, tokens, editorial typography |
+
+---
+
+## Quick start
 
 ```bash
-curl -X POST https://pass-pz7f.onrender.com/api/v1/funding/intents/quote \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sourceChain": "ethereum",
-    "sourceToken": "USDC",
-    "destinationAddress": "0xYourPASSTradingAccount",
-    "amount": "100",
-    "isConfidential": true
-  }'
+git clone https://github.com/onyebuchidaniel60/PASS.git
+cd PASS
+pnpm install
+cp .env.example .env.local
+pnpm --filter @pass/api dev
+pnpm --filter @pass/web dev
 ```
 
-The API returns `depositAddress`, `transactionPayload`, the quoted amounts, and
-`confidentiality: "basic"` when privacy is on. Funding is non-custodial: PASS
-never receives the deposit or holds a key that could move it.
+The API runs on `http://localhost:4000` and the web app on
+`http://localhost:3000`. Without `DATABASE_URL`, the API uses embedded PGlite
+for local development.
 
-Relevant API environment variables:
+Run the full verification suite:
 
-| Variable | Purpose |
-|---|---|
-| `NEAR_INTENTS_MODE` | `mock` (default, deterministic quote, no network) or `live` |
-| `NEAR_INTENTS_API_URL` | 1Click base URL; defaults to `https://1click.chaindefuser.com` |
-| `NEAR_INTENTS_JWT` | Bearer token required by 1Click for confidential quotes |
-| `NEAR_INTENTS_DESTINATION_ASSET` | Override the default USDC-on-HyperCore destination asset |
-
-## Confidential Trading
-
-Confidential Intents is NEAR's private execution layer for cross-chain swaps.
-When the user enables **Use Confidential Intents (Privacy)**, PASS adds
-`confidentiality: "basic"` to the 1Click quote request. The deposit and the
-HyperCore withdrawal are settled through NEAR's private shard, so an observer
-cannot link the funding wallet to the PASS trading account.
-
-The trade itself still settles on Hyperliquid and remains visible as a venue
-action. Confidentiality protects the funding-to-trading link, not the existence
-of the position.
-
-### Dark Pool privacy for social traders
-
-A social trader has two identities that should not be joined by a public
-block explorer: the wallet that funds the account and the account that takes
-Passes. PASS uses NEAR Confidential Intents as a privacy membrane between
-them. The trader can publish a Pass publicly, let takers evaluate it, and fund
-the execution account privately — without running a custodial mixer or asking
-users to trust a PASS-controlled wallet. The same rail serves AI agents that
-need to operate without exposing their treasury graph.
-
-## Agent Economy
-
-The Agent Execution API lets a bot discover live Passes and submit a
-pre-signed Hyperliquid order. It requires an Agent API key and no browser
-session, and accepts no private key; the signature in the payload is the
-authorization.
-
-```text
-GET    /api/v1/agent/passes?limit=20
-POST   /api/v1/agent/execute
-POST   /api/v1/agent/keys
-GET    /api/v1/agent/keys
-DELETE /api/v1/agent/keys/:id
+```bash
+pnpm test
+pnpm -r typecheck
+pnpm lint
 ```
 
-Agent requests authenticate with `Authorization: Bearer pass_agt_...`.
-Keys are generated in Settings → Developers, shown once, stored only as a
-SHA-256 hash, and can be revoked immediately.
+---
 
-`GET /agent/passes` returns a clean execution-oriented payload: `passId`,
-asset, direction, entry, stop, target, leverage, status, and expiry. It omits
-UI-only reputation and market decoration. `POST /agent/execute` accepts
-`passId`, `agentWalletAddress`, and `signedPayload`, then runs the same Pass
-version, idempotency, relay, and recording checks as the human Take flow.
+## Links
 
-Settings includes an **Agent Access** section with live request examples, key
-creation, one-time plaintext display, and revocation.
+- **Live app:** [pass-web-dun.vercel.app](https://pass-web-dun.vercel.app)
+- **Documentation:** [pass-web-dun.vercel.app/docs](https://pass-web-dun.vercel.app/docs)
+- **Agent API:** [pass-web-dun.vercel.app/developers](https://pass-web-dun.vercel.app/developers)
+- **Docs index:** [docs/README.md](docs/README.md)
+- **NEAR Hackathon:** [docs/NEAR_HACKATHON.md](docs/NEAR_HACKATHON.md)
 
-## Non-Custodial Security
+---
 
-PASS's Hyperliquid agent key can sign trade orders only. It cannot:
+## Chrome extension
 
-- withdraw funds;
-- transfer tokens;
-- change account settings.
-
-The master wallet remains the only authority for those actions, and no private
-key is ever sent to the PASS API. Settings has a **Security** section that shows
-the venue-scoped agent status, the forbidden permissions, and a **Revoke Agent
-Key** action. Revocation uses Hyperliquid's deregistration path: PASS approves a
-throwaway replacement unnamed agent (which deregisters the current one) with a
-master-wallet signature, then clears its local association. The throwaway
-address is never stored and never signs an order.
-
-See [docs/NEAR_HACKATHON.md](docs/NEAR_HACKATHON.md) for the hackathon pitch,
-track mapping, and demo flow.
-
-## Live
-
-- Web: https://pass-web-dun.vercel.app
-- API: https://pass-pz7f.onrender.com
-- Runs against Hyperliquid Testnet today.
-
-## Stack
-
-Next.js, Fastify, Postgres (Supabase), Drizzle, Hyperliquid, Ethos, X, Chrome MV3 extension.
-
-## Repository layout
-
-```text
-apps/web        Next.js web app
-apps/api        Fastify API + in-process worker jobs
-apps/extension  Chrome MV3 extension (discovery on X, hands off to web)
-packages/       Shared contracts, domain, db, integrations, ui
-docs/           Product and engineering source of truth
-design/         Visual blueprint (DESIGN.md); reference media is local-only
-scripts/        Verification, smoke, and check scripts
-```
-
-## Chrome extension (optional)
-
-The PASS extension runs on X and surfaces PASS context next to
-accounts and posts. It is optional. The web app works without it.
+A pre-built copy is committed at **`apps/extension/dist/`**. Judges and new
+users can load it without Node or a build step.
 
 ### Install instantly (pre-built)
-
-A pre-built copy is committed at **`apps/extension/dist/`**. You do not need
-Node, pnpm, or a build step to try it.
 
 1. Download or clone this repository.
 2. Open Chrome and go to `chrome://extensions`.
 3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the folder:
+4. Click **Load unpacked** and select:
 
    ```text
    apps/extension/dist
@@ -160,42 +157,73 @@ Node, pnpm, or a build step to try it.
 5. Open x.com in a new tab. The PASS overlay appears on supported profile
    pages.
 
-The pre-built bundle targets the deployed PASS API at
-https://pass-pz7f.onrender.com and the web app at
-https://pass-web-dun.vercel.app.
-
 ### Build from source (developers)
 
-Source: `apps/extension/`
-
-1. Install dependencies and build:
-
-   ```bash
-   pnpm install
-   pnpm --filter @pass/extension build
-   ```
-
-2. Open `chrome://extensions`, enable Developer mode, click **Load unpacked**,
-   and select `apps/extension/dist`.
-
-3. Open x.com in a new tab. The extension overlay will appear on supported
-   profile pages.
-
-To rebuild after a source change:
-
 ```bash
+pnpm install
 pnpm --filter @pass/extension build
 ```
 
-Then press **Reload** on the extension card in `chrome://extensions`. The
-committed `apps/extension/dist/` folder is the artifact judges load directly;
-keep it in sync when the extension source changes.
+Then load `apps/extension/dist` with **Load unpacked**. After a rebuild, press
+**Reload** on the extension card in `chrome://extensions`.
 
-## Docs
+The extension targets the deployed API at
+`https://pass-pz7f.onrender.com` and the web app at
+`https://pass-web-dun.vercel.app`.
 
-Start with docs/ for the source of truth — docs/AI_HANDOFF.md for current state.
+---
 
-## Development
+## Demo video
 
-See docs/DEVELOPMENT.md for setup, environment, tests, and deployment.
-The Chrome extension is optional — see "Chrome extension (optional)" above.
+The 3-minute demo script, voiceover copy, and shot-by-shot storyboard live in
+[`docs/DEMO_VIDEO.md`](docs/DEMO_VIDEO.md).
+
+Generate the voiceover after adding your ElevenLabs credentials to
+`.env.local`:
+
+```bash
+ELEVENLABS_API_KEY=...
+ELEVENLABS_MODEL_ID=eleven_multilingual_v2
+ELEVENLABS_VOICE_ID=...
+pnpm generate:voiceover
+```
+
+The script writes `public/demo/voiceover.mp3`. Download a royalty-free lo-fi
+or ambient synth track from Pixabay or Bensound, save it as
+`public/demo/background.mp3`, and record the screen flow.
+
+Assemble the final video:
+
+```bash
+ffmpeg \
+  -i public/demo/screen-recording.mp4 \
+  -i public/demo/voiceover.mp3 \
+  -stream_loop -1 -i public/demo/background.mp3 \
+  -filter_complex "[2:a]volume=0.15[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=2[a]" \
+  -map 0:v -map "[a]" \
+  -c:v copy -c:a aac -b:a 192k \
+  -shortest public/demo/demo.mp4
+```
+
+The background music is intentionally not generated or committed; add a track
+you have the right to use.
+
+---
+
+## Repository layout
+
+```text
+apps/web          Next.js web app, /docs, /developers
+apps/api          Fastify API and in-process worker jobs
+apps/extension    Chrome MV3 extension + committed dist/
+packages/         Shared contracts, domain, db, integrations, ui
+docs/             Source-of-truth documentation
+design/           Visual blueprint and local-only reference media
+scripts/          Verification, seed, and demo tooling
+public/readme     README screenshots and logo
+public/demo       Voiceover and video assembly assets
+```
+
+## License
+
+MIT. See [LICENSE](./LICENSE).

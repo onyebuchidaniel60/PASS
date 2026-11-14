@@ -138,11 +138,10 @@ by OpenCode. If `AGENTS.md` and `.clinerules` disagree, `AGENTS.md` wins.
 
 ### D-018.2 — Hackathon time box
 
-`docs/HACKATHON_SUBMISSION.md` records the Colosseum Crypto World's Fair
-submission deadline as 2026-10-12. This is an active constraint on the first
-build. Prefer a working, deployed, end-to-end product over polish. Visual
-design is executed in a separate track per D-017 and is not a gate on the
-one-shot build.
+The original Colosseum time box is historical. The current submission target
+and track mapping are recorded in `docs/NEAR_HACKATHON.md`. Prefer a working,
+deployed, end-to-end product over polish. Visual design is executed in a
+separate track per D-017 and is not a gate on the one-shot build.
 
 ### D-018.3 — Signed execution transport
 

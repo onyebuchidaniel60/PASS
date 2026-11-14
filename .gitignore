@@ -34,6 +34,7 @@ Thumbs.db
 # reproducible from the repository alone.
 !apps/extension/.env.example
 !apps/extension/.env.production
+!apps/web/.env.production
 apps/web/test-results/
 apps/web/playwright-report
 
@@ -63,3 +64,8 @@ design/**/*.jpg
 design/**/*.jpeg
 design/**/*.gif
 design/**/*.webp
+
+# Demo media is generated/downloaded locally; keep only the placeholder.
+public/demo/*.mp3
+public/demo/*.mp4
+!public/demo/.gitkeep

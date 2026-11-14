@@ -107,6 +107,10 @@ describe("Topbar — D-023 identity-only", () => {
     const footer = within(screen.getByRole("contentinfo"));
     expect(footer.getByRole("link", { name: "Docs" })).toHaveAttribute(
       "href",
+      "/docs",
+    );
+    expect(footer.getByRole("link", { name: "Developers" })).toHaveAttribute(
+      "href",
       "/developers",
     );
     expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute(
