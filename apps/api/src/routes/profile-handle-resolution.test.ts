@@ -80,6 +80,8 @@ beforeAll(async () => {
   const alexId = await mkTrader("alexcarbon", "TurnTTFup99");
   // Owns an X handle that collides with the first trader's slug.
   await mkTrader("someoneelse", "alexcarbon");
+  // Two active Passes, so the extension context can prove it picks the newest.
+  const multiId = await mkTrader("multipass", "MultiPass");
 
   await db.insert(passes).values({
     publicId: "EXTCTX01",
@@ -97,6 +99,41 @@ beforeAll(async () => {
     status: "active",
     publishedAt: new Date(),
   });
+
+  await db.insert(passes).values([
+    {
+      publicId: "OLDMP001",
+      traderId: multiId,
+      slug: "multipass-old",
+      version: 1,
+      asset: "BTC",
+      direction: "long",
+      entryType: "limit",
+      entryPrice: "100000",
+      stopLoss: "98000",
+      takeProfit: "104000",
+      leverage: "3",
+      thesis: "Older active Pass.",
+      status: "active",
+      publishedAt: new Date("2026-01-01T00:00:00Z"),
+    },
+    {
+      publicId: "NEWMP001",
+      traderId: multiId,
+      slug: "multipass-new",
+      version: 1,
+      asset: "ETH",
+      direction: "short",
+      entryType: "limit",
+      entryPrice: "4000",
+      stopLoss: "4200",
+      takeProfit: "3600",
+      leverage: "2",
+      thesis: "Newest active Pass.",
+      status: "active",
+      publishedAt: new Date("2026-02-01T00:00:00Z"),
+    },
+  ]);
 
   const ctx: AppContext = {
     env,
@@ -166,6 +203,21 @@ describe("X handle resolves to the owning PASS profile", () => {
       activePassCount: 1,
       passes: [{ publicId: "EXTCTX01", asset: "BTC", status: "active" }],
     });
+  });
+
+  it("returns the most recently published active Pass as latestPassId", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/extension/context?handle=MultiPass",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      found: true,
+      latestPassId: "NEWMP001",
+      activePassCount: 2,
+    });
+    const body = res.json() as { passes: Array<{ publicId: string }> };
+    expect(body.passes[0]?.publicId).toBe("NEWMP001");
   });
 
   it("returns latestPassId null when the trader has no active Pass", async () => {

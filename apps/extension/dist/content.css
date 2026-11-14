@@ -1,0 +1,172 @@
+﻿/* PASS extension injected card.
+ *
+ * Runs inside X's page, so none of PASS's app-level design tokens are actually
+ * available here: every value below is a literal. Each literal is annotated with
+ * the token it came from, so this file stays traceable to design/DESIGN.md S11
+ * and apps/web/src/styles/tokens.css.
+ *
+ * THE CARD IS ALWAYS PASS-DARK, REGARDLESS OF X'S THEME.
+ *
+ * The previous version followed prefers-color-scheme and restyled itself for X
+ * light and X dark. That made the card read as part of X rather than part of
+ * PASS, and meant the same Pass looked different on the same screen. PASS is a
+ * single dark theme (tokens.css defines one palette and no light variant), so
+ * the overlay now uses that palette unconditionally and the colour-scheme block
+ * is gone. The trade is deliberate: the card is conspicuous on X light.
+ * Conspicuous is correct, because it is a foreign object from another product
+ * and disguising it as X chrome would misrepresent where it came from.
+ *
+ * Scope and behaviour are UNCHANGED: still #pass-overlay-card, still created by
+ * content.ts, still pointer-events limited to its own contents so it cannot
+ * intercept X's scrolling or clicks. Only colour, typography and width changed.
+ */
+
+#pass-overlay-card {
+  /* Sit in the normal flow so the card cannot intercept scrolling or
+     keyboard events meant for X. */
+  position: static;
+  pointer-events: none;
+  margin: 0 0 12px 0; /* --space-3 */
+  /* FULL PRIMARY-COLUMN WIDTH. This was `max-width: 600px`, which pinned the
+     overlay to a narrow panel on the left of X's primary column, so it read as a
+     sidebar rather than as something inserted into the timeline. The wrapper is a
+     block child of [data-testid="primaryColumn"], so 100% is that column's
+     content width and nothing can overflow it. */
+  inline-size: 100%;
+  max-inline-size: 100%;
+  box-sizing: border-box;
+  /* --font-body, with system fallbacks: the extension may not load webfonts. */
+  font-family: "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  font-size: 0.9375rem; /* --type-body-m-size */
+  line-height: 1.47; /* --type-body-m-line */
+  color: #f5f1ea; /* --color-text-primary */
+  -webkit-font-smoothing: antialiased;
+}
+
+#pass-overlay-card .pass-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* --space-2 */
+  padding: 12px 14px; /* --space-3 / --space-4 */
+  border: 1px solid #1f1f25; /* --color-line-hairline */
+  border-radius: 6px;
+  /* --color-scrim, so the card holds its own value over BOTH X themes instead
+     of blending into whichever one is active. */
+  background: rgba(5, 5, 5, 0.92);
+  /* Stretch to the wrapper. A flex-column child would already fill, but stating
+     it means a future `align-items` on the wrapper cannot silently narrow the
+     card again, which is what the 600px cap effectively did. */
+  inline-size: 100%;
+  box-sizing: border-box;
+  /* Clicks reach the card's own contents (the link) but the surrounding
+     padding does not swallow clicks meant for X beneath. */
+  pointer-events: auto;
+}
+
+/* --font-data. Every handle, label and figure here is data, so it is mono. */
+#pass-overlay-card .pass-handle {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.1875rem; /* --type-data-m-size */
+  line-height: 1.26; /* --type-data-m-line */
+  font-weight: 600;
+  color: #f5f1ea; /* --color-text-primary */
+  word-break: break-all;
+}
+
+#pass-overlay-card .pass-row {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* --space-2 */
+  flex-wrap: wrap;
+}
+
+#pass-overlay-card .pass-label {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9375rem; /* --type-data-s-size */
+  font-weight: 600;
+  /* Uppercase mono chip per DESIGN.md S11.7: the label carries the meaning and
+     colour only reinforces it. */
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b4aea4; /* --color-text-secondary */
+  border: 1px solid #656577; /* --color-line-strong */
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+#pass-overlay-card .pass-ethos {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  color: #b4aea4; /* --color-text-secondary */
+  white-space: nowrap;
+}
+
+#pass-overlay-card .pass-passes {
+  font-size: 0.9375rem; /* --type-body-m-size */
+  color: #b4aea4; /* --color-text-secondary */
+}
+
+#pass-overlay-card .pass-action {
+  align-self: flex-start;
+  /* Comfortable hit target without dominating X's own controls. */
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px; /* --space-3 */
+  background: #f03a1c; /* --color-accent */
+  border: 1px solid #f03a1c;
+  border-radius: 6px;
+  color: #0a0a0a; /* --color-text-on-accent */
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#pass-overlay-card .pass-action:hover {
+  background: #ff4a2c; /* --color-accent-hover */
+  border-color: #ff4a2c;
+  text-decoration: underline;
+}
+
+/* A visible accent focus ring, so keyboard users can see where they are even
+   inside someone else's page. */
+#pass-overlay-card .pass-action:focus-visible {
+  outline: 2px solid #f03a1c; /* --color-accent */
+  outline-offset: 2px;
+}
+
+#pass-overlay-card .pass-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px; /* --space-2 */
+}
+
+#pass-overlay-card .pass-action-secondary {
+  background: transparent;
+  border-color: #656577; /* --color-line-strong */
+  color: #f5f1ea; /* --color-text-primary */
+}
+
+#pass-overlay-card .pass-action-secondary:hover {
+  background: #16161a; /* --color-surface-raised */
+  border-color: #b4aea4; /* --color-text-secondary */
+  text-decoration: underline;
+}
+
+#pass-overlay-card .pass-action:disabled {
+  background: transparent;
+  border-color: #1f1f25; /* --color-line-hairline */
+  color: #8a857c; /* --color-text-tertiary */
+  cursor: not-allowed;
+}
+
+#pass-overlay-card .pass-action:disabled:hover {
+  background: transparent;
+  border-color: #1f1f25; /* --color-line-hairline */
+  text-decoration: none;
+}

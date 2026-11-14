@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PASS</title>
+    <!--
+      The popup stylesheet is a separate file, not an inline <style> block, and
+      it is copied into dist/ by scripts/copy-static.mjs. An inline block could
+      not be diffed against the design language or reused by the overlay, and it
+      made every value change a change to this document.
+
+      It declares its own token subset rather than importing the web app's
+      tokens.css: the extension is a separate trust boundary with its own bundle
+      (docs/SECURITY_SPEC.md 13). See the header comment in popup.css.
+    -->
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

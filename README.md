@@ -143,9 +143,30 @@ scripts/        Verification, smoke, and check scripts
 The PASS extension runs on X and surfaces PASS context next to
 accounts and posts. It is optional. The web app works without it.
 
-Source: `apps/extension/`
+### Install instantly (pre-built)
 
-To build and load it:
+A pre-built copy is committed at **`apps/extension/dist/`**. You do not need
+Node, pnpm, or a build step to try it.
+
+1. Download or clone this repository.
+2. Open Chrome and go to `chrome://extensions`.
+3. Enable **Developer mode** (top-right toggle).
+4. Click **Load unpacked** and select the folder:
+
+   ```text
+   apps/extension/dist
+   ```
+
+5. Open x.com in a new tab. The PASS overlay appears on supported profile
+   pages.
+
+The pre-built bundle targets the deployed PASS API at
+https://pass-pz7f.onrender.com and the web app at
+https://pass-web-dun.vercel.app.
+
+### Build from source (developers)
+
+Source: `apps/extension/`
 
 1. Install dependencies and build:
 
@@ -154,29 +175,21 @@ To build and load it:
    pnpm --filter @pass/extension build
    ```
 
-2. Open Chrome and go to `chrome://extensions`
+2. Open `chrome://extensions`, enable Developer mode, click **Load unpacked**,
+   and select `apps/extension/dist`.
 
-3. Enable Developer mode (top right toggle).
+3. Open x.com in a new tab. The extension overlay will appear on supported
+   profile pages.
 
-4. Click "Load unpacked" and select the folder:
-
-   ```text
-   apps/extension/dist
-   ```
-
-5. Open x.com in a new tab. The extension overlay will appear on
-   supported profile and post pages.
-
-To rebuild after any source change:
+To rebuild after a source change:
 
 ```bash
 pnpm --filter @pass/extension build
 ```
 
-Then press Reload on the extension card in `chrome://extensions`.
-
-The extension targets the deployed PASS API at
-https://pass-pz7f.onrender.com
+Then press **Reload** on the extension card in `chrome://extensions`. The
+committed `apps/extension/dist/` folder is the artifact judges load directly;
+keep it in sync when the extension source changes.
 
 ## Docs
 

@@ -6,6 +6,7 @@
   "permissions": ["storage"],
   "host_permissions": [
     "https://pass-api-production.up.railway.app/*",
+    "https://pass-pz7f.onrender.com/*",
     "https://pass-web-dun.vercel.app/*",
     "https://api.x.com/*",
     "https://x.com/*",

@@ -167,7 +167,7 @@ function buildCard(ctx: PassContext, handle: string): HTMLElement {
     const noPass = document.createElement("button");
     noPass.className = "pass-action";
     noPass.type = "button";
-    noPass.textContent = "No active Pass";
+    noPass.textContent = "No active Passes";
     noPass.disabled = true;
     actions.appendChild(noPass);
   }
