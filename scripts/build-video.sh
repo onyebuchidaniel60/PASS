@@ -52,9 +52,10 @@ mkdir -p "$(dirname "$OUT")"
 CLEAN_DIR="$(mktemp -d)"
 trap 'rm -rf "$CLEAN_DIR"' EXIT
 CLEAN_VOICE="$CLEAN_DIR/voiceover.wav"
-# 1% tempo lift keeps the five-paragraph NEAR cut under three minutes without
-# changing pitch or trimming any words.
-ffmpeg -y -v error -i "$VOICE" -vn -ac 1 -ar 44100 -filter:a "atempo=1.01" "$CLEAN_VOICE"
+# Decode to PCM before mixing. No tempo change: the Playwright scene deadlines
+# come from these exact durations.
+ffmpeg -y -v error -i "$VOICE" -vn -ac 1 -ar 44100 "$CLEAN_VOICE"
+VOICE_DURATION="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VOICE")"
 
 # Voiceover at full level, music at 15%. The music loops if it is shorter than
 # the narration. `-shortest` trims the final cut to the shorter stream.
@@ -66,7 +67,7 @@ ffmpeg -y \
   -map "[v]" -map "[a]" \
   -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
-  -shortest "$OUT"
+  -shortest -t "$VOICE_DURATION" "$OUT"
 
 echo "[video] wrote $OUT"
 if command -v ffprobe >/dev/null 2>&1; then

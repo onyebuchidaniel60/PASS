@@ -12,8 +12,11 @@
  * `public/demo/voiceover.mp3`; the background track is supplied separately
  * (see docs/DEMO_VIDEO.md).
  */
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { promisify } from "node:util";
 import dotenv from "dotenv";
 
 dotenv.config({ path: resolve(process.cwd(), ".env.local") });
@@ -32,6 +35,8 @@ export const VOICEOVER_PARAGRAPHS = [
 ] as const;
 
 const OUTPUT = resolve(process.cwd(), "public", "demo", "voiceover.mp3");
+const TIMINGS = resolve(process.cwd(), "public", "demo", "timings.json");
+const execFileAsync = promisify(execFile);
 
 /** A public ElevenLabs voice. Override it in .env.local for your brand. */
 const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
@@ -102,18 +107,44 @@ async function main(): Promise<void> {
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim() || DEFAULT_VOICE_ID;
 
   await mkdir(dirname(OUTPUT), { recursive: true });
-
+  const workDir = await mkdtemp(join(tmpdir(), "pass-voiceover-"));
   const chunks: Buffer[] = [];
-  for (let index = 0; index < VOICEOVER_PARAGRAPHS.length; index += 1) {
-    const text = VOICEOVER_PARAGRAPHS[index]!;
-    console.log(
-      `[voiceover] ${index + 1}/${VOICEOVER_PARAGRAPHS.length}: ${text.slice(0, 56)}…`,
-    );
-    chunks.push(await synthesize(text, index, apiKey, modelId, voiceId));
+  const timings: Record<string, number> = {};
+
+  try {
+    for (let index = 0; index < VOICEOVER_PARAGRAPHS.length; index += 1) {
+      const text = VOICEOVER_PARAGRAPHS[index]!;
+      console.log(
+        `[voiceover] ${index + 1}/${VOICEOVER_PARAGRAPHS.length}: ${text.slice(0, 56)}…`,
+      );
+      const chunk = await synthesize(text, index, apiKey, modelId, voiceId);
+      chunks.push(chunk);
+
+      const chunkPath = join(workDir, `p${index + 1}.mp3`);
+      await writeFile(chunkPath, chunk);
+      const { stdout } = await execFileAsync("ffprobe", [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        chunkPath,
+      ]);
+      const seconds = Number(stdout.trim());
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        throw new Error(`ffprobe returned an invalid duration for p${index + 1}.`);
+      }
+      timings[`p${index + 1}`] = Math.round(seconds * 1000);
+    }
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
   }
 
   await writeFile(OUTPUT, Buffer.concat(chunks));
+  await writeFile(TIMINGS, `${JSON.stringify(timings, null, 2)}\n`);
   console.log(`[voiceover] wrote ${OUTPUT} (${chunks.length} paragraphs)`);
+  console.log(`[voiceover] wrote ${TIMINGS}`, timings);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
