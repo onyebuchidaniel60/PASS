@@ -28,6 +28,20 @@ export const NAV: NavLink[] = [
   { href: "/settings", label: "Profile" },
 ];
 
+/**
+ * One active-state rule for the desktop nav and the mobile menu.
+ *
+ * `/discover` is the only destination with nested screens that are still the
+ * same destination; the other three are exact sections, so a prefix match is
+ * correct for all four.
+ */
+export function isNavActive(pathname: string, href: string): boolean {
+  if (href === "/discover") {
+    return pathname === "/discover" || pathname.startsWith("/discover/");
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 /** §14 informational pages used by the landing chip bar and the contact page.
  *  Not destinations of their own; not in the four-item primary nav. */
 export const INFO: NavLink[] = [

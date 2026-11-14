@@ -3,6 +3,8 @@ import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@/components/DemoBanner";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { MobileMenu } from "@/components/MobileMenu";
+import { NetworkBadge } from "@/components/NetworkBadge";
 import { Providers } from "@/components/Providers";
 import { OnboardingGate } from "@/components/OnboardingGate";
 import { TopbarNav } from "@/components/TopbarNav";
@@ -59,7 +61,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     tab uses the same mark. */}
                 <span className="pass-brand-lockup">
                   <LogoMark size={26} />
-                  <Logo size={26} title={null} />
+                  <Logo
+                    size={26}
+                    title={null}
+                    className="pass-wordmark-text"
+                  />
                 </span>
               </Link>
 
@@ -72,8 +78,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   a Trader IS. The wallet is execution-only and connects lazily
                   at Take time, so it has no topbar presence. */}
               <div className="pass-topbar-actions">
+                <NetworkBadge />
                 <GlobalSearch />
                 <XIdentityControl />
+                <MobileMenu />
               </div>
             </nav>
           </header>

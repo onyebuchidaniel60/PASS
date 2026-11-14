@@ -2509,6 +2509,25 @@ li[data-ghost="true"] {
   white-space: nowrap;
 }
 
+/* A metric card whose value is a sentence, not a figure. HIP-4's Outcome is
+ * the market question ("Will BTC close above $120,000 on 2026-12-31?"), so the
+ * data-xl figure step and its no-wrap rule are both wrong: at 375px the
+ * question measured 1,021px and pushed the whole page sideways. Prose takes the
+ * body step and wraps inside the card; the label still carries the slot. */
+.pass-metric-card--prose .pass-metric-card-value {
+  display: block;
+  color: var(--color-text-secondary);
+  font-family: var(--type-body-m-font);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  letter-spacing: var(--type-body-m-track);
+}
+
+.pass-metric-card--prose .pass-metric-card-figure {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* Â§14.5.4 the unit suffix, on the SAME baseline as the value. A unit on its
    own line reads as a second value, which is why it is a child of the value
    element and not a sibling of it. */
@@ -7784,5 +7803,552 @@ text-underline-offset: 0.2em;
   .pass-docs-layout {
     gap: var(--space-5);
     padding-block: var(--space-5);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Mobile-first navigation and homepage pass (2026-11-14)
+ *
+ * The reference blueprint is a phone layout, not a desktop page squeezed into
+ * 375px. Below 1024px the four horizontal destinations become one hamburger;
+ * below 768px the homepage keeps only the hero, its guarantees, one horizontal
+ * trader rail and the closing CTA. Everything here is token-backed.
+ * ------------------------------------------------------------------------ */
+
+/* --- Hamburger trigger --------------------------------------------------- */
+.pass-menu-trigger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--size-target-min);
+  min-block-size: var(--size-target-min);
+  padding: 0;
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.pass-menu-trigger:hover {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-line-strong);
+  color: var(--color-text-primary);
+}
+
+.pass-menu-trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pass-menu-icon {
+  inline-size: var(--size-icon-grid);
+  block-size: var(--size-icon-grid);
+}
+
+/* --- Full-screen menu ---------------------------------------------------- */
+.pass-menu-scrim {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+  background-color: var(--color-canvas);
+  animation: pass-menu-fade var(--duration-base) var(--ease-standard) both;
+}
+
+.pass-menu-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: 100dvh;
+  max-block-size: none;
+  margin: 0;
+  padding: var(--space-5) var(--layout-margin-mobile) var(--space-8);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: var(--color-canvas);
+  animation: pass-menu-in var(--duration-slow) var(--ease-standard) both;
+}
+
+.pass-menu-dialog .pass-dialog-title {
+  margin: 0;
+  font-family: var(--type-eyebrow-font);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-menu-dialog .pass-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  margin-block-start: var(--space-5);
+  color: var(--color-text-primary);
+}
+
+.pass-menu-close {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--layout-margin-mobile);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-target-min);
+  padding-inline: var(--space-3);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pass-menu-close:hover {
+  border-color: var(--color-line-strong);
+  color: var(--color-text-primary);
+}
+
+.pass-menu-close:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.pass-menu-list {
+  margin: 0;
+  padding: 0;
+  border-block-start: var(--border-hairline);
+  list-style: none;
+}
+
+.pass-menu-list > li {
+  border-block-end: var(--border-hairline);
+}
+
+.pass-menu-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  min-block-size: var(--space-8);
+  padding-block: var(--space-3);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.pass-menu-index {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  letter-spacing: var(--type-data-xs-track);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+.pass-menu-label {
+  font-family: var(--type-display-m-font);
+  font-size: var(--type-display-m-size);
+  line-height: var(--type-display-m-line);
+  letter-spacing: var(--type-display-m-track);
+  font-weight: 600;
+}
+
+.pass-menu-arrow {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-m-size);
+}
+
+.pass-menu-link:hover .pass-menu-label,
+.pass-menu-link[data-active="true"] .pass-menu-label {
+  color: var(--color-accent-text);
+}
+
+.pass-menu-link[data-active="true"] .pass-menu-index,
+.pass-menu-link[data-active="true"] .pass-menu-arrow {
+  color: var(--color-accent);
+}
+
+.pass-menu-foot {
+  display: grid;
+  gap: var(--space-3);
+  margin-block-start: auto;
+  padding-block-start: var(--space-6);
+  border-block-start: var(--border-hairline);
+}
+
+.pass-menu-foot p {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+}
+
+.pass-menu-foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pass-menu-foot-links a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--size-target-min);
+  border-block-end: var(--border-hairline);
+  color: var(--color-text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  text-decoration: none;
+}
+
+.pass-menu-foot-links a:hover {
+  color: var(--color-text-primary);
+  border-block-end-color: var(--color-accent);
+}
+
+@keyframes pass-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-4));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pass-menu-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pass-menu-scrim,
+  .pass-menu-dialog {
+    animation: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .pass-menu-dialog {
+    padding-inline: var(--layout-margin-tablet);
+  }
+
+  .pass-menu-close {
+    inset-inline-end: var(--layout-margin-tablet);
+  }
+}
+
+/* --- Topbar: one row below 1024 ----------------------------------------- */
+.pass-network-badge-short {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .pass-topbar {
+    block-size: var(--layout-topbar);
+    min-block-size: var(--layout-topbar);
+  }
+
+  .pass-topbar-inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "brand actions";
+    gap: var(--space-2);
+    padding-block: 0;
+  }
+
+  .pass-wordmark {
+    grid-area: brand;
+  }
+
+  .pass-topbar-nav {
+    display: none;
+  }
+
+  .pass-topbar-actions {
+    grid-area: actions;
+    gap: var(--space-1);
+  }
+
+  .pass-menu-trigger {
+    display: inline-flex;
+  }
+
+  .pass-network-badge {
+    padding-inline: var(--space-2);
+    font-size: var(--type-eyebrow-size);
+  }
+
+  .pass-x-chip {
+    max-inline-size: 7rem;
+  }
+
+  .pass-x-label {
+    font-size: 0;
+  }
+
+  .pass-x-label::after {
+    content: "Sign in";
+    font-size: var(--type-label-size);
+  }
+}
+
+@media (max-width: 767px) {
+  .pass-network-badge-label {
+    display: none;
+  }
+
+  .pass-network-badge-short {
+    display: inline;
+  }
+}
+
+@media (max-width: 479px) {
+  .pass-wordmark-text {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .pass-x-label {
+    font-size: inherit;
+  }
+
+  .pass-x-label::after {
+    content: none;
+  }
+}
+
+/* --- Homepage: a short mobile page, not a stacked desktop page ----------- */
+@media (max-width: 1023px) {
+  .pass-landing-loop,
+  .pass-landing-activity,
+  .pass-landing-how,
+  .pass-landing-why,
+  .pass-landing-security {
+    display: none;
+  }
+}
+
+/* Hero guarantees. Shown at every width below the CTAs; the mobile rule only
+   tightens the gutter and the type. */
+.pass-landing-trust {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-6) 0 0;
+  padding: var(--space-4) 0 0;
+  border-block-start: var(--border-hairline);
+  list-style: none;
+}
+
+.pass-landing-trust-item {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.pass-landing-trust-icon {
+  display: inline-flex;
+  color: var(--color-accent-text);
+}
+
+.pass-landing-trust-label {
+  color: var(--color-text-secondary);
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .pass-landing-shell {
+    padding-block: var(--space-5) var(--space-6);
+  }
+
+  .pass-landing-frame {
+    padding-block-end: 0;
+  }
+
+  .pass-landing-shell .pass-watermark {
+    display: none;
+  }
+
+  .pass-landing .pass-display {
+    font-size: clamp(2.5rem, 1.4rem + 5.2vw, 3.25rem);
+    line-height: 1.02;
+  }
+
+  .pass-landing-lede {
+    margin-block-start: var(--space-4);
+    font-size: var(--type-body-s-size);
+    line-height: var(--type-body-s-line);
+  }
+
+  .pass-landing-ctas {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    margin-block-start: var(--space-5);
+  }
+
+  .pass-landing-cta-primary,
+  .pass-landing-cta-ghost {
+    display: flex;
+    inline-size: 100%;
+  }
+
+  .pass-landing-ctas .pass-btn {
+    inline-size: 100%;
+    justify-content: center;
+  }
+
+  .pass-landing-cta-ghost .pass-btn {
+    border-color: var(--color-line-strong);
+  }
+
+  .pass-landing-trust {
+    gap: var(--space-3);
+    margin-block-start: var(--space-5);
+  }
+
+  .pass-landing-section-head {
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .pass-landing-section-head .pass-section-display {
+    font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.25rem);
+  }
+
+  .pass-landing-view-all {
+    align-self: flex-end;
+  }
+
+  .pass-landing .pass-section {
+    margin-block: var(--space-7);
+  }
+
+  /* One rail, not five full-width cards. The negative gutter lets the cards
+     run to both viewport edges while the first and last still start and end on
+     the page gutter. */
+  .pass-trader-grid {
+    display: flex;
+    gap: var(--space-3);
+    margin-inline: calc(var(--layout-margin-mobile) * -1);
+    padding-inline: var(--layout-margin-mobile);
+    padding-block-end: var(--space-2);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: var(--layout-margin-mobile);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pass-trader-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pass-trader-card,
+  .pass-trader-cta-card {
+    flex: 0 0 min(82%, 22rem);
+    gap: var(--space-3);
+    padding: var(--space-4);
+    scroll-snap-align: start;
+  }
+
+  /* The reference card carries identity, PnL, win rate and one action. The
+     sparkline is a desktop comparison device, not a mobile card requirement. */
+  .pass-trader-spark {
+    display: none;
+  }
+
+  .pass-trader-card-foot {
+    gap: var(--space-2);
+    padding-block-start: var(--space-2);
+  }
+
+  .pass-trader-card-link {
+    min-block-size: var(--size-target-min);
+    padding-inline: var(--space-3);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+  }
+
+  .pass-trader-card-link:hover {
+    border-color: var(--color-accent);
+  }
+
+  .pass-final-cta {
+    padding: var(--space-5);
+  }
+
+  .pass-final-cta-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    inline-size: 100%;
+  }
+
+  .pass-final-cta-primary,
+  .pass-final-cta-secondary {
+    inline-size: 100%;
+  }
+
+  .pass-final-cta-links {
+    display: none;
+  }
+
+  .pass-footer {
+    padding-block: var(--space-5);
+  }
+}
+
+/* Narrow phones cannot hold the logo, a labelled network pill, search, the X
+   chip and the hamburger in one 320-374px row. The pill keeps its dot and its
+   accessible name and drops only the redundant visible label; the topbar never
+   overlaps the brand. */
+@media (max-width: 374px) {
+  .pass-network-badge-copy {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pass-x-chip {
+    max-inline-size: 8rem;
+  }
+}
+
+/* The mobile page has three visible chapters, so the closing CTA's desktop
+   section index (06) would point at four hidden ones. */
+@media (max-width: 1023px) {
+  .pass-landing-final .pass-numbered-eyebrow-number {
+    display: none;
   }
 }

@@ -3,26 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { NAV } from "@/lib/nav";
+import { isNavActive, NAV } from "@/lib/nav";
 
 /**
- * Topbar destinations with an explicit active state.
+ * Desktop topbar destinations with an explicit active state.
  *
  * `aria-current="page"` is the semantic carrier; the ember underline is the
- * visual reinforcement. `/` is not in NAV, and the profile destination is
- * `/settings`, so a prefix match is correct for the three nested routes.
+ * visual reinforcement. Below 1024px this list is replaced by `MobileMenu`.
  */
 export function TopbarNav() {
   const pathname = usePathname() ?? "";
-  const isActive = (href: string) =>
-    href === "/discover"
-      ? pathname === "/discover" || pathname.startsWith("/discover/")
-      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <ul className="pass-nav">
       {NAV.map((item) => {
-        const active = isActive(item.href);
+        const active = isNavActive(pathname, item.href);
         return (
           <li key={item.href}>
             <Link

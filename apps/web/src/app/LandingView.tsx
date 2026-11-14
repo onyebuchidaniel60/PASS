@@ -130,6 +130,16 @@ const FEATURES: Array<{
   },
 ];
 
+/**
+ * The three guarantees the hero can make before a visitor opens a Pass.
+ * They reuse the Why PASS glyphs rather than introducing a second icon set.
+ */
+const TRUST: Array<{ glyph: FeatureGlyphName; label: string }> = [
+  { glyph: "candles", label: "Real Trades on Hyperliquid" },
+  { glyph: "key", label: "Your Keys Always Yours" },
+  { glyph: "eye", label: "Transparent Plans" },
+];
+
 const STATUS_LABEL: Record<string, string> = {
   active: "Active",
   entry_pending: "Entry pending",
@@ -225,7 +235,7 @@ function TraderCard({ trader, rank }: { trader: HomeTraderDto; rank: number }) {
           className="pass-trader-card-link"
           aria-label={`View ${trader.displayName}'s profile`}
         >
-          View profile <span aria-hidden="true">{"\u2192"}</span>
+          View Profile <span aria-hidden="true">{"\u2192"}</span>
         </Link>
       </div>
     </article>
@@ -376,6 +386,19 @@ export function LandingView({ home }: { home: HomeDto }) {
                     </Button>
                   </Link>
                 </Inline>
+
+                <ul className="pass-landing-trust" aria-label="PASS guarantees">
+                  {TRUST.map((item) => (
+                    <li key={item.label} className="pass-landing-trust-item">
+                      <span className="pass-landing-trust-icon">
+                        <FeatureGlyph name={item.glyph} />
+                      </span>
+                      <span className="pass-landing-trust-label">
+                        {item.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               <aside
@@ -506,7 +529,7 @@ export function LandingView({ home }: { home: HomeDto }) {
         </Surface>
 
         <ScrollReveal>
-          <Section label="Top traders">
+          <Section label="Top traders" className="pass-landing-traders">
             <Stack gap="5">
               <div className="pass-landing-section-head">
                 <div>
@@ -562,7 +585,7 @@ export function LandingView({ home }: { home: HomeDto }) {
         </ScrollReveal>
 
         <ScrollReveal>
-          <Section label="Live activity">
+          <Section label="Live activity" className="pass-landing-activity">
             <Stack gap="5">
               <div className="pass-landing-section-head">
                 <div>
@@ -608,7 +631,7 @@ export function LandingView({ home }: { home: HomeDto }) {
         </ScrollReveal>
 
         <ScrollReveal>
-          <Section label="How it works">
+          <Section label="How it works" className="pass-landing-how">
             <Stack gap="5">
               <NumberedEyebrow label="How it works" number={3} />
               <DisplayHeadline
@@ -631,7 +654,7 @@ export function LandingView({ home }: { home: HomeDto }) {
         </ScrollReveal>
 
         <ScrollReveal>
-          <Section label="Why PASS">
+          <Section label="Why PASS" className="pass-landing-why">
             <Stack gap="5">
               <NumberedEyebrow label="Why PASS" number={4} />
               <DisplayHeadline
@@ -659,7 +682,10 @@ export function LandingView({ home }: { home: HomeDto }) {
         </ScrollReveal>
 
         <ScrollReveal>
-          <Section label="Security and Agent Economy">
+          <Section
+            label="Security and Agent Economy"
+            className="pass-landing-security"
+          >
             <Stack gap="5">
               <NumberedEyebrow
                 label="Security & agent economy"
@@ -728,7 +754,7 @@ export function LandingView({ home }: { home: HomeDto }) {
         </ScrollReveal>
 
         <ScrollReveal>
-          <Section label="Get started">
+          <Section label="Get started" className="pass-landing-final">
             <Surface strength="section" className="pass-final-cta">
               <Stack gap="5">
                 <NumberedEyebrow label="Get started" number={6} />

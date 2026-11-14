@@ -420,7 +420,11 @@ export function PassDetailClient({ publicId }: { publicId: string }) {
                     {/* HIP-4 is a probability market: no leverage, no
                         liquidation, no venue TP/SL (and therefore no R:R).
                         Show the one decision the Pass actually encodes. */}
-                    <MetricCard label="Outcome" value={outcomeName} />
+                    <MetricCard
+                      label="Outcome"
+                      value={outcomeName}
+                      className="pass-metric-card--prose"
+                    />
                     <MetricCard label="Side" value={outcomeSide} />
                   </>
                 ) : (
