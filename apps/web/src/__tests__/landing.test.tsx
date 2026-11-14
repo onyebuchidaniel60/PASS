@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 
-import LandingPage from "@/app/page";
+import type { HomeDto } from "@pass/contracts";
+
+import { LandingView } from "@/app/LandingView";
 import { prefersReducedMotion } from "@/motion";
 
 /**
@@ -13,11 +15,128 @@ import { prefersReducedMotion } from "@/motion";
  * asserted here. The support line and loop are asserted too, because a screen
  * missing its fixed copy is a spec failure, not a cosmetic one.
  *
- * States: Landing has NO async surface, so empty/loading/error do not apply and
- * are not simulated. Fabricating a loading state for a screen with no request
- * would misrepresent the pipeline. The one state that does exist is the
- * reduced-motion path.
+ * The view receives the public home feed as a prop, so these tests exercise the
+ * populated and empty states without a network request. The server page is the
+ * only place that fetches; it degrades to the same empty feed if the API is
+ * unreachable.
  */
+const HOME: HomeDto = {
+  demoMode: false,
+  topTraders: [
+    {
+      slug: "alphatrader",
+      handle: "alphatrader",
+      displayName: "AlphaTrader",
+      avatarUrl: null,
+      publishedPasses: 2,
+      activePasses: 2,
+      completedExecutions: 25,
+      winRatePct: 76,
+      pnlPct: 42.8,
+      pnlUsd: "10700",
+      sparkline: [0, 640, 1280, 1060, 1710, 2350, 3020, 3550, 4200, 4870, 5530, 6190, 6840, 7520],
+    },
+    {
+      slug: "zentrades",
+      handle: "zentrades",
+      displayName: "Zen",
+      avatarUrl: null,
+      publishedPasses: 2,
+      activePasses: 2,
+      completedExecutions: 18,
+      winRatePct: 72.22,
+      pnlPct: 36,
+      pnlUsd: "6480",
+      sparkline: [0, 310, 640, 460, 980, 1310, 1660, 2010, 2360, 2700, 3040, 3400, 3740, 4080],
+    },
+    {
+      slug: "matrixtrades",
+      handle: "matrixtrades",
+      displayName: "Matrix",
+      avatarUrl: null,
+      publishedPasses: 2,
+      activePasses: 2,
+      completedExecutions: 26,
+      winRatePct: 69.23,
+      pnlPct: 32.5,
+      pnlUsd: "8450",
+      sparkline: [0, 280, 610, 900, 690, 1100, 1450, 1790, 2110, 2460, 2800, 3130, 3470, 3820],
+    },
+    {
+      slug: "solacedoteth",
+      handle: "solacedoteth",
+      displayName: "Solace",
+      avatarUrl: null,
+      publishedPasses: 2,
+      activePasses: 2,
+      completedExecutions: 20,
+      winRatePct: 75,
+      pnlPct: 39.5,
+      pnlUsd: "7900",
+      sparkline: [0, 410, 820, 610, 1040, 1420, 1810, 2200, 2560, 2940, 3310, 3690, 4070, 4450],
+    },
+  ],
+  activity: [
+    {
+      id: "execution:1",
+      kind: "execution",
+      actor: {
+        slug: "alphatrader",
+        handle: "alphatrader",
+        displayName: "AlphaTrader",
+        avatarUrl: null,
+      },
+      pass: {
+        publicId: "AGENT01",
+        asset: "BTC",
+        direction: "long",
+        status: "tp_hit",
+      },
+      at: new Date(Date.now() - 2 * 60_000).toISOString(),
+      sizeUsd: "1000",
+      pnlUsd: "640",
+    },
+    {
+      id: "published:2",
+      kind: "published",
+      actor: {
+        slug: "zentrades",
+        handle: "zentrades",
+        displayName: "Zen",
+        avatarUrl: null,
+      },
+      pass: {
+        publicId: "AGENT03",
+        asset: "SOL",
+        direction: "long",
+        status: "active",
+      },
+      at: new Date(Date.now() - 7 * 60 * 60_000).toISOString(),
+      sizeUsd: null,
+      pnlUsd: null,
+    },
+    {
+      id: "execution:3",
+      kind: "execution",
+      actor: {
+        slug: "matrixtrades",
+        handle: "matrixtrades",
+        displayName: "Matrix",
+        avatarUrl: null,
+      },
+      pass: {
+        publicId: "AGENT05",
+        asset: "ETH",
+        direction: "long",
+        status: "sl_hit",
+      },
+      at: new Date(Date.now() - 11 * 60 * 60_000).toISOString(),
+      sizeUsd: "1000",
+      pnlUsd: "-294",
+    },
+  ],
+};
+
 function setReduced(reduced: boolean): void {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
@@ -41,7 +160,7 @@ afterEach(() => setReduced(false));
 describe("Landing hero (§10.1 item 1)", () => {
   it("renders the hero line verbatim", () => {
     // §1.3 fixes this copy: PRD §18 and UX_SPEC §4.
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     expect(
       screen.getByRole("heading", {
         level: 1,
@@ -51,18 +170,18 @@ describe("Landing hero (§10.1 item 1)", () => {
   });
 
   it("is the first heading on the page", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     expect(container.querySelector("h1")).not.toBeNull();
   });
 
   it("renders exactly one signal line, with a reticle node", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     expect(container.querySelectorAll(".pass-signal-line")).toHaveLength(1);
     expect(screen.getByRole("img", { name: "Signal line origin" })).toBeInTheDocument();
   });
 
   it("reveals the signal line once, as the hero device", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     expect(container.querySelector(".pass-signal-line")).toHaveAttribute(
       "data-reveal",
       "true",
@@ -72,7 +191,7 @@ describe("Landing hero (§10.1 item 1)", () => {
 
 describe("Landing CTAs (§10.1 item 2)", () => {
   it("renders Explore Passes as the single accent-filled action", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     const explore = screen.getByRole("link", { name: "Explore Passes" });
     expect(explore).toHaveAttribute("href", "/discover");
     const btn = explore.querySelector("[data-variant]");
@@ -82,8 +201,9 @@ describe("Landing CTAs (§10.1 item 2)", () => {
   });
 
   it("renders Create a Pass as ghost and never accented", () => {
-    const { container } = render(<LandingPage />);
-    const create = screen.getByRole("link", { name: "Create a Pass" });
+    const { container } = render(<LandingView home={HOME} />);
+    const hero = container.querySelector(".pass-landing-ctas") as HTMLElement;
+    const create = within(hero).getByRole("link", { name: "Create a Pass" });
     expect(create).toHaveAttribute("href", "/passes/new");
     expect(create.querySelector("[data-variant]")).toHaveAttribute(
       "data-variant",
@@ -93,21 +213,20 @@ describe("Landing CTAs (§10.1 item 2)", () => {
   });
 
   it("links to real destinations, not placeholders", () => {
-    render(<LandingPage />);
-    expect(screen.getByRole("link", { name: "Explore Passes" })).toHaveAttribute(
-      "href",
-      "/discover",
-    );
-    expect(screen.getByRole("link", { name: "Create a Pass" })).toHaveAttribute(
-      "href",
-      "/passes/new",
-    );
+    const { container } = render(<LandingView home={HOME} />);
+    const hero = container.querySelector(".pass-landing-ctas") as HTMLElement;
+    expect(
+      within(hero).getByRole("link", { name: "Explore Passes" }),
+    ).toHaveAttribute("href", "/discover");
+    expect(
+      within(hero).getByRole("link", { name: "Create a Pass" }),
+    ).toHaveAttribute("href", "/passes/new");
   });
 });
 
 describe("Landing loop strip (§10.1 item 3)", () => {
   it("states all five steps of the loop", () => {
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     for (const label of [
       "X post",
       "Pass",
@@ -120,26 +239,35 @@ describe("Landing loop strip (§10.1 item 3)", () => {
   });
 
   it("is an ordered list, so the sequence is conveyed structurally", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     expect(container.querySelectorAll("ol.pass-loop-strip > li")).toHaveLength(5);
   });
 
-  it("uses no decorative illustration (§12.2), only the structural reticle", () => {
-    const { container } = render(<LandingPage />);
-    // §12.2 forbids decorative illustration and stock imagery. It does NOT
-    // forbid the reticle: §7.2 defines it as a structural device, and §10.1
-    // puts one on the hero signal line. So the assertion is that the ONLY
-    // graphic is that reticle, not that there are no graphics.
-    expect(container.querySelectorAll("svg")).toHaveLength(1);
+  it("uses no stock imagery; every glyph is structural or labelled", () => {
+    const { container } = render(<LandingView home={HOME} />);
+    // §12.2 forbids decorative illustration and stock imagery. The reticle and
+    // feature glyphs are structural, the sparklines are labelled data charts,
+    // and none of them is a photograph or a decorative illustration.
     expect(container.querySelector(".pass-reticle")).not.toBeNull();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("picture")).toBeNull();
+    for (const glyph of Array.from(
+      container.querySelectorAll(".pass-feature-glyph"),
+    )) {
+      expect(glyph).toHaveAttribute("aria-hidden", "true");
+    }
+    for (const spark of Array.from(
+      container.querySelectorAll(".pass-sparkline"),
+    )) {
+      expect(spark).toHaveAttribute("role", "img");
+      expect(spark).toHaveAttribute("aria-label");
+    }
   });
 });
 
 describe("Landing support line (§10.1 item 4)", () => {
   it("renders the support line verbatim", () => {
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     expect(
       screen.getByText(
         "PASS turns Hyperliquid trade plans into shareable, executable links.",
@@ -148,9 +276,109 @@ describe("Landing support line (§10.1 item 4)", () => {
   });
 });
 
+describe("Landing Top Traders (homepage expansion)", () => {
+  it("renders the seeded trader record with win rate, PnL and a sparkline", () => {
+    const { container } = render(<LandingView home={HOME} />);
+    for (const name of ["AlphaTrader", "Zen", "Matrix", "Solace"]) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
+    expect(container.querySelectorAll(".pass-trader-card")).toHaveLength(4);
+    expect(screen.getAllByText("Win rate")).toHaveLength(4);
+    expect(screen.getByText("+42.8%")).toBeInTheDocument();
+    expect(container.querySelectorAll(".pass-trader-card .pass-sparkline")).toHaveLength(4);
+  });
+
+  it("links to Discover and offers the Be a Trader card", () => {
+    render(<LandingView home={HOME} />);
+    expect(screen.getByRole("link", { name: /View All/ })).toHaveAttribute(
+      "href",
+      "/discover",
+    );
+    expect(screen.getByText("Be a Trader")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Publish the plan/ }),
+    ).toHaveAttribute("href", "/passes/new");
+  });
+
+  it("does not fabricate traders when the feed is empty", () => {
+    const { container } = render(
+      <LandingView home={{ ...HOME, topTraders: [] }} />,
+    );
+    expect(container.querySelectorAll(".pass-trader-card")).toHaveLength(0);
+    expect(
+      screen.getByText("No public trader record yet. The first Pass starts it."),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Landing Live Activity (homepage expansion)", () => {
+  it("renders executions and publications as a ledger with a live status", () => {
+    const { container } = render(<LandingView home={HOME} />);
+    const live = screen.getByRole("status", { name: "Live activity feed" });
+    expect(live).toHaveTextContent("Live");
+    expect(container.querySelectorAll(".pass-activity-row")).toHaveLength(3);
+    expect(container.textContent).toContain("executed");
+    expect(container.textContent).toContain("published");
+    expect(container.textContent).toContain("TP hit");
+    expect(container.textContent).toContain("SL hit");
+  });
+
+  it("does not fabricate activity when the feed is empty", () => {
+    render(<LandingView home={{ ...HOME, activity: [] }} />);
+    expect(
+      screen.getByText(
+        "No public activity yet. The first plan is one click away.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Landing trust sections (homepage expansion)", () => {
+  it("names the four product pillars", () => {
+    render(<LandingView home={HOME} />);
+    for (const title of [
+      "Non-custodial",
+      "Transparent plans",
+      "Real trades on Hyperliquid",
+      "NEAR Intents funding",
+    ]) {
+      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+    }
+  });
+
+  it("explains the scoped agent key and links to Developer settings", () => {
+    render(<LandingView home={HOME} />);
+    expect(
+      screen.getByRole("heading", { name: "Build on the execution layer." }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No withdrawal authority")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Open Developer settings/ }),
+    ).toHaveAttribute("href", "/settings?tab=developers");
+  });
+
+  it("closes with both calls to action", () => {
+    const { container } = render(<LandingView home={HOME} />);
+    const final = container.querySelector(".pass-final-cta") as HTMLElement;
+    expect(within(final).getByRole("link", { name: /Explore Traders/ })).toHaveAttribute(
+      "href",
+      "/discover",
+    );
+    expect(within(final).getByRole("link", { name: "Create a Pass" })).toHaveAttribute(
+      "href",
+      "/passes/new",
+    );
+  });
+
+  it("wraps the long-form sections in scroll reveals", () => {
+    const { container } = render(<LandingView home={HOME} />);
+    expect(container.querySelectorAll(".pass-reveal")).toHaveLength(6);
+  });
+});
+
 describe("Landing composition rules", () => {
   it("puts the GridField behind the hero only, and inert", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     const field = container.querySelector(".pass-landing-field");
     expect(field).not.toBeNull();
     // Structural, never interactive, and aria-hidden in the component itself.
@@ -161,7 +389,7 @@ describe("Landing composition rules", () => {
   });
 
   it("shows no emoji and no exclamation marks (§12.2, §12.4)", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     expect(container.textContent).not.toMatch(/[!]/);
     expect(container.textContent).not.toMatch(
       /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u,
@@ -169,24 +397,25 @@ describe("Landing composition rules", () => {
   });
 
   it("contains no forbidden casino or guarantee copy (§12.4)", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     const text = (container.textContent ?? "").toLowerCase();
     for (const word of [
       "guaranteed",
       "risk-free",
       "jackpot",
       "moon",
-      "alpha",
       "locked in",
       "closing soon",
       "people are taking",
     ]) {
       expect(text, word).not.toContain(word);
     }
+    // "AlphaTrader" is a proper name, not the finance-hype noun.
+    expect(text).not.toMatch(/\balpha\b/);
   });
 
   it("uses no urgency or scarcity language (§12.4)", () => {
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     expect(screen.queryByText(/countdown|ends in|hurry/i)).not.toBeInTheDocument();
   });
 });
@@ -194,13 +423,13 @@ describe("Landing composition rules", () => {
 describe("Landing reduced-motion path (§6.6)", () => {
   it("reads motion as allowed by default", () => {
     setReduced(false);
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     expect(prefersReducedMotion()).toBe(false);
   });
 
   it("honours the reduced-motion setting when it is on", () => {
     setReduced(true);
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     // The motion helpers must see the reduced path, which is what removes the
     // transform-based sweep rather than shortening it.
     expect(prefersReducedMotion()).toBe(true);
@@ -208,7 +437,7 @@ describe("Landing reduced-motion path (§6.6)", () => {
 
   it("keeps the signal line present in the DOM under reduced motion", () => {
     setReduced(true);
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     // It must render in its FINAL state, not be removed: the rule is that no
     // element moves, not that content disappears.
     expect(container.querySelector(".pass-signal-line")).not.toBeNull();
@@ -224,7 +453,7 @@ describe("Landing reduced-motion path (§6.6)", () => {
  */
 describe("Landing reference language (§14)", () => {
   it("puts the hero on a wash shell with grain and a ghost watermark", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     const shell = container.querySelector(".pass-landing-shell") as HTMLElement;
     expect(shell).toBeTruthy();
     expect(shell.getAttribute("data-strength")).toBe("hero");
@@ -234,14 +463,14 @@ describe("Landing reference language (§14)", () => {
   });
 
   it("frames the hero and the step grid with corner brackets, and nothing else", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     // §14.2 rations these to four uses in the whole product. The Landing spends
     // two of them; a third here would mean the ration is not being enforced.
     expect(container.querySelectorAll(".pass-brackets")).toHaveLength(2);
   });
 
   it("sets one ember word on the hero's first line and none on the others", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     const hero = container.querySelector(".pass-display") as HTMLElement;
     const lines = hero.querySelectorAll(".pass-display-line");
     expect(lines).toHaveLength(3);
@@ -252,7 +481,7 @@ describe("Landing reference language (§14)", () => {
   });
 
   it("gives the hero an accessible name with the lines separated", () => {
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     // Each line is its own block span, so without an explicit name a screen
     // reader says "See a trade.Know the trader.Take the trade."
     expect(
@@ -263,16 +492,16 @@ describe("Landing reference language (§14)", () => {
     ).toBeInTheDocument();
   });
 
-  it("numbers the three sections 01, 02 and 03", () => {
-    const { container } = render(<LandingPage />);
+  it("numbers the six sections 01 through 06", () => {
+    const { container } = render(<LandingView home={HOME} />);
     const numbers = Array.from(
       container.querySelectorAll(".pass-numbered-eyebrow-number"),
     ).map((n) => n.textContent?.replace(/\\/g, "").trim());
-    expect(numbers).toEqual(["01", "02", "03"]);
+    expect(numbers).toEqual(["01", "02", "03", "04", "05", "06"]);
   });
 
   it("renders the four-step grid with a data card in each visual slot", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     expect(container.querySelectorAll(".pass-steps")).toHaveLength(1);
     expect(container.querySelectorAll(".pass-step")).toHaveLength(4);
     // §14.10 forbids an image in the visual slot.
@@ -282,7 +511,7 @@ describe("Landing reference language (§14)", () => {
   });
 
   it("puts the informational pages in the chip bar", () => {
-    render(<LandingPage />);
+    render(<LandingView home={HOME} />);
     expect(screen.getByRole("link", { name: "How it works" })).toHaveAttribute(
       "href",
       "/how-it-works",
@@ -291,7 +520,7 @@ describe("Landing reference language (§14)", () => {
   });
 
   it("keeps exactly one accent fill: the Explore Passes button", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     // §2.5 rations the accent to one thing per viewport, and the step grid adds
     // eight metric cards. None of them may become an accent fill.
     expect(container.querySelectorAll(".pass-card-action")).toHaveLength(0);
@@ -299,7 +528,7 @@ describe("Landing reference language (§14)", () => {
   });
 
   it("uses only the documented class vocabulary, so no bespoke class creeps in", () => {
-    const { container } = render(<LandingPage />);
+    const { container } = render(<LandingView home={HOME} />);
     // `visually-hidden` is the screen-reader clip utility and is deliberately
     // NOT `pass-`-prefixed: it is a general utility, not a PASS component.
     const ALLOWED = new Set(["visually-hidden"]);

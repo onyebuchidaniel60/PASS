@@ -626,6 +626,10 @@ const SETTINGS_TABS: ReadonlyArray<{
   { id: "developers", label: "Developers", note: "Agent API" },
 ];
 
+function isSettingsTabId(value: string | null): value is SettingsTabId {
+  return SETTINGS_TABS.some((tab) => tab.id === value);
+}
+
 function SettingsReady({
   me,
   loadExtra = fetchSettingsExtra,
@@ -652,6 +656,13 @@ function SettingsReady({
   const [extraState, setExtraState] = useState<ExtraState>({ status: "loading" });
   const [extraAttempt, setExtraAttempt] = useState(0);
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
+
+  // Deep links from the product (e.g. Landing → Agent economy → Developers)
+  // land on the named workspace without changing the tab contract.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (isSettingsTabId(tab)) setActiveTab(tab);
+  }, []);
   useEffect(() => {
     let live = true;
     setExtraState({ status: "loading" });

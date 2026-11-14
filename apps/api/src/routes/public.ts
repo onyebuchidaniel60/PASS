@@ -9,6 +9,7 @@ import {
 } from "../services/pass-service.js";
 import { passPerformance, listPassExecutions } from "../services/execution-service.js";
 import { buildPublicProfile, getProfileBySlug, getProfileBySlugOrXHandle } from "../services/profile-service.js";
+import { getHomeFeed } from "../services/home-service.js";
 import { AppError } from "../errors.js";
 import { ETHOS_DISCLAIMER } from "../services/profile-service.js";
 import type { PassRow } from "@pass/db";
@@ -40,6 +41,8 @@ function passToSummary(row: PassRow) {
 
 export async function registerPublicRoutes(app: FastifyInstance, ctx: AppContext) {
   // docs/API_CONTRACTS.md §3 — public reads use passes.public_id.
+  app.get("/api/v1/home", async () => getHomeFeed(ctx));
+
   app.get<{ Params: { publicId: string } }>("/api/v1/passes/:publicId", async (req) => {
     const row = await getPassByPublicId(ctx, req.params.publicId);
     const { buildPublicProfile } = await import("../services/profile-service.js");

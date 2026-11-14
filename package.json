@@ -15,6 +15,7 @@
     "test": "vitest run && pnpm --filter @pass/web test",
     "test:watch": "vitest",
     "db:generate": "pnpm --filter @pass/db generate",
+    "seed:top-traders": "tsx scripts/seed-top-traders.ts",
     "db:migrate": "pnpm --filter @pass/db migrate",
     "dev:api": "pnpm --filter @pass/api dev",
     "dev:web": "pnpm --filter @pass/web dev",

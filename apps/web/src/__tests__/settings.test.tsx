@@ -602,6 +602,18 @@ describe("Settings redesign (reference 14)", () => {
     expect(screen.queryByText(/simulated/i)).toBeNull();
   });
 
+  it("opens the Developers tab from a ?tab=developers deep link", async () => {
+    window.history.pushState({}, "", "/settings?tab=developers");
+    try {
+      render(<SettingsClient probe={authed} load={withMe()} />);
+      expect(
+        await screen.findByRole("heading", { name: "Agent Access" }),
+      ).toBeInTheDocument();
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("offers the five focused Settings tabs", async () => {
     render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
     await screen.findByTestId("settings-identity");

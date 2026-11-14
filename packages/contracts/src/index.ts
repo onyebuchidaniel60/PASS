@@ -3,5 +3,6 @@ export * from "./errors.js";
 export * from "./limits.js";
 export * from "./pass.js";
 export * from "./profile.js";
+export * from "./home.js";
 export * from "./integrations.js";
 export * from "./env.js";
