@@ -12,9 +12,8 @@ import { useEffect, useState } from "react";
  * that matters — order execution.
  *
  * Rules encoded here:
- *  - the venue is ALWAYS named when known ("Hyperliquid Testnet" /
- *    "Hyperliquid Mainnet"): the persistent indicator at the top of the app;
- *  - ALL live            -> venue line only, no mode notes;
+ *  - the persistent venue badge lives in the topbar (NetworkBadge);
+ *  - ALL live            -> this warning strip renders nothing;
  *  - ANY not-live        -> name the surfaces that are not live;
  *  - execution is always named explicitly when it is not live;
  *  - unknown (health unreachable) -> say so;
@@ -35,8 +34,6 @@ interface HealthModes {
 
 interface Health {
   modes: HealthModes;
-  /** Current venue per the server's own config (testnet/mainnet). */
-  hyperliquidVenue?: string | null;
 }
 
 interface Surface {
@@ -62,30 +59,6 @@ function surfacesFrom(modes: HealthModes): Surface[] {
     { key: "ethos", label: "Ethos reputation", mode: m(modes.ethos) },
     { key: "x", label: "X identity", mode: m(modes.x) },
   ];
-}
-
-function venueLabel(venue: string | null | undefined): string | null {
-  if (venue === "testnet") return "Hyperliquid Testnet";
-  if (venue === "mainnet") return "Hyperliquid Mainnet";
-  return null;
-}
-
-/**
- * The persistent venue indicator: a status dot before the venue name
- * ("staging" amber on testnet, --color-data-positive on mainnet), per the
- * operator's staging-status specification. The dot is aria-hidden: the venue
- * name already carries the information in words, so screen readers lose
- * nothing and the banner text matches the demoBanner tests.
- */
-function VenueIndicator({ venue, label }: { venue: string; label: string }) {
-  return (
-    <span className="pass-demo-banner-lead">
-      <span className="pass-venue-indicator" data-venue={venue}>
-        <span className="pass-venue-dot" aria-hidden="true" />
-        {label}
-      </span>
-    </span>
-  );
 }
 
 export function DemoBanner() {
@@ -128,26 +101,13 @@ export function DemoBanner() {
 
   const surfaces = surfacesFrom(health?.modes ?? {});
   const notLive = surfaces.filter((s) => s.mode !== "live");
-  const venue = venueLabel(health?.hyperliquidVenue);
 
-  // Everything live: the venue line is the whole banner — the persistent
-  // indicator that orders go to Hyperliquid Testnet (or Mainnet).
-  if (notLive.length === 0) {
-    if (!venue) return null;
-    return (
-      <div className="pass-demo-banner" role="status">
-        <VenueIndicator venue={health?.hyperliquidVenue ?? "unknown"} label={venue} />
-      </div>
-    );
-  }
+  // Everything live: the persistent NetworkBadge in the topbar is the status
+  // surface, so there is nothing left for this warning strip to say.
+  if (notLive.length === 0) return null;
 
   return (
     <div className="pass-demo-banner" role="status">
-      {venue ? (
-        <>
-          <VenueIndicator venue={health?.hyperliquidVenue ?? "unknown"} label={venue} />{" "}
-        </>
-      ) : null}
       <span className="pass-demo-banner-lead">
         {notLive.length === surfaces.length
           ? "Offline mode."

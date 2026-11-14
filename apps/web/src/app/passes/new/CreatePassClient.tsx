@@ -562,6 +562,9 @@ export function CreatePassClient() {
       <ShellContent>
         <Stack gap="6">
           <Section label={editId ? "Edit Pass" : "Create a Pass"}>
+            <span className="pass-settings-kicker">
+              {editId ? "Revise the plan" : "Author a plan"}
+            </span>
             <h1 className="pass-asset-line">{editId ? "Edit Pass" : "Create a Pass"}</h1>
             <p className="pass-thesis" style={{ marginBlockStart: "var(--space-3)" }}>
               {editId ? (
@@ -600,7 +603,7 @@ export function CreatePassClient() {
           {failed ? <ErrorBlock detail={failed} onRetry={boot} /> : null}
 
           {/* §10.5 — the live preview, the same primitives as the Pass page. */}
-          <ChamferPanel label="Pass preview">
+          <ChamferPanel label="Pass preview" className="pass-create-preview">
             <CoordinateGrid>
               <CoordinatePair
                 label={isHip4 ? "Market" : "Asset"}
@@ -626,39 +629,43 @@ export function CreatePassClient() {
             </CoordinateGrid>
           </ChamferPanel>
 
-          <Stack gap="5">
-            <Field label="Asset" required>
-              {({ controlId }) => (
-                <Select
-                  id={controlId}
-                  value={asset}
-                  onChange={chooseAsset}
-                  options={markets.map((m) => ({
-                    value: m.asset,
-                    label:
-                      m.label ??
-                      (m.marketClass === "hip4"
-                        ? `${m.asset} · ${m.outcome?.side === "no" ? "No" : "Yes"}`
-                        : `${m.asset}-${m.dex.toUpperCase()}`),
-                  }))}
-                />
-              )}
-            </Field>
+          <Stack gap="5" className="pass-create-form">
+            <div className="pass-form-grid pass-form-grid--two">
+              <Field label="Asset" required className="pass-terminal-field">
+                {({ controlId }) => (
+                  <Select
+                    id={controlId}
+                    value={asset}
+                    onChange={chooseAsset}
+                    className="pass-terminal-select"
+                    options={markets.map((m) => ({
+                      value: m.asset,
+                      label:
+                        m.label ??
+                        (m.marketClass === "hip4"
+                          ? `${m.asset} · ${m.outcome?.side === "no" ? "No" : "Yes"}`
+                          : `${m.asset}-${m.dex.toUpperCase()}`),
+                    }))}
+                  />
+                )}
+              </Field>
 
-            <Field
-              label={isHip4 ? "Side" : "Direction"}
-              required
-              helper={isHip4 ? "Yes is long the outcome; No is short it." : undefined}
-            >
-              {({ controlId: _c }) => (
-                <SegmentedControl
-                  options={isHip4 ? OUTCOME_DIRECTIONS : DIRECTIONS}
-                  value={direction}
-                  onChange={setDirection}
-                  label={isHip4 ? "Side" : "Direction"}
-                />
-              )}
-            </Field>
+              <Field
+                label={isHip4 ? "Side" : "Direction"}
+                required
+                className="pass-terminal-field"
+                helper={isHip4 ? "Yes is long the outcome; No is short it." : undefined}
+              >
+                {({ controlId: _c }) => (
+                  <SegmentedControl
+                    options={isHip4 ? OUTCOME_DIRECTIONS : DIRECTIONS}
+                    value={direction}
+                    onChange={setDirection}
+                    label={isHip4 ? "Side" : "Direction"}
+                  />
+                )}
+              </Field>
+            </div>
 
             {isHip4 ? (
               <p className="pass-stale" role="note">
@@ -667,84 +674,154 @@ export function CreatePassClient() {
               </p>
             ) : (
               <>
-                <Field label="Entry type" required>
-                  {({ controlId: _c }) => (
-                    <SegmentedControl
-                      options={ENTRY_TYPES}
-                      value={entryType}
-                      onChange={setEntryType}
-                      label="Entry type"
-                    />
-                  )}
-                </Field>
-
-                {/* Market entries use the live market at execution time
-                    (D-025.1) — the author never types a price, so no input
-                    renders. Limit entries keep the input as-is. */}
-                {entryType === "limit" ? (
-                  <Field label="Entry price" required error={errors.entry}>
-                    {({ controlId, describedBy }) => (
-                      <NumericInput
-                        id={controlId}
-                        value={entry}
-                        onChange={setEntry}
-                        describedBy={describedBy}
-                        invalid={Boolean(errors.entry)}
-                        placeholder="0.00"
-                        suffix="USDC"
+                <div className="pass-entry-mode">
+                  <span className="pass-settings-kicker">Execution style</span>
+                  <Field label="Entry type" required className="pass-terminal-field">
+                    {({ controlId: _c }) => (
+                      <SegmentedControl
+                        options={ENTRY_TYPES}
+                        value={entryType}
+                        onChange={setEntryType}
+                        label="Entry type"
                       />
                     )}
                   </Field>
-                ) : (
-                  <p className="pass-stale" role="note">
-                    Market entry uses the current market price at execution time.
+                  <p className="pass-stale">
+                    Limit rests at your authored price. Market signs an
+                    immediate-or-cancel order at the live market.
                   </p>
-                )}
+                </div>
 
-                <Field label="Stop loss" required error={errors.sl}>
-                  {({ controlId, describedBy }) => (
-                    <NumericInput
-                      id={controlId}
-                      value={sl}
-                      onChange={setSl}
-                      describedBy={describedBy}
-                      invalid={Boolean(errors.sl)}
-                      placeholder="0.00"
-                      suffix="USDC"
-                    />
+                <div className="pass-form-grid pass-form-grid--three">
+                  {/* Market entries use the live market at execution time
+                      (D-025.1) — the author never types a price, so no input
+                      renders. Limit entries keep the input as-is. */}
+                  {entryType === "limit" ? (
+                    <Field
+                      label="Entry price"
+                      required
+                      error={errors.entry}
+                      className="pass-terminal-field"
+                    >
+                      {({ controlId, describedBy }) => (
+                        <NumericInput
+                          id={controlId}
+                          value={entry}
+                          onChange={setEntry}
+                          describedBy={describedBy}
+                          invalid={Boolean(errors.entry)}
+                          placeholder="0.00"
+                          suffix="USDC"
+                          className="pass-terminal-number"
+                        />
+                      )}
+                    </Field>
+                  ) : (
+                    <p className="pass-stale pass-form-note" role="note">
+                      Market entry uses the current market price at execution
+                      time.
+                    </p>
                   )}
-                </Field>
 
-                <Field label="Take profit" required error={errors.tp}>
-                  {({ controlId, describedBy }) => (
-                    <NumericInput
-                      id={controlId}
-                      value={tp}
-                      onChange={setTp}
-                      describedBy={describedBy}
-                      invalid={Boolean(errors.tp)}
-                      placeholder="0.00"
-                      suffix="USDC"
-                    />
-                  )}
-                </Field>
+                  <Field
+                    label="Stop loss"
+                    required
+                    error={errors.sl}
+                    className="pass-terminal-field"
+                  >
+                    {({ controlId, describedBy }) => (
+                      <NumericInput
+                        id={controlId}
+                        value={sl}
+                        onChange={setSl}
+                        describedBy={describedBy}
+                        invalid={Boolean(errors.sl)}
+                        placeholder="0.00"
+                        suffix="USDC"
+                        className="pass-terminal-number"
+                      />
+                    )}
+                  </Field>
 
-                <Field label="Leverage" required error={errors.leverage} helper="Permitted range shown.">
-                  {({ controlId, describedBy }) => (
-                    <LeverageStepper
-                      id={controlId}
-                      value={leverage}
-                      onChange={setLeverage}
-                      min={1}
-                      max={MAX_LEVERAGE}
-                      describedBy={describedBy}
-                    />
-                  )}
-                </Field>
+                  <Field
+                    label="Take profit"
+                    required
+                    error={errors.tp}
+                    className="pass-terminal-field"
+                  >
+                    {({ controlId, describedBy }) => (
+                      <NumericInput
+                        id={controlId}
+                        value={tp}
+                        onChange={setTp}
+                        describedBy={describedBy}
+                        invalid={Boolean(errors.tp)}
+                        placeholder="0.00"
+                        suffix="USDC"
+                        className="pass-terminal-number"
+                      />
+                    )}
+                  </Field>
+                </div>
+
+                <div className="pass-form-grid pass-form-grid--two">
+                  <Field
+                    label="Leverage"
+                    required
+                    error={errors.leverage}
+                    helper="Permitted range shown."
+                    className="pass-terminal-field"
+                  >
+                    {({ controlId, describedBy }) => (
+                      <LeverageStepper
+                        id={controlId}
+                        value={leverage}
+                        onChange={setLeverage}
+                        min={1}
+                        max={MAX_LEVERAGE}
+                        describedBy={describedBy}
+                      />
+                    )}
+                  </Field>
+
+                </div>
               </>
             )}
 
-            <Field label="Thesis" required helper="Say why. The Taker reads this first.">
+            <div className="pass-form-grid pass-form-grid--two">
+              <Field
+                label="Expiry"
+                required
+                error={errors.expiry}
+                className="pass-terminal-field"
+              >
+                {({ controlId, describedBy }) => (
+                  <TextInput
+                    id={controlId}
+                    value={expiry}
+                    onChange={setExpiry}
+                    describedBy={describedBy}
+                    invalid={Boolean(errors.expiry)}
+                    placeholder="2026-10-07T14:22"
+                    className="pass-terminal-input"
+                  />
+                )}
+              </Field>
+              {/* Display only: the raw input value above is what the API
+                  receives. This line reads it back human-readably. */}
+              {expiry && !Number.isNaN(new Date(expiry).getTime()) ? (
+                <p className="pass-stale pass-form-note" role="note">
+                  Expires {formatDateTime(expiry)} (your local time).
+                </p>
+              ) : null}
+            </div>
+
+            <Field
+              label="Thesis"
+              required
+              helper="Say why. The Taker reads this first."
+              className="pass-terminal-field pass-thesis-field"
+            >
               {({ controlId, describedBy }) => (
                 <Textarea
                   id={controlId}
@@ -752,29 +829,10 @@ export function CreatePassClient() {
                   onChange={setThesis}
                   describedBy={describedBy}
                   rows={5}
+                  className="pass-terminal-input"
                 />
               )}
             </Field>
-
-            <Field label="Expiry" required error={errors.expiry}>
-              {({ controlId, describedBy }) => (
-                <TextInput
-                  id={controlId}
-                  value={expiry}
-                  onChange={setExpiry}
-                  describedBy={describedBy}
-                  invalid={Boolean(errors.expiry)}
-                  placeholder="2026-10-07T14:22"
-                />
-              )}
-            </Field>
-            {/* Display only: the raw input value above is what the API
-                receives. This line reads it back human-readably. */}
-            {expiry && !Number.isNaN(new Date(expiry).getTime()) ? (
-              <p className="pass-stale" role="note">
-                Expires {formatDateTime(expiry)} (your local time).
-              </p>
-            ) : null}
           </Stack>
 
           {/* §10.5 — Publish is disabled WITH AN INLINE REASON until valid. */}
@@ -783,6 +841,7 @@ export function CreatePassClient() {
               <Button
                 variant="primary"
                 size="lg"
+                className="pass-execute-btn"
                 onClick={saveEdit}
                 disabledReason={
                   busy
@@ -800,6 +859,7 @@ export function CreatePassClient() {
               <Button
                 variant="primary"
                 size="lg"
+                className="pass-execute-btn"
                 onClick={publish}
                 disabledReason={
                   busy

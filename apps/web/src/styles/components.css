@@ -4341,3 +4341,650 @@ text-underline-offset: 0.2em;
 .pass-security-status .pass-badge {
   flex: 0 0 auto;
 }
+
+/* ---------------------------------------------------------------------------
+ * 2026-11-14 — Internal editorial overhaul.
+ *
+ * Settings tabs, terminal-form controls, the Take ledger and the persistent
+ * network badge. All geometry comes from the token layer; the only raw px
+ * values are media-query breakpoints, which cannot be custom properties.
+ * ------------------------------------------------------------------------- */
+
+/* --- Brand lockup ------------------------------------------------------- */
+.pass-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* --- Persistent network badge ------------------------------------------ */
+.pass-network-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-target-min);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-family: var(--font-data);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  white-space: nowrap;
+  max-inline-size: 100%;
+  min-width: 0;
+}
+
+.pass-network-badge[data-tone="mainnet"] {
+  border-color: var(--color-data-positive);
+  color: var(--color-data-positive);
+}
+
+.pass-network-badge[data-tone="testnet"] {
+  border-color: var(--color-data-warning);
+  color: var(--color-data-warning);
+}
+
+.pass-network-badge[data-tone="unknown"] {
+  color: var(--color-text-tertiary);
+}
+
+.pass-network-badge-dot {
+  position: relative;
+  flex: 0 0 auto;
+  inline-size: var(--space-2);
+  block-size: var(--space-2);
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.pass-network-badge-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pass-network-heartbeat var(--duration-heartbeat) var(--ease-heartbeat) infinite;
+}
+
+.pass-network-badge-copy {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.pass-network-badge-label,
+.pass-network-badge-detail {
+  overflow-wrap: anywhere;
+}
+
+.pass-network-badge-detail {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-secondary);
+}
+
+.pass-network-badge[data-variant="large"] {
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--type-data-m-size);
+  line-height: var(--type-data-m-line);
+  letter-spacing: var(--type-data-m-track);
+  white-space: normal;
+}
+
+.pass-network-badge[data-variant="large"] .pass-network-badge-dot {
+  margin-block-start: var(--space-1);
+}
+
+@keyframes pass-network-heartbeat {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pass-network-badge-dot::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Topbar: the badge is a first-class region, not an overlay. Desktop gets it
+ * immediately before the identity control; mobile puts it on the navigation
+ * row so the brand and identity keep their own row. */
+@media (min-width: 768px) {
+  .pass-topbar-inner {
+    grid-template-columns: auto minmax(0, 1fr) max-content max-content;
+  }
+}
+
+@media (max-width: 767px) {
+  .pass-topbar-inner {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "brand actions"
+      "badge nav";
+  }
+
+  .pass-network-badge {
+    grid-area: badge;
+    justify-self: start;
+    font-size: var(--type-eyebrow-size);
+  }
+
+  .pass-topbar-nav {
+    grid-area: nav;
+  }
+
+  .pass-topbar-actions {
+    grid-area: actions;
+  }
+}
+
+/* --- Settings: tabbed workspace ---------------------------------------- */
+.pass-settings .pass-section {
+  margin-block: 0;
+}
+
+.pass-settings-ready {
+  min-width: 0;
+}
+
+.pass-settings-hero {
+  padding-block-end: var(--space-5);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-settings-kicker {
+  display: block;
+  font-family: var(--type-eyebrow-font);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-eyebrow-line);
+  letter-spacing: var(--type-eyebrow-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-settings-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.pass-settings-tablist-wrap {
+  min-width: 0;
+}
+
+.pass-settings-tablist {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-block-end: var(--border-hairline);
+}
+
+.pass-settings-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.pass-settings-tab {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+  min-height: var(--size-target-min);
+  padding: var(--space-3);
+  border: 0;
+  border-block-end: var(--border-width-selected) solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  text-align: start;
+  cursor: pointer;
+}
+
+.pass-settings-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.pass-settings-tab[data-active="true"] {
+  border-block-end-color: var(--color-accent);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+}
+
+.pass-settings-tab-index {
+  font-family: var(--font-data);
+  font-size: var(--type-data-xs-size);
+  line-height: var(--type-data-xs-line);
+  color: var(--color-text-tertiary);
+}
+
+.pass-settings-tab-copy {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.pass-settings-tab-label {
+  font-family: var(--type-title-s-font);
+  font-size: var(--type-title-s-size);
+  line-height: var(--type-title-s-line);
+  letter-spacing: var(--type-title-s-track);
+}
+
+.pass-settings-tab-note {
+  font-family: var(--type-body-s-font);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-line);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.pass-settings-panels,
+.pass-settings-panel {
+  min-width: 0;
+}
+
+.pass-settings-block {
+  padding-block-start: var(--space-5);
+  border-block-start: var(--border-hairline);
+}
+
+.pass-settings-feature {
+  border-block-start: var(--border-accent-edge);
+}
+
+@media (min-width: 1024px) {
+  .pass-settings-workspace {
+    grid-template-columns: minmax(12rem, 0.3fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .pass-settings-tablist-wrap {
+    position: sticky;
+    inset-block-start: calc(var(--layout-topbar) + var(--space-4));
+  }
+
+  .pass-settings-tablist {
+    flex-direction: column;
+    overflow: visible;
+    border-block-end: 0;
+    border-inline-end: var(--border-hairline);
+    padding-inline-end: var(--space-3);
+  }
+
+  .pass-settings-tab {
+    inline-size: 100%;
+    border-block-end: 0;
+    border-inline-start: var(--border-width-selected) solid transparent;
+  }
+
+  .pass-settings-tab[data-active="true"] {
+    border-inline-start-color: var(--color-accent);
+  }
+}
+
+/* --- Trading tab ------------------------------------------------------- */
+.pass-trading-venue {
+  border-block-start: var(--border-accent-edge);
+}
+
+.pass-trading-defaults {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  border-block-start: var(--border-hairline);
+}
+
+.pass-trading-defaults > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-3);
+  border-block-end: var(--border-hairline);
+  min-width: 0;
+}
+
+.pass-trading-defaults dt {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-trading-defaults dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-data-s-size);
+  color: var(--color-text-primary);
+  text-align: end;
+}
+
+@media (min-width: 768px) {
+  .pass-trading-defaults {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-6);
+  }
+}
+
+/* --- Create Pass: terminal form ---------------------------------------- */
+.pass-create-form {
+  padding-block-start: var(--space-5);
+  border-block-start: var(--border-hairline);
+}
+
+.pass-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .pass-form-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pass-form-grid--three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.pass-terminal-field .pass-field-label {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-terminal-field .pass-control {
+  background-color: transparent;
+  border: 0;
+  border-block-end: var(--border-strong);
+  border-radius: 0;
+  padding-inline: 0;
+  font-family: var(--font-data);
+}
+
+.pass-terminal-field .pass-control:focus-visible {
+  outline: none;
+  border-block-end-color: var(--color-accent);
+}
+
+.pass-terminal-number {
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+  letter-spacing: var(--type-data-l-track);
+  font-variant-numeric: var(--numeric-tabular);
+  min-height: var(--space-8);
+}
+
+.pass-terminal-select {
+  text-transform: uppercase;
+  letter-spacing: var(--type-label-track);
+}
+
+.pass-terminal-field .pass-textarea {
+  min-height: var(--space-9);
+  font-family: var(--type-body-l-font);
+  font-size: var(--type-body-l-size);
+  line-height: var(--type-body-l-line);
+}
+
+.pass-entry-mode {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-hairline);
+  border-inline-start: var(--border-width-selected) solid var(--color-accent);
+  background-color: var(--color-surface);
+}
+
+.pass-form-note {
+  align-self: end;
+  padding-block-end: var(--space-2);
+}
+
+.pass-execute-btn {
+  font-family: var(--font-data);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  padding-inline: var(--space-6);
+}
+
+.pass-create-preview {
+  background-color: var(--color-surface-sunken);
+}
+
+/* --- Take flow: decision engine ---------------------------------------- */
+.pass-take-header {
+  padding-block-end: var(--space-5);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-take-size-field .pass-control {
+  background-color: transparent;
+  border: 0;
+  border-block-end: var(--border-strong);
+  border-radius: 0;
+  padding-inline: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-display-l-size);
+  line-height: var(--type-display-l-line);
+  letter-spacing: var(--type-display-l-track);
+  font-variant-numeric: var(--numeric-tabular);
+  min-height: var(--space-9);
+}
+
+.pass-take-size-field .pass-control:focus-visible {
+  outline: none;
+  border-block-end-color: var(--color-accent);
+}
+
+.pass-take-size-field .pass-field-label {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-take-ledger-wrap {
+  border-block-start: var(--border-accent-edge);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-take-ledger-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-block: var(--space-4);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-take-ledger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  min-width: 0;
+}
+
+.pass-take-ledger-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-3);
+  border-block-end: var(--border-hairline);
+  min-width: 0;
+}
+
+.pass-take-ledger-row dt {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  letter-spacing: var(--type-label-track);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pass-take-ledger-row dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--type-data-m-size);
+  line-height: var(--type-data-m-line);
+  color: var(--color-text-primary);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.pass-take-ledger-row[data-emphasis="true"] dd {
+  font-size: var(--type-data-l-size);
+  line-height: var(--type-data-l-line);
+}
+
+.pass-take-market-line {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+}
+
+.pass-take-consent .pass-checkbox-row {
+  align-items: flex-start;
+}
+
+.pass-take-consent .pass-checkbox-row input {
+  margin-block-start: var(--space-1);
+}
+
+.pass-take-consent .pass-field-helper {
+  line-height: var(--type-body-m-line);
+}
+
+.pass-take-cta {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .pass-take-ledger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-6);
+  }
+}
+
+@media (max-width: 1023px) {
+  .pass-take-cta {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 50;
+    background-color: var(--color-surface);
+    border-block-start: var(--border-hairline);
+    padding: var(--space-3) var(--space-4);
+    padding-block-end: max(var(--space-3), env(safe-area-inset-bottom));
+  }
+
+  .pass-take-cta .pass-inline {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .pass-take-cta .pass-btn {
+    flex: 1 1 auto;
+  }
+
+  /* Clearance so the sticky bar can never hide the last ledger row when the
+     page is scrolled to its end. */
+  .pass-take-flow {
+    padding-block-end: var(--space-9);
+  }
+}
+
+/* --- Trader profile: editorial whitespace ------------------------------ */
+.pass-profile-editorial .pass-detail-head {
+  padding-block-end: var(--space-6);
+  border-block-end: var(--border-hairline);
+}
+
+.pass-profile-editorial .pass-display {
+  font-size: var(--type-display-l-size);
+  line-height: var(--type-display-l-line);
+  letter-spacing: var(--type-display-l-track);
+}
+
+.pass-profile-editorial .pass-stat-row {
+  border: 0;
+  border-block: var(--border-hairline);
+}
+
+.pass-profile-editorial .pass-data-card {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-block-start: var(--border-hairline);
+  padding-block-start: var(--space-5);
+}
+
+.pass-borderless-panel {
+  border: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+/* Mobile overflow guards for the editorial pass. */
+.pass-settings .pass-bio-edit {
+  white-space: normal;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.pass-execute-btn {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-inline-size: 100%;
+  white-space: normal;
+  text-align: center;
+}
+
+.pass-execute-btn .pass-field-helper {
+  flex-basis: 100%;
+  white-space: normal;
+  text-align: center;
+}
+
+@media (max-width: 1023px) {
+  .pass-settings-tablist {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .pass-settings-tab {
+    flex: 1 1 45%;
+    min-width: 0;
+  }
+
+  .pass-settings-tab-note {
+    white-space: normal;
+  }
+}

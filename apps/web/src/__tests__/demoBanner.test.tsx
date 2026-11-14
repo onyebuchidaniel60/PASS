@@ -38,27 +38,7 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("names the venue when every surface is live", async () => {
-    mockHealth({
-      modes: {
-        hyperliquidReads: "live",
-        hyperliquidExecution: "live",
-        ethos: "live",
-        x: "live",
-        database: "live",
-      },
-      hyperliquidVenue: "testnet",
-    });
-    render(<DemoBanner />);
-    // The persistent indicator — and the only thing rendered when live.
-    const label = await screen.findByText("Hyperliquid Testnet");
-    expect(label.closest(".pass-venue-indicator")).toHaveAttribute(
-      "data-venue",
-      "testnet",
-    );
-  });
-
-  it("names Hyperliquid Mainnet and marks the dot mainnet when the venue is mainnet", async () => {
+  it("renders nothing when every surface is live; the topbar owns the venue badge", async () => {
     mockHealth({
       modes: {
         hyperliquidReads: "live",
@@ -69,12 +49,9 @@ describe("DemoBanner reflects the real per-surface modes", () => {
       },
       hyperliquidVenue: "mainnet",
     });
-    render(<DemoBanner />);
-    const label = await screen.findByText("Hyperliquid Mainnet");
-    expect(label.closest(".pass-venue-indicator")).toHaveAttribute(
-      "data-venue",
-      "mainnet",
-    );
+    const { container } = render(<DemoBanner />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it("renders nothing when live but the venue is unknown", async () => {
@@ -111,8 +88,6 @@ describe("DemoBanner reflects the real per-surface modes", () => {
     // The non-live ones are.
     expect(banner.textContent).toMatch(/order execution/);
     expect(banner.textContent).toMatch(/\bx identity\b/);
-    // The venue indicator still shows.
-    expect(banner.textContent).toMatch(/Hyperliquid Testnet/);
   });
 
   it("says the deployment is partly live, not fully offline", async () => {

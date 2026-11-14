@@ -29,7 +29,7 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useAccount, useSignMessage, useSignTypedData } from "wagmi";
 import { ConnectKitButton } from "connectkit";
 import { privateKeyToAccount } from "viem/accounts";
@@ -92,6 +92,7 @@ import {
 } from "@/lib/take-order";
 import { HIP4_DEFAULT_SZ_DECIMALS } from "@pass/domain/markets";
 import {
+  BUILDER_FEE_BPS,
   BUILDER_FEE_RATE_PERCENT,
   BUILDER_FEE_TENTHS_BPS,
 } from "@pass/domain/fees";
@@ -191,6 +192,39 @@ function fmt(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";
   const [w, f] = String(v).split(".");
   return `${w.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${f ? `.${f}` : ""}`;
+}
+
+function riskReward(params: {
+  entry: string | null;
+  takeProfit: string | null;
+  stopLoss: string | null;
+  direction: "long" | "short";
+}): string {
+  const entry = Number(params.entry);
+  const tp = Number(params.takeProfit);
+  const sl = Number(params.stopLoss);
+  if (![entry, tp, sl].every((n) => Number.isFinite(n) && n > 0)) return "—";
+  const risk = params.direction === "long" ? entry - sl : sl - entry;
+  const reward = params.direction === "long" ? tp - entry : entry - tp;
+  if (!(risk > 0) || !(reward > 0)) return "—";
+  return `${(reward / risk).toFixed(2)}:1`;
+}
+
+function LedgerRow({
+  label,
+  value,
+  emphasis = false,
+}: {
+  label: string;
+  value: ReactNode;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className="pass-take-ledger-row" data-emphasis={emphasis}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
 }
 
 export function TakeFlowClient({
@@ -783,6 +817,14 @@ export function TakeFlowClient({
   const outcomeSide = outcome ? outcome.side.toUpperCase() : long ? "LONG" : "SHORT";
   // Displayed in steps 2–3; authorize() signs exactly this (D-025).
   const nums = preview ? takeNumbers() : null;
+  const ledgerEntry =
+    nums && !("error" in nums) ? nums.entryPrice : initialPass.entryPrice;
+  const estimatedNotional =
+    Number(size) * (isHip4 ? 1 : Math.max(1, Number(leverage) || 1));
+  const estimatedBuilderFee =
+    Number.isFinite(estimatedNotional) && estimatedNotional > 0
+      ? estimatedNotional * (BUILDER_FEE_BPS / 10_000)
+      : null;
 
   // Lazy-wallet gate (D-023): ConnectKit's own modal, opened through its
   // documented `show()` render prop (the same pattern as WalletControl and
@@ -870,7 +912,7 @@ export function TakeFlowClient({
       <Surface strength="flat" grain>
         <div className="pass-shell">
           <main className="pass-shell-content pass-stack pass-stack-6 pass-take-flow">
-          <section className="pass-section" aria-labelledby="take-step-title">
+          <section className="pass-section pass-take-header" aria-labelledby="take-step-title">
             <NumberedEyebrow label={STEP_EYEBROW[step]} number={step} />
             {/* §10.6 — progress is MONO TEXT, never a novelty stepper. */}
             <p className="pass-stale">{`STEP ${step} / 4`}</p>
@@ -903,6 +945,7 @@ export function TakeFlowClient({
                 required
                 error={sizeError ?? undefined}
                 helper="Your size. PASS never chooses one for you."
+                className="pass-take-size-field"
               >
                 {({ controlId, describedBy }) => (
                   <NumericInput
@@ -913,6 +956,7 @@ export function TakeFlowClient({
                     invalid={Boolean(sizeError)}
                     placeholder="0.00"
                     suffix={collateral}
+                    className="pass-take-size-input"
                   />
                 )}
               </Field>
@@ -958,103 +1002,132 @@ export function TakeFlowClient({
 
               {failed ? <ErrorBlock detail={failed} onRetry={submitPreview} /> : null}
 
-              {needWallet ? (
-                walletGate
-              ) : (
-              <Inline gap="3">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={submitPreview}
-                  disabledReason={busy ? "Requesting preview…" : undefined}
-                >
-                  Review order
-                </Button>
-                <Link href={`/p/${publicId}`} className="pass-link-btn">
-                  Back to Pass
-                </Link>
-              </Inline>
-              )}
+              <div className="pass-take-cta">
+                {needWallet ? (
+                  walletGate
+                ) : (
+                  <Inline gap="3">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={submitPreview}
+                      disabledReason={busy ? "Requesting preview…" : undefined}
+                    >
+                      Review order
+                    </Button>
+                    <Link href={`/p/${publicId}`} className="pass-link-btn">
+                      Back to Pass
+                    </Link>
+                  </Inline>
+                )}
+              </div>
             </Stack>
           ) : null}
 
           {step === 2 ? (
             <Stack gap="5">
-              <ChamferPanel label="Order summary">
-                <Stack gap="4">
-                  <CoordinateGrid>
-                    <CoordinatePair
-                      label="Pass version"
-                      value={String(preview?.passVersion ?? 1)}
-                    />
-                    <CoordinatePair label="Asset" value={isHip4 ? outcomeName : asset} />
-                    <CoordinatePair
-                      label="Direction"
-                      value={isHip4 ? outcomeSide : long ? "Long" : "Short"}
-                    />
-                    {/* Restated EXACTLY as entered. The Taker authorised the
-                        number they typed, so re-formatting it here would be
-                        authoring a different number. */}
-                    <CoordinatePair label="Size" value={`${size} ${collateral}`} />
-                    {isHip4 ? null : (
-                      <CoordinatePair label="Leverage" value={`${leverage}x`} />
-                    )}
-                    {/* D-025: the signed numbers, shown before they are signed. */}
-                    <CoordinatePair
-                      label={isHip4 ? "Outcome price" : "Entry source"}
-                      value={
-                        nums && !("error" in nums)
-                          ? `${isHip4 ? "" : `${entrySourceLabel(entryType)} `}${fmt(nums.entryPrice)}`
-                          : "—"
-                      }
-                    />
-                    <CoordinatePair
-                      label="Base size"
-                      value={
-                        nums && !("error" in nums)
-                          ? `${nums.baseSize} ${isHip4 ? "contracts" : asset}`
-                          : "—"
-                      }
-                    />
-                    {isHip4 ? null : (
-                      <>
-                        <CoordinatePair label="TP" value={fmt(initialPass.takeProfit)} />
-                        <CoordinatePair label="SL" value={fmt(initialPass.stopLoss)} />
-                      </>
-                    )}
-                    <CoordinatePair
-                      label="Slippage"
-                      value={
-                        preview?.slippageToleranceBps === undefined
-                          ? "—"
-                          : `${preview.slippageToleranceBps} bps`
-                      }
-                    />
-                    <CoordinatePair
-                      label="Est. margin"
-                      value={
-                        preview?.estimatedMargin == null
-                          ? "—"
-                          : `${fmt(preview.estimatedMargin)} ${collateral}`
-                      }
-                    />
-                    {isHip4 ? (
-                      <CoordinatePair
-                        label={`Available ${collateral}`}
-                        value={
-                          preview?.availableMargin == null
-                            ? "—"
-                            : fmt(preview.availableMargin)
-                        }
+              <div className="pass-take-ledger-wrap">
+                <div className="pass-take-ledger-head">
+                  <span className="pass-settings-kicker">Order ledger</span>
+                  <span className="pass-stale">
+                    Pass v{preview?.passVersion ?? 1} ·{" "}
+                    {isHip4 ? outcomeName : asset}{" "}
+                    {isHip4 ? outcomeSide : long ? "Long" : "Short"}
+                  </span>
+                </div>
+                <dl className="pass-take-ledger">
+                  <LedgerRow
+                    label={isHip4 ? "Outcome price" : "Entry"}
+                    value={
+                      nums && !("error" in nums)
+                        ? `${isHip4 ? "" : `${entrySourceLabel(entryType)} `}${fmt(nums.entryPrice)}`
+                        : "—"
+                    }
+                    emphasis
+                  />
+                  {isHip4 ? null : (
+                    <>
+                      <LedgerRow
+                        label="Take profit"
+                        value={fmt(initialPass.takeProfit)}
                       />
-                    ) : null}
-                  </CoordinateGrid>
-
-                  {nums && "error" in nums ? (
-                    <ValidationMessage>{nums.error}</ValidationMessage>
+                      <LedgerRow
+                        label="Stop loss"
+                        value={fmt(initialPass.stopLoss)}
+                      />
+                      <LedgerRow
+                        label="R:R"
+                        value={riskReward({
+                          entry: ledgerEntry,
+                          takeProfit: initialPass.takeProfit,
+                          stopLoss: initialPass.stopLoss,
+                          direction: initialPass.direction,
+                        })}
+                        emphasis
+                      />
+                    </>
+                  )}
+                  <LedgerRow
+                    label="Builder fee"
+                    value={
+                      builderConfig
+                        ? `${BUILDER_FEE_RATE_PERCENT}${
+                            estimatedBuilderFee === null
+                              ? ""
+                              : ` · est. $${fmtUsd(String(estimatedBuilderFee))}`
+                          }`
+                        : "Not configured"
+                    }
+                  />
+                  {/* Restated EXACTLY as entered. The Taker authorised the
+                      number they typed, so re-formatting it here would be
+                      authoring a different number. */}
+                  <LedgerRow label="Size" value={`${size} ${collateral}`} />
+                  {isHip4 ? null : (
+                    <LedgerRow label="Leverage" value={`${leverage}x`} />
+                  )}
+                  <LedgerRow
+                    label="Base size"
+                    value={
+                      nums && !("error" in nums)
+                        ? `${nums.baseSize} ${isHip4 ? "contracts" : asset}`
+                        : "—"
+                    }
+                  />
+                  <LedgerRow
+                    label="Slippage"
+                    value={
+                      preview?.slippageToleranceBps === undefined
+                        ? "—"
+                        : `${preview.slippageToleranceBps} bps`
+                    }
+                  />
+                  <LedgerRow
+                    label="Est. margin"
+                    value={
+                      preview?.estimatedMargin == null
+                        ? "—"
+                        : `${fmt(preview.estimatedMargin)} ${collateral}`
+                    }
+                  />
+                  {isHip4 ? (
+                    <LedgerRow
+                      label={`Available ${collateral}`}
+                      value={
+                        preview?.availableMargin == null
+                          ? "—"
+                          : fmt(preview.availableMargin)
+                      }
+                    />
                   ) : null}
+                </dl>
 
-                  {/* §10.6 Step 2 — authorize against a visible price. */}
+                {nums && "error" in nums ? (
+                  <ValidationMessage>{nums.error}</ValidationMessage>
+                ) : null}
+
+                {/* §10.6 Step 2 — authorize against a visible price. */}
+                <div className="pass-take-market-line">
                   <SignalLine />
                   <Inline gap="4">
                     <CoordinatePair
@@ -1065,8 +1138,8 @@ export function TakeFlowClient({
                       {initialPass.market ? "Live" : "Stale"}
                     </span>
                   </Inline>
-                </Stack>
-              </ChamferPanel>
+                </div>
+              </div>
 
               {/* §10.6 Step 2 — warnings are plain sentences, not red borders. */}
               {preview?.warnings?.length ? (
@@ -1077,14 +1150,16 @@ export function TakeFlowClient({
                 </Stack>
               ) : null}
 
-              <Inline gap="3">
-                <Button variant="primary" size="lg" onClick={() => goto(3)}>
-                  Authorize
-                </Button>
-                <Button variant="ghost" size="lg" onClick={() => goto(1)}>
-                  Change size
-                </Button>
-              </Inline>
+              <div className="pass-take-cta">
+                <Inline gap="3">
+                  <Button variant="primary" size="lg" onClick={() => goto(3)}>
+                    Authorize
+                  </Button>
+                  <Button variant="ghost" size="lg" onClick={() => goto(1)}>
+                    Change size
+                  </Button>
+                </Inline>
+              </div>
             </Stack>
           ) : null}
 
@@ -1129,12 +1204,14 @@ export function TakeFlowClient({
                   is requested, displayed, or stored by PASS.
                 </span>
                 {/* §10.6 Step 3: no pre-ticked consent. */}
-                <Checkbox
-                  id="consent"
-                  checked={consent}
-                  onChange={setConsent}
-                  label="I have read the order above and authorize it."
-                />
+                <div className="pass-take-consent">
+                  <Checkbox
+                    id="consent"
+                    checked={consent}
+                    onChange={setConsent}
+                    label="I have read the order above and authorize it."
+                  />
+                </div>
               </Stack>
 
               {failed ? <ErrorBlock detail={failed} onRetry={authorize} /> : null}
@@ -1150,23 +1227,29 @@ export function TakeFlowClient({
                 </p>
               ) : null}
 
-              {needWallet ? (
-                walletGate
-              ) : (
-              <Inline gap="3">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={authorize}
-                  disabledReason={consent ? undefined : "Confirm the statement above first."}
-                >
-                  Authorize order
-                </Button>
-                <Button variant="ghost" size="lg" onClick={() => goto(2)}>
-                  Back to preview
-                </Button>
-              </Inline>
-              )}
+              <div className="pass-take-cta">
+                {needWallet ? (
+                  walletGate
+                ) : (
+                  <Inline gap="3">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={authorize}
+                      disabledReason={
+                        consent
+                          ? undefined
+                          : "Confirm the statement above first."
+                      }
+                    >
+                      Authorize order
+                    </Button>
+                    <Button variant="ghost" size="lg" onClick={() => goto(2)}>
+                      Back to preview
+                    </Button>
+                  </Inline>
+                )}
+              </div>
             </Stack>
           ) : null}
 

@@ -132,7 +132,8 @@ describe("topbar identity restoration", () => {
       expect(
         el.classList.contains("pass-btn") ||
           el.classList.contains("pass-link-btn") ||
-          el.classList.contains("pass-chip"),
+          el.classList.contains("pass-chip") ||
+          el.classList.contains("pass-settings-tab"),
         `${el.tagName} "${el.textContent?.slice(0, 40)}" has no button affordance class`,
       ).toBe(true);
     }

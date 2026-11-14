@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { DemoBanner } from "@/components/DemoBanner";
+import { NetworkBadge } from "@/components/NetworkBadge";
 import { Providers } from "@/components/Providers";
 import { OnboardingGate } from "@/components/OnboardingGate";
 import { TourGate } from "@/components/TourGate";
 import { XIdentityControl } from "@/components/XIdentityControl";
-import { Logo } from "@/components/reference/logo";
+import { Logo, LogoMark } from "@/components/reference/logo";
 import { INFO, NAV } from "@/lib/nav";
 
 export const metadata: Metadata = {
@@ -52,9 +53,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="pass-topbar">
             <nav className="pass-topbar-inner" aria-label="Primary">
               <Link href="/" className="pass-wordmark" aria-label="PASS home">
-                {/* §14.14. The wordmark is an SVG, not type, so the mark is
-                    identical with no webfont loaded. */}
-                <Logo size={26} title={null} />
+                {/* §14.14. The app mark and wordmark are both SVG, so the
+                    header is identical with no webfont loaded and the browser
+                    tab uses the same mark. */}
+                <span className="pass-brand-lockup">
+                  <LogoMark size={26} />
+                  <Logo size={26} title={null} />
+                </span>
               </Link>
 
               <div className="pass-topbar-nav">
@@ -68,6 +73,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   ))}
                 </ul>
               </div>
+
+              {/* Network status is deliberately persistent: the venue is the
+                  first thing a trader should be able to verify before signing. */}
+              <NetworkBadge />
 
               {/* §8.4 the actions track holds ONE control: X identity. D-023:
                   PASS identity is X-only — the handle is who a Trader IS.

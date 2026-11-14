@@ -88,6 +88,10 @@ const authed = async () => true;
 const unauthed = async () => false;
 const withMe = (me: Partial<Me> = {}) => async () => ({ ...ME, ...me });
 
+function openTab(label: string) {
+  fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${label}`) }));
+}
+
 describe("§10.10 Profile and connections", () => {
   it("states the SPECIFIC reason when unauthorized", async () => {
     render(<SettingsClient probe={unauthed} load={withMe()} />);
@@ -208,8 +212,9 @@ describe("§10.10 Profile and connections", () => {
     expect(await screen.findByRole("button", { name: "Connect X" })).toBeInTheDocument();
     // Basics stay — display identity is PASS attribution, not account.
     expect(screen.getByText("turnttfup99")).toBeInTheDocument();
-    // No linked row: the Wallet section offers its own connect CTA.
-    expect(screen.getByText("No wallet linked.")).toBeInTheDocument();
+    // No linked row: the Funding tab owns the Wallet section and its CTA.
+    openTab("Funding");
+    expect(await screen.findByText("No wallet linked.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
   });
 
@@ -271,8 +276,9 @@ describe("§10.10 Profile and connections", () => {
   it("manages the execution wallet in Settings, never as identity (D-023)", async () => {
     render(<SettingsClient probe={authed} load={withMe()} />);
     await screen.findByText("X");
+    openTab("Funding");
     // The linked row renders truncated with management actions…
-    expect(screen.getByText("0x12…5678")).toBeInTheDocument();
+    expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
@@ -334,8 +340,9 @@ describe("§10.10 Profile and connections", () => {
     expect(
       screen.queryByText("Your public identity and the accounts it is bound to."),
     ).toBeNull();
-    // Twice on purpose: the section tab and the section heading.
-    expect(screen.getAllByText("Wallet").length).toBe(2);
+    // The wallet lives in Funding, under a single explicit heading.
+    openTab("Funding");
+    expect(screen.getByRole("heading", { name: "Wallet" })).toBeInTheDocument();
   });
 
   it("offers NO Disconnect X on Profile — sign-out lives in the topbar menu (D-024)", async () => {
@@ -380,6 +387,8 @@ describe("Wallet section — connect / unlink / replace", () => {
         linkAccount={linkAccount}
       />,
     );
+    await screen.findByText("turnttfup99");
+    openTab("Funding");
     expect(await screen.findByText("No wallet linked.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument();
     expect(linkAccount).not.toHaveBeenCalled();
@@ -398,6 +407,8 @@ describe("Wallet section — connect / unlink / replace", () => {
         linkAccount={linkAccount}
       />,
     );
+    await screen.findByText("turnttfup99");
+    openTab("Funding");
     expect(await screen.findByText("No wallet linked.")).toBeInTheDocument();
     account = { isConnected: true, address: ADDR_B };
     rerender(
@@ -426,6 +437,8 @@ describe("Wallet section — connect / unlink / replace", () => {
         unlinkAccount={unlinkAccount}
       />,
     );
+    await screen.findByText("turnttfup99");
+    openTab("Funding");
     expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Unlink" }));
     expect(
@@ -453,6 +466,8 @@ describe("Wallet section — connect / unlink / replace", () => {
         unlinkAccount={unlinkAccount}
       />,
     );
+    await screen.findByText("turnttfup99");
+    openTab("Funding");
     expect(
       await screen.findByText(/Replace the currently linked wallet\?/),
     ).toBeInTheDocument();
@@ -466,6 +481,8 @@ describe("Wallet section — connect / unlink / replace", () => {
     const writeText = vi.fn(async () => undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     render(<SettingsClient probe={authed} load={withMe()} />);
+    await screen.findByText("turnttfup99");
+    openTab("Funding");
     expect(await screen.findByText("0x12…5678")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     await waitFor(() =>
@@ -571,6 +588,8 @@ describe("Settings redesign (reference 14)", () => {
     render(
       <SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />,
     );
+    await screen.findByTestId("settings-identity");
+    openTab("Trading");
     const pnl = await screen.findByTestId("settings-pnl");
     expect(pnl.textContent).toMatch(/Realized PnL/);
     expect(pnl.querySelector("svg[aria-label]")).not.toBeNull();
@@ -583,34 +602,33 @@ describe("Settings redesign (reference 14)", () => {
     expect(screen.queryByText(/simulated/i)).toBeNull();
   });
 
-  it("offers section navigation including Funding, Agent Access, and Security", async () => {
+  it("offers the five focused Settings tabs", async () => {
     render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
     await screen.findByTestId("settings-identity");
-    for (const label of [
-      "Identity",
-      "Connections",
-      "Wallet",
-      "Funding",
-      "Agent Access",
-      "Security",
-      "Tour",
-    ]) {
-      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    for (const label of ["Profile", "Funding", "Trading", "Security", "Developers"]) {
+      expect(screen.getByRole("tab", { name: new RegExp(`^${label}`) })).toBeInTheDocument();
     }
   });
 
-  it("renders the NEAR funding, agent, and security surfaces in Settings", async () => {
+  it("switches between the funding, developer, and security workspaces", async () => {
     render(<SettingsClient probe={authed} load={withMe()} loadExtra={loadExtra} />);
+    await screen.findByTestId("settings-identity");
+
+    openTab("Funding");
     expect(
       await screen.findByRole("heading", { name: "Fund with any chain" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Agent Access" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Security" })).toBeInTheDocument();
-    expect(
       screen.getByRole("button", { name: "Fund with Any Chain" }),
     ).toBeInTheDocument();
+
+    openTab("Developers");
+    expect(
+      screen.getByRole("heading", { name: "Agent Access" }),
+    ).toBeInTheDocument();
+
+    openTab("Security");
+    expect(screen.getByRole("heading", { name: "Security" })).toBeInTheDocument();
   });
 });
 

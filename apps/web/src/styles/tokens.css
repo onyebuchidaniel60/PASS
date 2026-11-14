@@ -434,9 +434,12 @@
   --duration-base: 180ms;
   --duration-slow: 260ms;
   --duration-deliberate: 420ms;
+  /* Network heartbeat: 1.8s, the premium exchange-status cadence. */
+  --duration-heartbeat: 1.8s;
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-heartbeat: ease-out;
   --ease-linear: linear;
 
   /* -----------------------------------------------------------------------
@@ -509,6 +512,7 @@
     --duration-base: 0ms;
     --duration-slow: 0ms;
     --duration-deliberate: 0ms;
+    --duration-heartbeat: 0ms;
     /* §14.7 The live dot is the one thing §6.6 does not simply shorten: a pulse
      * at zero duration is not a reduced pulse, it is a decision to keep
      * animating. Overriding the DURATION token here removes the animation at

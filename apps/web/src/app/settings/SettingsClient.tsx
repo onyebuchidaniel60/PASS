@@ -45,6 +45,7 @@ import { ConnectKitButton } from "connectkit";
 import { AuthenticatedView } from "@/components/AuthenticatedView";
 import { AgentAccess } from "@/components/AgentAccess";
 import { FundWithAnyChain } from "@/components/FundWithAnyChain";
+import { NetworkBadge } from "@/components/NetworkBadge";
 import { SecuritySection } from "@/components/SecuritySection";
 import { notifyMeChanged, onMeChanged } from "@/lib/me-events";
 import {
@@ -60,8 +61,6 @@ import { Avatar, ConnectionChip } from "@/components/wave3/identity";
 import { EmptyBlock, ErrorBlock, LoadingBlock, Pnl, Timestamp } from "@/components/wave3/data";
 import { DataCell, PnlCell, PriceCell } from "@/components/wave3/cells";
 import {
-  ChipBar,
-  ChipButton,
   DataCard,
   DisplayHeadline,
   MetricCard,
@@ -70,6 +69,8 @@ import {
   Sparkline,
   Surface,
 } from "@/components/reference";
+import { MAX_LEVERAGE } from "@pass/contracts";
+import { BUILDER_FEE_RATE_PERCENT } from "@pass/domain/fees";
 import { Inline, PageShell, Panel, Section, ShellContent, Stack } from "@/components/wave1/layout";
 import { DataTable, type DataTableColumn } from "@/components/wave3/table";
 import { useAuthenticatedResource } from "@/lib/useAuthenticatedResource";
@@ -606,6 +607,25 @@ function useConfidentialIntents(): [boolean, (next: boolean) => void] {
   return [enabled, update];
 }
 
+type SettingsTabId =
+  | "profile"
+  | "funding"
+  | "trading"
+  | "security"
+  | "developers";
+
+const SETTINGS_TABS: ReadonlyArray<{
+  id: SettingsTabId;
+  label: string;
+  note: string;
+}> = [
+  { id: "profile", label: "Profile", note: "Identity, X, Ethos" },
+  { id: "funding", label: "Funding", note: "Cross-chain wallet" },
+  { id: "trading", label: "Trading", note: "Venue & defaults" },
+  { id: "security", label: "Security", note: "Agent & permissions" },
+  { id: "developers", label: "Developers", note: "Agent API" },
+];
+
 function SettingsReady({
   me,
   loadExtra = fetchSettingsExtra,
@@ -631,6 +651,7 @@ function SettingsReady({
     | { status: "error"; error: string };
   const [extraState, setExtraState] = useState<ExtraState>({ status: "loading" });
   const [extraAttempt, setExtraAttempt] = useState(0);
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
   useEffect(() => {
     let live = true;
     setExtraState({ status: "loading" });
@@ -720,368 +741,539 @@ function SettingsReady({
   // it is never the sign-out surface.
 
   return (
-    <Stack gap="6">
-      {/* Hero: eyebrow, headline, identity header (avatar + name + handle +
-          slug + Ethos score), connection chips. No wallet state here (D-023):
-          the address never enters this header. */}
-      <Surface strength="section">
-        <Stack gap="5">
+    <Stack gap="6" className="pass-settings-ready">
+      {/* Page identity: deliberately quiet. The work now lives in tabs, not in
+          one long scroll. */}
+      <Surface strength="section" className="pass-settings-hero">
+        <Stack gap="4">
           <NumberedEyebrow label="Settings" />
-          {/* `section`: the Discover hero size, not the landing hero size.
-              These are data-surface heroes and read over-scaled at the full
-              hero step (§14.4 section step). */}
           <DisplayHeadline
             section
             lines={[
-              [{ text: "Settings." }],
               [{ text: "Your" }, { text: "account.", accent: true }],
             ]}
           />
-          <div className="pass-profile-head" data-testid="settings-identity">
-            <Avatar handle={me.handle ?? me.displayName} size="lg" />
-            <div className="pass-profile-identity" style={{ display: "grid", gap: "var(--space-1)", flex: "1 1 auto" }}>
-              <strong style={{ fontSize: "var(--type-title-m-size)" }}>
-                {me.displayName ?? "Unnamed"}
-              </strong>
-              {me.handle ? (
-                <span className="pass-value">@{me.handle}</span>
-              ) : null}
-              {me.profileSlug ? (
-                <span className="pass-stale">{`pass.to/${me.profileSlug}`}</span>
-              ) : (
-                <span className="pass-stale">No public profile yet.</span>
-              )}
-              <span className="pass-value" aria-label="Ethos score">
-                {extraState.status === "loading"
-                  ? "Ethos score …"
-                  : score === null
-                    ? "Ethos score — not resolved"
-                    : `Ethos score ${score.toLocaleString("en-US")}`}
-              </span>
-            </div>
-          </div>
-          {/* Connection state lives in the header area: the chip IS the state,
-              and it is rendered exactly once. The Connections tab below
-              jumps here. Sign-out lives in the topbar X menu (D-024). */}
-          <div id="settings-connections" className="pass-anchor">
-            {!xLive ? (
-              <Stack gap="3">
-                <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
-                  Connect X to activate your profile
-                </h2>
-                <p className="pass-stale">
-                  Link an X identity to switch on your profile surfaces.
-                </p>
-                <Inline gap="3">
-                  <button
-                    type="button"
-                    className="pass-btn"
-                    data-variant="primary"
-                    onClick={goX}
-                  >
-                    {CONNECT_X_LABEL}
-                  </button>
-                </Inline>
-              </Stack>
-            ) : (
-              <Stack gap="3">
-                {xEntry ? (
-                  <ConnectionChip provider="X" tone="connected" label={xEntry.label} />
-                ) : null}
-                {ethosOn && ethosEntry ? (
-                  <ConnectionChip
-                    provider="Ethos"
-                    tone="displayOnly"
-                    label={ethosEntry.label}
-                  />
-                ) : null}
-              </Stack>
-            )}
-          </div>
+          <p className="pass-stale" style={{ maxWidth: "var(--measure-body)" }}>
+            Identity, funding, venue status, agent permissions and developer
+            access — separated into focused workspaces.
+          </p>
         </Stack>
       </Surface>
 
-      {/* Stat band: the three most relevant user counters, real values only. */}
-      {extraState.status === "loading" ? (
-        <LoadingBlock label="Loading your overview" rows={3} />
-      ) : extraState.status === "error" ? (
-        <ErrorBlock
-          detail={extraState.error}
-          onRetry={() => setExtraAttempt((n) => n + 1)}
-        />
-      ) : extra ? (
-        <Stack gap="6">
-          <MetricCardRow>
-            <div data-testid="settings-stat-band" style={{ display: "contents" }}>
-              <MetricCard label="Passes created" value={String(extra.passes.length)} />
-              <MetricCard label="Executions" value={String(extra.executions.length)} />
-              <MetricCard
-                label="Ethos score"
-                value={score === null ? "—" : score.toLocaleString("en-US")}
-                sub={score === null ? "Not resolved" : "Community sentiment"}
-              />
-            </div>
-          </MetricCardRow>
-
-          {/* PnL panel beside the slogan rail. */}
-          <div className="pass-settings-grid">
-            <div data-testid="settings-pnl">
-              <PnlPanel executions={extra.executions} />
-            </div>
-            <DataCard
-              id="PASS"
-              sub="Social execution for Hyperliquid"
-              prose
-              value="See a trade. Know the trader. Take the trade."
-            />
-          </div>
-
-          {/* Two metric sub-cards: server-computed. */}
-          {perf ? (
-            <MetricCardRow>
-              <MetricCard
-                label="Success"
-                value={perf.passSuccessMetric === null ? "—" : `${perf.passSuccessMetric}%`}
-                sub={`TP / completed · ${perf.successMetricWindow}`}
-              />
-              <MetricCard
-                label="Average R"
-                value={perf.averageRMultiple === null ? "—" : `${perf.averageRMultiple}R`}
-                sub="Closed executions"
-              />
-            </MetricCardRow>
-          ) : null}
-
-          {/* Recent activity: latest executions. Thumbnails dropped — PASS
-              executions carry no image. */}
-          <Panel>
-            <Inline gap="3" align="center">
-              <h2 style={{ fontSize: "var(--type-title-s-size)" }}>Recent activity</h2>
-              <span style={{ flex: "1 1 auto" }} />
-              <Link href="/me/executions" className="pass-link-btn">
-                View All →
-              </Link>
-            </Inline>
-            <div data-testid="settings-activity">
-              {activity.length === 0 ? (
-                <EmptyBlock title="No activity yet">
-                  Take a Pass and the execution appears here.
-                </EmptyBlock>
-              ) : (
-                <DataTable
-                  caption="Your recent executions"
-                  columns={ACTIVITY_COLUMNS}
-                  rows={activity}
-                  rowKey={(e) => e.id}
-                />
-              )}
-            </div>
-          </Panel>
-        </Stack>
-      ) : null}
-
-      {/* Section tab bar: anchor navigation within Settings. */}
-      <ChipBar label="Settings sections">
-        <ChipButton href="#settings-identity-section">Identity</ChipButton>
-        <ChipButton href="#settings-connections">Connections</ChipButton>
-        <ChipButton href="#settings-wallet">Wallet</ChipButton>
-        <ChipButton href="#settings-funding">Funding</ChipButton>
-        <ChipButton href="#settings-agent">Agent Access</ChipButton>
-        <ChipButton href="#settings-security">Security</ChipButton>
-        <ChipButton href="#settings-tour">Tour</ChipButton>
-      </ChipBar>
-
-      <div id="settings-identity-section" className="pass-anchor">
-        <Section label="Identity">
-          {/* §10.10.2 public profile fields. Display name and bio only —
-           * no key material appears here or anywhere in this screen. */}
-          <Panel>
-            <h2 style={{ fontSize: "var(--type-title-s-size)" }}>Identity</h2>
-            {editing ? (
-              <Stack gap="4">
-                <Field label="Display name">
-                  {({ controlId }) => (
-                    <TextInput
-                      id={controlId}
-                      value={displayName}
-                      onChange={setDisplayName}
-                    />
-                  )}
-                </Field>
-                <Field label="Bio">
-                  {({ controlId }) => (
-                    <Textarea
-                      id={controlId}
-                      value={bio}
-                      onChange={setBio}
-                      autoFocus
-                    />
-                  )}
-                </Field>
-                <Inline gap="3">
-                  <button
-                    type="button"
-                    className="pass-btn"
-                    data-variant="primary"
-                    disabled={saveState === "saving"}
-                    onClick={save}
-                  >
-                    {saveState === "saving" ? "Saving" : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    className="pass-btn"
-                    data-variant="secondary"
-                    onClick={() => setEditing(false)}
-                  >
-                    Cancel
-                  </button>
-                  {saveState === "error" ? (
-                    <span className="pass-validation" role="alert">
-                      Could not save the profile.
-                    </span>
-                  ) : null}
-                </Inline>
-              </Stack>
-            ) : (
-              <Inline gap="4">
-                {/* Bio is read-only text until clicked: the text itself is
-                    the edit target (no always-on Save), now in the shared
-                    bordered secondary box so it reads as a button. Clicking
-                    opens the form below with the cursor in the bio field. */}
-                <button
-                  type="button"
-                  className="pass-bio-edit pass-btn"
-                  data-variant="secondary"
-                  aria-label="Edit bio"
-                  onClick={startEdit}
-                >
-                  {me.bio ? (
-                    <span className="pass-stale">{me.bio}</span>
-                  ) : (
-                    <span className="pass-stale">No bio yet.</span>
-                  )}
-                </button>
-              </Inline>
-            )}
-          </Panel>
-        </Section>
-      </div>
-
-      {/* Execution wallet (D-023): managed here, never identity. */}
-      <div id="settings-wallet" className="pass-anchor">
-        <Section label="Wallet">
-          <WalletSection
-            accounts={me.tradingAccounts}
-            reload={reload}
-            linkAccount={linkAccount}
-            unlinkAccount={unlinkAccount}
-          />
-        </Section>
-      </div>
-
-      {/* NEAR Intents: cross-chain, optionally confidential funding. */}
-      <div id="settings-funding" className="pass-anchor">
-        <Section label="Funding">
-          <Panel>
-            <Stack gap="4">
-              <Inline gap="3" align="center" wrap>
-                <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
-                  Fund with any chain
-                </h2>
-                <span className="pass-badge pass-near-badge" data-tone="active">
-                  Powered by NEAR Intents
-                </span>
-                {confidentialEnabled ? (
-                  <span className="pass-badge" data-tone="active">
-                    Privacy Enabled
-                  </span>
-                ) : null}
-              </Inline>
-              <p className="pass-stale">
-                Deposit USDC from Ethereum, Base, Solana, or another supported
-                chain directly into your PASS trading account. The quote names
-                a deposit address; your funding wallet signs the transfer.
-              </p>
-              <p className="pass-note">
-                Confidential deposits hide the link between your funding wallet
-                and your PASS trading account.
-              </p>
-              <Inline gap="3">
-                <button
-                  type="button"
-                  className="pass-btn"
-                  data-variant="primary"
-                  onClick={() => setFundingOpen(true)}
-                >
-                  Fund with Any Chain
-                </button>
-                {!primaryAccount ? (
-                  <span className="pass-stale">
-                    Link a trading wallet to enable funding.
-                  </span>
-                ) : null}
-              </Inline>
-            </Stack>
-          </Panel>
-        </Section>
-      </div>
-
-      {/* AGT track: bot discovery + pre-signed execution. */}
-      <div id="settings-agent" className="pass-anchor">
-        <Section label="Agent Access">
-          <AgentAccess />
-        </Section>
-      </div>
-
-      {/* SEC track: agent permissions, revocation, and privacy state. */}
-      <div id="settings-security" className="pass-anchor">
-        <Section label="Security">
-          <SecuritySection
-            account={primaryAccount}
-            confidentialEnabled={confidentialEnabled}
-            onConfidentialChange={setConfidentialEnabled}
-            onRevoked={reload}
-          />
-        </Section>
-      </div>
-
-      {/* D-022: the one-time tour can be re-opened from here. */}
-      <div id="settings-tour" className="pass-anchor">
-        <Section label="Tour">
-          <Panel>
-            <Inline gap="3" align="center">
+      <div className="pass-settings-workspace">
+        <div className="pass-settings-tablist-wrap">
+          <div
+            className="pass-settings-tablist"
+            role="tablist"
+            aria-label="Settings sections"
+          >
+            {SETTINGS_TABS.map((tab, index) => (
               <button
+                key={tab.id}
+                id={`settings-tab-${tab.id}`}
                 type="button"
-                className="pass-btn"
-                data-variant="secondary"
-                disabled={tourState === "working"}
-                onClick={() => {
-                  setTourState("working");
-                  import("@/lib/client")
-                    .then(({ clientPatch }) =>
-                      clientPatch("/api/v1/profiles/me", { tourCompletedAt: null }),
-                    )
-                    .then(() => {
-                      setTourState("done");
-                      reload();
-                    })
-                    .catch(() => setTourState("error"));
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`settings-panel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
+                className="pass-settings-tab"
+                data-active={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                onKeyDown={(e) => {
+                  const keys = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"];
+                  if (!keys.includes(e.key)) return;
+                  e.preventDefault();
+                  const list = e.currentTarget.parentElement;
+                  const buttons = list
+                    ? Array.from(list.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+                    : [];
+                  if (buttons.length === 0) return;
+                  const current = buttons.indexOf(e.currentTarget);
+                  let next = current;
+                  if (e.key === "Home") next = 0;
+                  else if (e.key === "End") next = buttons.length - 1;
+                  else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    next = (current + 1) % buttons.length;
+                  } else {
+                    next = (current - 1 + buttons.length) % buttons.length;
+                  }
+                  buttons[next]?.focus();
+                  setActiveTab(SETTINGS_TABS[next]!.id);
                 }}
               >
-                {tourState === "working" ? "Opening" : "Replay the tour"}
-              </button>
-              {tourState === "done" ? (
-                <span className="pass-stale">The tour will show again.</span>
-              ) : null}
-              {tourState === "error" ? (
-                <span className="pass-validation" role="alert">
-                  Could not re-open the tour.
+                <span className="pass-settings-tab-index" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
                 </span>
-              ) : null}
-            </Inline>
-          </Panel>
-        </Section>
+                <span className="pass-settings-tab-copy">
+                  <span className="pass-settings-tab-label">{tab.label}</span>
+                  <span className="pass-settings-tab-note">{tab.note}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pass-settings-panels">
+          {activeTab === "profile" ? (
+            <div
+              id="settings-panel-profile"
+              role="tabpanel"
+              aria-labelledby="settings-tab-profile"
+              className="pass-settings-panel"
+            >
+              <Section label="Profile">
+                <Stack gap="6">
+                  <div className="pass-profile-head" data-testid="settings-identity">
+                    <Avatar handle={me.handle ?? me.displayName} size="lg" />
+                    <div
+                      className="pass-profile-identity"
+                      style={{
+                        display: "grid",
+                        gap: "var(--space-1)",
+                        flex: "1 1 auto",
+                      }}
+                    >
+                      <span className="pass-settings-kicker">Trader identity</span>
+                      <strong style={{ fontSize: "var(--type-display-m-size)" }}>
+                        {me.displayName ?? "Unnamed"}
+                      </strong>
+                      {me.handle ? (
+                        <span className="pass-value">@{me.handle}</span>
+                      ) : null}
+                      {me.profileSlug ? (
+                        <span className="pass-stale">{`pass.to/${me.profileSlug}`}</span>
+                      ) : (
+                        <span className="pass-stale">No public profile yet.</span>
+                      )}
+                      <span className="pass-value" aria-label="Ethos score">
+                        {extraState.status === "loading"
+                          ? "Ethos score …"
+                          : score === null
+                            ? "Ethos score — not resolved"
+                            : `Ethos score ${score.toLocaleString("en-US")}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div id="settings-connections" className="pass-settings-block">
+                    {!xLive ? (
+                      <Stack gap="3">
+                        <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
+                          Connect X to activate your profile
+                        </h2>
+                        <p className="pass-stale">
+                          Link an X identity to switch on your profile surfaces.
+                        </p>
+                        <Inline gap="3">
+                          <button
+                            type="button"
+                            className="pass-btn"
+                            data-variant="primary"
+                            onClick={goX}
+                          >
+                            {CONNECT_X_LABEL}
+                          </button>
+                        </Inline>
+                      </Stack>
+                    ) : (
+                      <Stack gap="3">
+                        <span className="pass-settings-kicker">Connections</span>
+                        <Inline gap="3">
+                          {xEntry ? (
+                            <ConnectionChip
+                              provider="X"
+                              tone="connected"
+                              label={xEntry.label}
+                            />
+                          ) : null}
+                          {ethosOn && ethosEntry ? (
+                            <ConnectionChip
+                              provider="Ethos"
+                              tone="displayOnly"
+                              label={ethosEntry.label}
+                            />
+                          ) : null}
+                        </Inline>
+                      </Stack>
+                    )}
+                  </div>
+
+                  {extraState.status === "loading" ? (
+                    <LoadingBlock label="Loading your overview" rows={3} />
+                  ) : extraState.status === "error" ? (
+                    <ErrorBlock
+                      detail={extraState.error}
+                      onRetry={() => setExtraAttempt((n) => n + 1)}
+                    />
+                  ) : extra ? (
+                    <Stack gap="6">
+                      <MetricCardRow>
+                        <div
+                          data-testid="settings-stat-band"
+                          style={{ display: "contents" }}
+                        >
+                          <MetricCard
+                            label="Passes created"
+                            value={String(extra.passes.length)}
+                          />
+                          <MetricCard
+                            label="Executions"
+                            value={String(extra.executions.length)}
+                          />
+                          <MetricCard
+                            label="Ethos score"
+                            value={
+                              score === null
+                                ? "—"
+                                : score.toLocaleString("en-US")
+                            }
+                            sub={
+                              score === null
+                                ? "Not resolved"
+                                : "Community sentiment"
+                            }
+                          />
+                        </div>
+                      </MetricCardRow>
+
+                      <Panel>
+                        <Inline gap="3" align="center">
+                          <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
+                            Recent activity
+                          </h2>
+                          <span style={{ flex: "1 1 auto" }} />
+                          <Link href="/me/executions" className="pass-link-btn">
+                            View All →
+                          </Link>
+                        </Inline>
+                        <div data-testid="settings-activity">
+                          {activity.length === 0 ? (
+                            <EmptyBlock title="No activity yet">
+                              Take a Pass and the execution appears here.
+                            </EmptyBlock>
+                          ) : (
+                            <DataTable
+                              caption="Your recent executions"
+                              columns={ACTIVITY_COLUMNS}
+                              rows={activity}
+                              rowKey={(e) => e.id}
+                            />
+                          )}
+                        </div>
+                      </Panel>
+                    </Stack>
+                  ) : null}
+
+                  <Panel>
+                    <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
+                      Identity
+                    </h2>
+                    {editing ? (
+                      <Stack gap="4">
+                        <Field label="Display name">
+                          {({ controlId }) => (
+                            <TextInput
+                              id={controlId}
+                              value={displayName}
+                              onChange={setDisplayName}
+                            />
+                          )}
+                        </Field>
+                        <Field label="Bio">
+                          {({ controlId }) => (
+                            <Textarea
+                              id={controlId}
+                              value={bio}
+                              onChange={setBio}
+                              autoFocus
+                            />
+                          )}
+                        </Field>
+                        <Inline gap="3">
+                          <button
+                            type="button"
+                            className="pass-btn"
+                            data-variant="primary"
+                            disabled={saveState === "saving"}
+                            onClick={save}
+                          >
+                            {saveState === "saving" ? "Saving" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            className="pass-btn"
+                            data-variant="secondary"
+                            onClick={() => setEditing(false)}
+                          >
+                            Cancel
+                          </button>
+                          {saveState === "error" ? (
+                            <span className="pass-validation" role="alert">
+                              Could not save the profile.
+                            </span>
+                          ) : null}
+                        </Inline>
+                      </Stack>
+                    ) : (
+                      <Inline gap="4">
+                        <button
+                          type="button"
+                          className="pass-bio-edit pass-btn"
+                          data-variant="secondary"
+                          aria-label="Edit bio"
+                          onClick={startEdit}
+                        >
+                          {me.bio ? (
+                            <span className="pass-stale">{me.bio}</span>
+                          ) : (
+                            <span className="pass-stale">No bio yet.</span>
+                          )}
+                        </button>
+                      </Inline>
+                    )}
+                  </Panel>
+
+                  <Panel>
+                    <Inline gap="3" align="center">
+                      <h2 style={{ fontSize: "var(--type-title-s-size)" }}>
+                        Tour
+                      </h2>
+                      <span style={{ flex: "1 1 auto" }} />
+                      <button
+                        type="button"
+                        className="pass-btn"
+                        data-variant="secondary"
+                        disabled={tourState === "working"}
+                        onClick={() => {
+                          setTourState("working");
+                          import("@/lib/client")
+                            .then(({ clientPatch }) =>
+                              clientPatch("/api/v1/profiles/me", {
+                                tourCompletedAt: null,
+                              }),
+                            )
+                            .then(() => {
+                              setTourState("done");
+                              reload();
+                            })
+                            .catch(() => setTourState("error"));
+                        }}
+                      >
+                        {tourState === "working"
+                          ? "Opening"
+                          : "Replay the tour"}
+                      </button>
+                    </Inline>
+                    {tourState === "done" ? (
+                      <span className="pass-stale">
+                        The tour will show again.
+                      </span>
+                    ) : null}
+                    {tourState === "error" ? (
+                      <span className="pass-validation" role="alert">
+                        Could not re-open the tour.
+                      </span>
+                    ) : null}
+                  </Panel>
+                </Stack>
+              </Section>
+            </div>
+          ) : null}
+
+          {activeTab === "funding" ? (
+            <div
+              id="settings-panel-funding"
+              role="tabpanel"
+              aria-labelledby="settings-tab-funding"
+              className="pass-settings-panel"
+            >
+              <Section label="Funding">
+                <Stack gap="6">
+                  <Panel className="pass-settings-feature">
+                    <Stack gap="4">
+                      <Inline gap="3" align="center" wrap>
+                        <span className="pass-settings-kicker">Cross-chain</span>
+                        <span
+                          className="pass-badge pass-near-badge"
+                          data-tone="active"
+                        >
+                          Powered by NEAR Intents
+                        </span>
+                        {confidentialEnabled ? (
+                          <span className="pass-badge" data-tone="active">
+                            Privacy Enabled
+                          </span>
+                        ) : null}
+                      </Inline>
+                      <h2 style={{ fontSize: "var(--type-display-m-size)" }}>
+                        Fund with any chain
+                      </h2>
+                      <p className="pass-stale">
+                        Deposit USDC from Ethereum, Base, Solana, or another
+                        supported chain directly into your PASS trading account.
+                        The quote names a deposit address; your funding wallet
+                        signs the transfer.
+                      </p>
+                      <p className="pass-note">
+                        Confidential deposits hide the link between your funding
+                        wallet and your PASS trading account.
+                      </p>
+                      <Inline gap="3">
+                        <button
+                          type="button"
+                          className="pass-btn"
+                          data-variant="primary"
+                          onClick={() => setFundingOpen(true)}
+                        >
+                          Fund with Any Chain
+                        </button>
+                        {!primaryAccount ? (
+                          <span className="pass-stale">
+                            Link a trading wallet to enable funding.
+                          </span>
+                        ) : null}
+                      </Inline>
+                    </Stack>
+                  </Panel>
+
+                  <div id="settings-wallet" className="pass-settings-block">
+                    <WalletSection
+                      accounts={me.tradingAccounts}
+                      reload={reload}
+                      linkAccount={linkAccount}
+                      unlinkAccount={unlinkAccount}
+                    />
+                  </div>
+                </Stack>
+              </Section>
+            </div>
+          ) : null}
+
+          {activeTab === "trading" ? (
+            <div
+              id="settings-panel-trading"
+              role="tabpanel"
+              aria-labelledby="settings-tab-trading"
+              className="pass-settings-panel"
+            >
+              <Section label="Trading">
+                <Stack gap="6">
+                  <Panel className="pass-trading-venue">
+                    <Stack gap="5">
+                      <NetworkBadge
+                        variant="large"
+                        detail="Live execution venue"
+                      />
+                      <div>
+                        <span className="pass-settings-kicker">Venue</span>
+                        <h2 style={{ fontSize: "var(--type-display-m-size)" }}>
+                          Hyperliquid execution
+                        </h2>
+                        <p className="pass-stale">
+                          Orders are signed by your wallet and relayed to the
+                          venue shown above. PASS never holds funds or keys.
+                        </p>
+                      </div>
+                      <dl className="pass-trading-defaults">
+                        <div>
+                          <dt>Max leverage</dt>
+                          <dd>{MAX_LEVERAGE}x</dd>
+                        </div>
+                        <div>
+                          <dt>Collateral</dt>
+                          <dd>USDC</dd>
+                        </div>
+                        <div>
+                          <dt>Entry styles</dt>
+                          <dd>Market / Limit</dd>
+                        </div>
+                        <div>
+                          <dt>Builder fee</dt>
+                          <dd>{BUILDER_FEE_RATE_PERCENT}</dd>
+                        </div>
+                      </dl>
+                    </Stack>
+                  </Panel>
+
+                  {extraState.status === "loading" ? (
+                    <LoadingBlock label="Loading trading history" rows={2} />
+                  ) : extraState.status === "error" ? (
+                    <ErrorBlock
+                      detail={extraState.error}
+                      onRetry={() => setExtraAttempt((n) => n + 1)}
+                    />
+                  ) : extra ? (
+                    <Stack gap="6">
+                      <div data-testid="settings-pnl">
+                        <PnlPanel executions={extra.executions} />
+                      </div>
+                      {perf ? (
+                        <MetricCardRow>
+                          <MetricCard
+                            label="Success"
+                            value={
+                              perf.passSuccessMetric === null
+                                ? "—"
+                                : `${perf.passSuccessMetric}%`
+                            }
+                            sub={`TP / completed · ${perf.successMetricWindow}`}
+                          />
+                          <MetricCard
+                            label="Average R"
+                            value={
+                              perf.averageRMultiple === null
+                                ? "—"
+                                : `${perf.averageRMultiple}R`
+                            }
+                            sub="Closed executions"
+                          />
+                        </MetricCardRow>
+                      ) : null}
+                    </Stack>
+                  ) : null}
+
+                  <DataCard
+                    id="Execution defaults"
+                    sub="Per order"
+                    prose
+                    value="Your size, your leverage, your authorization."
+                  />
+                </Stack>
+              </Section>
+            </div>
+          ) : null}
+
+          {activeTab === "security" ? (
+            <div
+              id="settings-panel-security"
+              role="tabpanel"
+              aria-labelledby="settings-tab-security"
+              className="pass-settings-panel"
+            >
+              <Section label="Security">
+                <SecuritySection
+                  account={primaryAccount}
+                  confidentialEnabled={confidentialEnabled}
+                  onConfidentialChange={setConfidentialEnabled}
+                  onRevoked={reload}
+                />
+              </Section>
+            </div>
+          ) : null}
+
+          {activeTab === "developers" ? (
+            <div
+              id="settings-panel-developers"
+              role="tabpanel"
+              aria-labelledby="settings-tab-developers"
+              className="pass-settings-panel"
+            >
+              <Section label="Developers">
+                <AgentAccess />
+              </Section>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <FundWithAnyChain

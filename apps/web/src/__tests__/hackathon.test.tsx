@@ -138,11 +138,11 @@ describe("NEAR Intents funding modal", () => {
 });
 
 describe("Agent Access", () => {
-  it("generates a mock API key in the browser", () => {
+  it("generates an API key in the browser", () => {
     render(<AgentAccess generateKey={() => "pass_agent_test_key"} />);
-    fireEvent.click(screen.getByRole("button", { name: "Generate mock API key" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate API key" }));
     expect(screen.getByTestId("agent-api-key")).toHaveTextContent("pass_agent_test_key");
-    expect(screen.getByText("Hackathon demo")).toBeInTheDocument();
+    expect(screen.getByText("Developer access")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate another key" })).toBeInTheDocument();
   });
 });

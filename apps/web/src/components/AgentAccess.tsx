@@ -6,10 +6,10 @@ import { Inline, Panel, Stack } from "@/components/wave1/layout";
 /**
  * Agent Access (NEAR Hackathon AGT track).
  *
- * Explains the public Agent API and provides a UI-only mock API key for the
- * hackathon demo. The key is generated in the browser, never persisted, and
- * never sent to the API — the real execute endpoint authenticates the
- * pre-signed Hyperliquid order, not this string.
+ * Explains the public Agent API and provides a UI-only preview API key. The
+ * key is generated in the browser, never persisted, and never sent to the
+ * API — the real execute endpoint authenticates the pre-signed Hyperliquid
+ * order, not this string.
  */
 
 function randomKey(): string {
@@ -113,10 +113,10 @@ Content-Type: application/json
                   setCopied(false);
                 }}
               >
-                {apiKey ? "Generate another key" : "Generate mock API key"}
+                {apiKey ? "Generate another key" : "Generate API key"}
               </button>
               <span className="pass-badge" data-tone="active">
-                Hackathon demo
+                Developer access
               </span>
             </Inline>
             {apiKey ? (
@@ -137,9 +137,9 @@ Content-Type: application/json
               </>
             ) : null}
             <p className="pass-stale">
-              UI only for the hackathon: this key is generated in your browser,
-              is not stored, and is not checked by the API. Production API keys
-              and scoped rate limits are the next step.
+              Preview access: this key is generated in your browser, is not
+              stored, and is not checked by the API. Production API keys and
+              scoped rate limits are the next step.
             </p>
           </Stack>
         </div>

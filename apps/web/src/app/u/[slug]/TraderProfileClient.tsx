@@ -286,7 +286,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
   return (
     <div className="pass-page">
       <main className="pass-shell">
-        <div className="pass-shell-content pass-stack pass-stack-6 pass-trader-profile">
+        <div className="pass-shell-content pass-stack pass-stack-6 pass-trader-profile pass-profile-editorial">
           {/* ── §14.4 credential header ────────────────────────────────
               A credential, not a bio. The display name is the h1; the
               `@handle is / verified on PASS.` line is the §14.4 status form.
@@ -413,7 +413,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
               but scoreless keeps the existing UnavailableBlock: no response
               is not the same claim as no reputation. */}
           {authorEthosResolved ? (
-          <Panel className="pass-data-card">
+          <Panel className="pass-data-card pass-borderless-panel">
             {authorEthosVisible ? (
               <ReputationBlock
                 score={profile.reputation?.credibilityScore ?? null}
@@ -441,7 +441,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
               published/active/completed counts beside it): success, average
               R and realized render solely when the performance route
               computed them; otherwise the omission note below stands. */}
-          <Panel className="pass-data-card">
+          <Panel className="pass-data-card pass-borderless-panel">
             <PerformanceBlock
               completedPassCount={profile.completedPassCount}
               averageRMultiple={perf?.averageRMultiple ?? undefined}
@@ -488,7 +488,7 @@ export function TraderProfileClient({ slug }: { slug: string }) {
                 {profile.displayName} has nothing live right now.
               </EmptyBlock>
             ) : (
-              <Panel>
+              <Panel className="pass-borderless-panel">
                 <DataTable
                   caption={`Passes by ${profile.displayName}`}
                   columns={passTableColumns}
