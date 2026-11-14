@@ -78,7 +78,9 @@ pnpm video:build
 ```
 
 `video:record` writes `public/demo/raw-video/raw-video.webm` using Playwright
-at 1280×720. `video:build` calls `scripts/build-video.sh`, mixes the voiceover
+at 1280×720. For a local authenticated walk, set `DEMO_SESSION_COOKIE` to a
+local session value; set `DEMO_HIDE_DEMO_BANNER=1` to hide the local mock-mode
+banner from the recording. `video:build` calls `scripts/build-video.sh`, mixes the voiceover
 at full level with the music at 15%, loops the music if needed, and writes
 `public/demo/demo.mp4`.
 

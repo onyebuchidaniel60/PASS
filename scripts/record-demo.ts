@@ -20,11 +20,20 @@ const BASE_URL = (process.env.DEMO_BASE_URL ?? "http://localhost:3000").replace(
   "",
 );
 const PACE = Number(process.env.DEMO_PACE ?? "1");
+const SESSION_COOKIE = process.env.DEMO_SESSION_COOKIE?.trim();
+const HIDE_DEMO_BANNER = process.env.DEMO_HIDE_DEMO_BANNER === "1";
 const RAW_DIR = resolve(process.cwd(), "public", "demo", "raw-video");
 const RAW_FILE = join(RAW_DIR, "raw-video.webm");
 
 function wait(page: Page, ms: number): Promise<void> {
   return page.waitForTimeout(Math.round(ms * PACE));
+}
+
+async function hideDemoBanner(page: Page): Promise<void> {
+  if (!HIDE_DEMO_BANNER) return;
+  await page
+    .addStyleTag({ content: ".pass-demo-banner{display:none !important}" })
+    .catch(() => {});
 }
 
 async function go(page: Page, path: string): Promise<void> {
@@ -33,6 +42,7 @@ async function go(page: Page, path: string): Promise<void> {
     timeout: 60_000,
   });
   await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => {});
+  await hideDemoBanner(page);
 }
 
 async function main(): Promise<void> {
@@ -50,7 +60,34 @@ async function main(): Promise<void> {
       size: { width: 1280, height: 720 },
     },
   });
+  if (SESSION_COOKIE) {
+    await context.addCookies([
+      {
+        name: "pass_session",
+        value: SESSION_COOKIE,
+        domain: new URL(BASE_URL).hostname,
+        path: "/",
+      },
+    ]);
+  }
   const page = await context.newPage();
+
+  if (HIDE_DEMO_BANNER) {
+    // The local API is mock mode and renders a demo banner. It is environment
+    // metadata, not product UI; hide it on every navigation for the demo cut.
+    await page.addInitScript(() => {
+      const inject = () => {
+        const style = document.createElement("style");
+        style.textContent = ".pass-demo-banner{display:none !important}";
+        (document.head ?? document.documentElement).appendChild(style);
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", inject, { once: true });
+      } else {
+        inject();
+      }
+    });
+  }
 
   try {
     // 0:00–0:20 — homepage.
@@ -69,6 +106,7 @@ async function main(): Promise<void> {
     const openPass = page.locator(".pass-card-action").first();
     if (await openPass.count()) {
       await openPass.click().catch(() => go(page, "/discover"));
+      await hideDemoBanner(page);
     } else {
       await go(page, "/discover");
     }
@@ -78,6 +116,7 @@ async function main(): Promise<void> {
     const take = page.getByRole("link", { name: /Take Pass/i }).first();
     if (await take.count()) {
       await take.click().catch(() => go(page, "/discover"));
+      await hideDemoBanner(page);
     } else {
       await go(page, "/discover");
     }

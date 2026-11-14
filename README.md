@@ -214,7 +214,8 @@ pnpm video:build
 `pnpm generate:voiceover` writes `public/demo/voiceover.mp3`.
 `pnpm video:record` writes the Playwright `.webm` to `public/demo/raw-video/`.
 `pnpm video:build` combines the recording, voiceover, and a locally supplied
-`public/demo/background.mp3` into `public/demo/demo.mp4`.
+`public/demo/background.mp3` into `public/demo/demo.mp4`. The finished cut is
+committed at `public/demo/demo.mp4` for direct download.
 
 The background music is not generated or committed. Add a royalty-free track
 you have the right to use.

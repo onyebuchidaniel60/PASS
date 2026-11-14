@@ -67,7 +67,6 @@ design/**/*.webp
 
 # Demo media is generated/downloaded locally; keep only the placeholder.
 public/demo/*.mp3
-public/demo/*.mp4
 !public/demo/.gitkeep
 public/demo/raw-video/
 public/demo/*.webm

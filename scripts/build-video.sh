@@ -46,11 +46,19 @@ fi
 
 mkdir -p "$(dirname "$OUT")"
 
+# ElevenLabs returns one MP3 per paragraph. Concatenated MP3s can carry
+# per-chunk headers that make a decoder skip a frame at each boundary. Decode
+# the narration to a clean PCM WAV before mixing so the final audio is seamless.
+CLEAN_DIR="$(mktemp -d)"
+trap 'rm -rf "$CLEAN_DIR"' EXIT
+CLEAN_VOICE="$CLEAN_DIR/voiceover.wav"
+ffmpeg -y -v error -i "$VOICE" -vn -ac 1 -ar 44100 "$CLEAN_VOICE"
+
 # Voiceover at full level, music at 15%. The music loops if it is shorter than
 # the narration. `-shortest` trims the final cut to the shorter stream.
 ffmpeg -y \
   -i "$RAW" \
-  -i "$VOICE" \
+  -i "$CLEAN_VOICE" \
   -stream_loop -1 -i "$MUSIC" \
   -filter_complex "[2:a]volume=0.15[bg];[1:a][bg]amix=inputs=2:duration=first:dropout_transition=2[a]" \
   -map 0:v -map "[a]" \
