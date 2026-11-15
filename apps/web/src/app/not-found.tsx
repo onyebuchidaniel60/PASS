@@ -25,7 +25,7 @@ export default function NotFound() {
             <Link href="/discover" className="pass-link-btn">
               Explore Passes
             </Link>
-            <Link href="/" className="pass-link-btn">
+            <Link href="/app" className="pass-link-btn">
               Go to the start
             </Link>
           </Inline>

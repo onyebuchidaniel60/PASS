@@ -1365,7 +1365,7 @@ export function CreatePassClient() {
                 Publish
               </Button>
             )}
-            <Link href={editId ? "/me/passes" : "/"} className="pass-link-btn">
+            <Link href={editId ? "/me/passes" : "/app"} className="pass-link-btn">
               Cancel
             </Link>
           </Inline>

@@ -135,7 +135,7 @@ USDH collateral.
 
 No clone. No terminal. Just the live app.
 
-1. Open [pass-web-dun.vercel.app](https://pass-web-dun.vercel.app).
+1. Open [pass-web-dun.vercel.app/app](https://pass-web-dun.vercel.app/app).
 2. **Connect X** — your PASS identity is X-only.
 3. Go to **Discover** and open a Pass. Read the thesis, levels, and expiry.
 4. **Fund from any chain with NEAR Intents.** No manual bridge.
@@ -196,7 +196,8 @@ and `NEAR_INTENTS_JWT`. The production web build uses
 
 ## Links
 
-- **Live app:** [pass-web-dun.vercel.app](https://pass-web-dun.vercel.app)
+- **Website:** [pass-web-dun.vercel.app](https://pass-web-dun.vercel.app)
+- **Live app:** [pass-web-dun.vercel.app/app](https://pass-web-dun.vercel.app/app)
 - **Documentation:** [pass-web-dun.vercel.app/docs](https://pass-web-dun.vercel.app/docs)
 - **Agent API:** [pass-web-dun.vercel.app/developers](https://pass-web-dun.vercel.app/developers)
 - **Docs index:** [docs/README.md](docs/README.md)

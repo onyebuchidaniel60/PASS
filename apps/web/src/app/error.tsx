@@ -46,7 +46,7 @@ export default function Error({
               <a href="/discover" className="pass-link-btn">
                 Explore Passes
               </a>
-              <a href="/" className="pass-link-btn">
+              <a href="/app" className="pass-link-btn">
                 Go to the start
               </a>
             </Inline>

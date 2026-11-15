@@ -13,7 +13,7 @@ import { Reticle, SignalLine } from "@/components/wave1/signature";
 import type { HeadlineWord } from "@/lib/hero-copy";
 import { heroLines } from "@/lib/hero-copy";
 
-import styles from "./landing-mockup.module.css";
+import styles from "./marketing-landing.module.css";
 
 const GITHUB_URL = "https://github.com/onyebuchidaniel60/PASS";
 
@@ -170,9 +170,9 @@ function StepVisualFrame({
   );
 }
 
-export function LandingMockupView() {
+export function MarketingLandingView() {
   return (
-    <div className={styles.page} data-landing-mockup>
+    <div className={styles.page} data-marketing-page>
       <div className={styles.announcement}>
         <div className={styles.announcementInner}>
           <span className={styles.announcementLead}>
@@ -212,7 +212,7 @@ export function LandingMockupView() {
           <div className={styles.headerActions}>
             <span className={styles.headerStatus}>NEAR Intents</span>
             <Link
-              href="/"
+              href="/app"
               className={`pass-btn ${styles.headerCta}`}
               data-variant="secondary"
               data-size="sm"
@@ -271,7 +271,7 @@ export function LandingMockupView() {
 
                 <div className={styles.heroActions}>
                   <Link
-                    href="/"
+                    href="/app"
                     className={`pass-btn ${styles.primaryCta}`}
                     data-variant="primary"
                     data-size="lg"
@@ -775,7 +775,7 @@ export function LandingMockupView() {
                 </p>
                 <div className={styles.ctaActions}>
                   <Link
-                    href="/"
+                    href="/app"
                     className={`pass-btn ${styles.primaryCta}`}
                     data-variant="primary"
                     data-size="lg"

@@ -8,7 +8,11 @@ import { LandingView } from "@/app/LandingView";
 import { prefersReducedMotion } from "@/motion";
 
 /**
- * Landing screen — design/DESIGN.md §10.1, docs/UX_SPEC.md §4.
+ * Application home at `/app` — design/DESIGN.md §10.1, docs/UX_SPEC.md §4.
+ *
+ * This is the original PASS homepage, moved behind the marketing/application
+ * split. `/` is now the marketing page; the same `LandingView` still owns the
+ * app home's hero, trader record and activity tape.
  *
  * §10 states the eye order is a testable requirement: hero line, then the CTAs,
  * then the loop strip, then the support line. The hero and both CTAs are

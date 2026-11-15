@@ -65,12 +65,12 @@ describe("OnboardingGate", () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it("sends a signed-out visitor off /onboarding to landing", async () => {
+  it("sends a signed-out visitor off /onboarding to the app home", async () => {
     mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
     path = "/onboarding";
     render(<OnboardingGate />);
     await settled();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/app"));
   });
 
   it("leaves a completed user on /onboarding: the flow owns progression", async () => {
@@ -95,12 +95,12 @@ describe("OnboardingGate", () => {
 
   // Bug 1: authoring routes must not render their forms to signed-out
   // visitors (whose submit the API would refuse).
-  it("redirects a signed-out visitor off /passes/new to landing", async () => {
+  it("redirects a signed-out visitor off /passes/new to the app home", async () => {
     mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
     path = "/passes/new";
     render(<OnboardingGate />);
     await settled();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/app"));
   });
 
   it("leaves a signed-out visitor on a take route (D-026: Take needs a wallet, not a session)", async () => {

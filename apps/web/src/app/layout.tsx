@@ -54,7 +54,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DemoBanner />
           <header className="pass-topbar">
             <nav className="pass-topbar-inner" aria-label="Primary">
-              <Link href="/" className="pass-wordmark" aria-label="PASS home">
+              {/* `/` is the marketing page; the app chrome always returns to
+                  the application home at `/app`, keeping the visitor inside the
+                  product rather than bouncing them back to marketing. */}
+              <Link href="/app" className="pass-wordmark" aria-label="PASS home">
                 {/* §14.14. The app mark and wordmark are both SVG, so the
                     header is identical with no webfont loaded and the browser
                     tab uses the same mark. */}

@@ -8,7 +8,7 @@
  *
  * The rule, evaluated from `ready` state only (never on a guess):
  *
- * - on `/onboarding`: signed out → `/`; otherwise stay. The FLOW owns
+ * - on `/onboarding`: signed out → `/app`; otherwise stay. The FLOW owns
  *   progression once signed in — it renders the first incomplete step from
  *   fresh `/me` and ends at the handoff, so the gate must never pull a
  *   mid-flow user forward: profile completion alone is not flow completion
@@ -19,7 +19,7 @@
  *
  * `router.replace`, not `push`: the intercepted route must not sit in the
  * back stack. The destination is never itself gated in a way that bounces:
- * `/onboarding` excludes itself by construction, and `/` + `/discover`
+ * `/onboarding` excludes itself by construction, and `/app` + `/discover`
  * never redirect away.
  */
 
@@ -36,7 +36,7 @@ interface MeSlug {
 
 /**
  * Routes that author and therefore require a session to render
- * anything useful. A signed-out visitor is sent to landing rather than
+ * anything useful. A signed-out visitor is sent to the app home rather than
  * shown a form whose submit the API would refuse (Bug 1). The Take flow
  * is deliberately NOT listed: taking a Pass needs a wallet signature,
  * not a PASS session (D-026). Screens with their own unauthorized views
@@ -79,7 +79,7 @@ export function OnboardingGate() {
       // Signed-out visitors may read anything public and may take a Pass
       // with their wallet (D-026) — only the authoring routes, whose forms
       // would fail at submit (Bug 1), redirect.
-      if (onOnboarding || requiresSession(pathname)) router.replace("/");
+      if (onOnboarding || requiresSession(pathname)) router.replace("/app");
       return;
     }
 

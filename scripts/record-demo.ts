@@ -220,8 +220,8 @@ async function main(): Promise<void> {
     await page.setContent(titleCard(logo), { waitUntil: "load" });
     await holdUntil(timings.p1);
 
-    // p2 — homepage.
-    await go(page, "/");
+    // p2 — app homepage.
+    await go(page, "/app");
     await holdUntil(timings.p1 + timings.p2);
 
     // p3 — Discover first, then the selected Pass detail.

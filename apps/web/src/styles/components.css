@@ -8299,16 +8299,15 @@ text-underline-offset: 0.2em;
 }
 
 /* -------------------------------------------------------------------------
- * /landing-mockup design-review route.
+ * `/` marketing landing page.
  *
- * The mockup is a full landing-page composition with its own navigation and
- * footer, so the application chrome is suppressed while that route is on the
- * page. Scoped with :has against the route wrapper, which means `/` and every
- * other screen keep the exact chrome they had. Temporary until the operator
- * approves the design.
+ * The marketing page is a full landing-page composition with its own
+ * navigation and footer, so the application chrome is suppressed while that
+ * route is on the page. Scoped with :has against the route wrapper, which
+ * means `/app` and every other screen keep the exact chrome they had.
  * ---------------------------------------------------------------------- */
-body:has([data-landing-mockup]) .pass-topbar,
-body:has([data-landing-mockup]) .pass-footer,
-body:has([data-landing-mockup]) .pass-demo-banner {
+body:has([data-marketing-page]) .pass-topbar,
+body:has([data-marketing-page]) .pass-footer,
+body:has([data-marketing-page]) .pass-demo-banner {
   display: none;
 }

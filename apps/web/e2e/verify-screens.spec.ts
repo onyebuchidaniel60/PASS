@@ -7,7 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
  *
  * Every check runs in the page and returns structured data. Failures are
  * collected and written to `design/verify/latest.txt` rather than thrown, so one
- * broken route cannot hide the state of the other thirteen. The only hard
+ * broken route cannot hide the state of the other routes. The only hard
  * `expect` is that the harness itself ran.
  *
  * Checks, per route, per viewport:
@@ -22,6 +22,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const ROUTES = [
   "/",
+  "/app",
   "/discover",
   "/p/UvvuxpWPZ4",
   "/u/turnttfup99",

@@ -80,6 +80,20 @@ describe("Topbar — D-023 identity-only", () => {
     expect(screen.queryByText(/wallet/i)).toBeNull();
   });
 
+  it("links the topbar logo back into the app, not to marketing", async () => {
+    mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
+    render(
+      <RootLayout>
+        <div>child</div>
+      </RootLayout>,
+    );
+    const primary = within(screen.getByRole("navigation", { name: "Primary" }));
+    expect(primary.getByRole("link", { name: "PASS home" })).toHaveAttribute(
+      "href",
+      "/app",
+    );
+  });
+
   it("marks the active destination with aria-current and the ember state", async () => {
     currentPath = "/discover";
     mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));

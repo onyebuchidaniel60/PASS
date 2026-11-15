@@ -1,8 +1,8 @@
 /* -------------------------------------------------------------------------
- * /landing-mockup — temporary review route.
+ * `/` — public marketing landing page.
  *
  * Everything here is built from the PASS token layer. The page owns its own
- * navigation and footer because it is a landing-page composition, not an
+ * navigation and footer because it is a marketing composition, not an
  * application screen; the global chrome is suppressed while this route is
  * mounted (see the scoped rule in styles/components.css).
  * ---------------------------------------------------------------------- */
