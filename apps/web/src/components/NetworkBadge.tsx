@@ -70,12 +70,6 @@ export function NetworkBadge({
       <span className="pass-network-badge-dot" aria-hidden="true" />
       <span className="pass-network-badge-copy">
         <span className="pass-network-badge-label">{meta.label}</span>
-        {/* The narrow topbar keeps the network word but drops the venue name:
-            "Mainnet" is still the state, and the full label remains the
-            accessible name on the status element. */}
-        <span className="pass-network-badge-short" aria-hidden="true">
-          {meta.network}
-        </span>
         {detail ? <span className="pass-network-badge-detail">{detail}</span> : null}
       </span>
     </span>

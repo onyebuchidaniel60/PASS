@@ -1198,6 +1198,12 @@
   min-width: 0;
 }
 
+/* The footer repeats the topbar lockup: mark and wordmark on one baseline,
+   tagline as the only line beneath it. */
+.pass-footer-brand .pass-brand-lockup {
+  align-self: start;
+}
+
 /* There is deliberately NO `ul`/`ol` reset in globals.css — apps/web is fully
  * on the token layer and the reset is per-primitive. This list is a `<ul>`, so
  * without `list-style: none` the browser paints discs and a 40px indent into
@@ -4391,38 +4397,6 @@ text-underline-offset: 0.2em;
   .pass-network-badge-dot::after {
     animation: none;
     opacity: 0;
-  }
-}
-
-/* Topbar: the badge is a first-class region, not an overlay. Desktop gets it
- * immediately before the identity control; mobile puts it on the navigation
- * row so the brand and identity keep their own row. */
-@media (min-width: 768px) {
-  .pass-topbar-inner {
-    grid-template-columns: auto minmax(0, 1fr) max-content max-content;
-  }
-}
-
-@media (max-width: 767px) {
-  .pass-topbar-inner {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      "brand actions"
-      "badge nav";
-  }
-
-  .pass-network-badge {
-    grid-area: badge;
-    justify-self: start;
-    font-size: var(--type-eyebrow-size);
-  }
-
-  .pass-topbar-nav {
-    grid-area: nav;
-  }
-
-  .pass-topbar-actions {
-    grid-area: actions;
   }
 }
 
@@ -8059,10 +8033,6 @@ text-underline-offset: 0.2em;
 }
 
 /* --- Topbar: one row below 1024 ----------------------------------------- */
-.pass-network-badge-short {
-  display: none;
-}
-
 @media (max-width: 1023px) {
   .pass-topbar {
     block-size: var(--layout-topbar);
@@ -8093,11 +8063,6 @@ text-underline-offset: 0.2em;
     display: inline-flex;
   }
 
-  .pass-network-badge {
-    padding-inline: var(--space-2);
-    font-size: var(--type-eyebrow-size);
-  }
-
   .pass-x-chip {
     max-inline-size: 7rem;
   }
@@ -8109,16 +8074,6 @@ text-underline-offset: 0.2em;
   .pass-x-label::after {
     content: "Sign in";
     font-size: var(--type-label-size);
-  }
-}
-
-@media (max-width: 767px) {
-  .pass-network-badge-label {
-    display: none;
-  }
-
-  .pass-network-badge-short {
-    display: inline;
   }
 }
 
@@ -8326,16 +8281,6 @@ text-underline-offset: 0.2em;
 
   .pass-footer {
     padding-block: var(--space-5);
-  }
-}
-
-/* Narrow phones cannot hold the logo, a labelled network pill, search, the X
-   chip and the hamburger in one 320-374px row. The pill keeps its dot and its
-   accessible name and drops only the redundant visible label; the topbar never
-   overlaps the brand. */
-@media (max-width: 374px) {
-  .pass-network-badge-copy {
-    display: none;
   }
 }
 

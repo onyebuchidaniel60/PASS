@@ -139,6 +139,28 @@ describe("Topbar — D-023 identity-only", () => {
     expect(footer.getByText(/powered by NEAR Intents/i)).toBeInTheDocument();
   });
 
+  it("keeps the network badge out of the topbar and the footer lockup inline", async () => {
+    mockGet.mockRejectedValue(new Error("AUTH_REQUIRED"));
+    const { container } = render(
+      <RootLayout>
+        <div>child</div>
+      </RootLayout>,
+    );
+
+    // The hero owns the only network indicator. The topbar must not render
+    // the Hyperliquid pill on any breakpoint.
+    expect(container.querySelector(".pass-topbar .pass-network-badge")).toBeNull();
+
+    // The footer repeats the topbar lockup: mark and wordmark are siblings in
+    // one flex row, with the tagline as the only line beneath them.
+    const lockup = container.querySelector(
+      ".pass-footer-brand .pass-brand-lockup",
+    );
+    expect(lockup).not.toBeNull();
+    expect(lockup?.querySelectorAll("svg")).toHaveLength(2);
+    expect(lockup?.querySelector(".pass-stale")).toBeNull();
+  });
+
   it("shows @handle and no wallet element when connected", async () => {
     mockGet.mockResolvedValue(ME_ON);
     const { container } = render(
