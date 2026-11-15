@@ -45,6 +45,19 @@ describe("Marketing landing page", () => {
     }
   });
 
+  it("renders the PASS mark beside the wordmark with its own gradient id", () => {
+    render(<MarketingLandingView />);
+    const [header] = screen.getAllByRole("link", { name: "PASS home" });
+    const marks = header.querySelectorAll("svg");
+    expect(marks).toHaveLength(2);
+    const gradient = marks[0].querySelector("radialGradient");
+    expect(gradient).toHaveAttribute("id", "pass-marketing-header-mark");
+    expect(marks[0].querySelector("rect")).toHaveAttribute(
+      "fill",
+      "url(#pass-marketing-header-mark)",
+    );
+  });
+
   it("carries the required footer links", () => {
     render(<MarketingLandingView />);
     const footer = screen.getByRole("contentinfo");

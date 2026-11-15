@@ -211,6 +211,12 @@
   --type-display-hero-track: -0.04em;
   --type-display-hero-font: var(--font-display);
 
+  /* Mobile-only marketing headline step (<768px). Desktop keeps
+     --type-display-hero-size above; only the mobile media query consumes these,
+     so the desktop composition is unchanged. */
+  --type-display-hero-mobile-size: clamp(2rem, 1.35rem + 4vw, 2.5rem);
+  --type-display-hero-mobile-line: 1.02;
+
   /* §14.4 Section headline step: smaller than the hero, still display-weight. */
   --type-display-section-size: clamp(1.625rem, 1.1rem + 2.3vw, 3.5rem);
   --type-display-section-line: 1.05;

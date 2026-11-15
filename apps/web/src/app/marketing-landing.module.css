@@ -1727,6 +1727,120 @@
   }
 }
 
+/* -------------------------------------------------------------------------
+ * Mobile-only landing pass (<768px).
+ *
+ * Every rule in this block is scoped to the mobile breakpoint. The desktop
+ * composition is deliberately untouched; the only desktop change in this
+ * pass is the header logo mark itself.
+ * ---------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .heroInner {
+    padding-block-start: var(--space-6);
+  }
+
+  .heroGrid {
+    gap: var(--space-6);
+  }
+
+  .hero :global(.pass-display) {
+    font-size: var(--type-display-hero-mobile-size);
+    line-height: var(--type-display-hero-mobile-line);
+  }
+
+  .heroEyebrow {
+    margin-block-end: var(--space-4);
+  }
+
+  .heroLede {
+    margin-block-start: var(--space-4);
+    font-family: var(--type-body-m-font);
+    font-size: var(--type-body-m-size);
+    line-height: var(--type-body-m-line);
+  }
+
+  .heroActions {
+    margin-block-start: var(--space-5);
+  }
+
+  .trustRow {
+    margin-block-start: var(--space-5);
+    padding-block-start: var(--space-3);
+  }
+
+  .heroSignal,
+  .flowRail {
+    margin-block-start: var(--space-6);
+  }
+
+  .section {
+    padding-block: var(--space-7);
+  }
+
+  .sectionHead {
+    gap: var(--space-4);
+  }
+
+  .sectionTitleRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .problemGrid,
+  .solutionGrid,
+  .stepGrid,
+  .featureGrid {
+    grid-template-columns: minmax(0, 1fr);
+    margin-block-start: var(--space-6);
+  }
+
+  .problemGrid,
+  .solutionGrid {
+    gap: var(--space-6);
+  }
+
+  .manifesto {
+    margin-block-start: var(--space-6);
+  }
+
+  .ctaInner {
+    padding-block: var(--space-7);
+  }
+
+  .ctaRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    margin-block-start: var(--space-5);
+  }
+
+  .ctaFootnote {
+    margin-block-start: var(--space-5);
+  }
+
+  .footerInner {
+    padding-block: var(--space-5);
+  }
+
+  .footerTop {
+    gap: var(--space-4);
+  }
+
+  .footerLinks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-1) var(--space-4);
+    inline-size: 100%;
+  }
+
+  .footerLink {
+    min-block-size: var(--size-target-min);
+  }
+
+  .footerBottom {
+    margin-block-start: var(--space-5);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .navLink,
   .mobileNavLink,

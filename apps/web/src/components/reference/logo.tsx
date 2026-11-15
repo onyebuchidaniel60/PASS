@@ -44,6 +44,17 @@ export interface LogoProps {
    * same word is noise.
    */
   title?: string | null;
+  /**
+   * LogoMark only. The SVG gradient's id.
+   *
+   * The default is kept for every existing callsite. A page that renders a
+   * second LogoMark while the global topbar is still in the DOM (the marketing
+   * page hides the topbar with CSS rather than unmounting it) must pass a
+   * unique id here: duplicate ids make `fill="url(#...)"` resolve against the
+   * hidden copy, and the orange square disappears while the reticle dot
+   * remains.
+   */
+  gradientId?: string;
 }
 
 const VIEW = { w: 132, h: 32 };
@@ -114,7 +125,12 @@ function Reticle({ detailed }: { detailed: boolean }) {
   );
 }
 
-export function LogoMark({ size = 24, className, title = null }: LogoProps) {
+export function LogoMark({
+  size = 24,
+  className,
+  title = null,
+  gradientId = "pass-mark-wash",
+}: LogoProps) {
   return (
     <svg
       className={className}
@@ -130,13 +146,13 @@ export function LogoMark({ size = 24, className, title = null }: LogoProps) {
       {/* The app-icon treatment from reference image 11: an ember radial inside a
           rounded square, with the mark knocked out in the page colour. */}
       <defs>
-        <radialGradient id="pass-mark-wash" cx="38%" cy="62%" r="78%">
+        <radialGradient id={gradientId} cx="38%" cy="62%" r="78%">
           <stop offset="0%" stopColor="var(--color-ember-bright)" />
           <stop offset="55%" stopColor="var(--color-canvas-gradient-core)" />
           <stop offset="100%" stopColor="var(--color-canvas-gradient-mid)" />
         </radialGradient>
       </defs>
-      <rect width="24" height="24" rx="5.5" fill="url(#pass-mark-wash)" />
+      <rect width="24" height="24" rx="5.5" fill={`url(#${gradientId})`} />
       {/* The mark: a P-counter reticle, in the page colour. */}
       <circle cx="12" cy="12" r="5.4" fill="var(--color-canvas)" />
       <circle

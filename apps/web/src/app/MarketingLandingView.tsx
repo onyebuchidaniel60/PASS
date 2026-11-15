@@ -188,7 +188,7 @@ export function MarketingLandingView() {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link href="/" className={styles.brand} aria-label="PASS home">
-            <LogoMark size={26} />
+            <LogoMark size={26} gradientId="pass-marketing-header-mark" />
             <Logo size={26} title={null} className={styles.brandWordmark} />
             <span className={styles.brandRule} aria-hidden="true" />
             <span className={styles.brandMeta}>Social execution</span>
